@@ -5,13 +5,15 @@ import {
 } from 'react'
 
 import { supabase } from './lib/supabase'
+
 import {
   menusByRole,
   type RoleCode,
 } from './config/roleMenus'
 
 import InventoryModule from './modules/InventoryModule'
-
+import ProductsModule from './modules/ProductsModule'
+import MovementsModule from './modules/MovementsModule'
 import './App.css'
 
 type Rol = {
@@ -120,9 +122,16 @@ function App() {
         item.id === moduloActivo,
     ) ?? menu[0]
 
+  // =====================================================
+  // IDENTIFICAR PANTALLAS REALES
+  // =====================================================
+
   const modulosInventario = [
     'inventario',
     'inventario-consulta',
+  ]
+
+  const modulosProductos = [
     'productos',
     'productos-consulta',
   ]
@@ -130,6 +139,13 @@ function App() {
   const mostrarInventario =
     moduloSeleccionado
       ? modulosInventario.includes(
+          moduloSeleccionado.id,
+        )
+      : false
+
+  const mostrarProductos =
+    moduloSeleccionado
+      ? modulosProductos.includes(
           moduloSeleccionado.id,
         )
       : false
@@ -628,15 +644,19 @@ function App() {
           </div>
 
           {/* =============================================
-              CATÁLOGO / INVENTARIO REAL
+              INVENTARIO
           ============================================= */}
 
           {mostrarInventario ? (
-            <InventoryModule />
-          ) : (
+  <InventoryModule />
+) : mostrarProductos ? (
+  <ProductsModule />
+) : moduloSeleccionado?.id === 'movimientos' ? (
+  <MovementsModule />
+) : (
             <>
               {/* =========================================
-                  RESUMEN
+                  RESUMEN GENÉRICO
               ========================================= */}
 
               <section className="grid">
@@ -730,7 +750,7 @@ function App() {
               </section>
 
               {/* =========================================
-                  ÁREA DE TRABAJO
+                  ÁREA GENÉRICA
               ========================================= */}
 
               <section className="workspace">
