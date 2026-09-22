@@ -14,6 +14,7 @@ import {
 import InventoryModule from './modules/InventoryModule'
 import ProductsModule from './modules/ProductsModule'
 import MovementsModule from './modules/MovementsModule'
+import ReplenishmentModule from './modules/ReplenishmentModule'
 import './App.css'
 
 type Rol = {
@@ -648,12 +649,14 @@ function App() {
           ============================================= */}
 
           {mostrarInventario ? (
-  <InventoryModule />
-) : mostrarProductos ? (
-  <ProductsModule />
-) : moduloSeleccionado?.id === 'movimientos' ? (
-  <MovementsModule />
-) : (
+              <InventoryModule />
+            ) : mostrarProductos ? (
+              <ProductsModule />
+            ) : moduloSeleccionado?.id === 'movimientos' ? (
+              <MovementsModule />
+            ) : moduloSeleccionado?.id === 'reposicion' ? (
+              <ReplenishmentModule />
+            ) : (
             <>
               {/* =========================================
                   RESUMEN GENÉRICO
