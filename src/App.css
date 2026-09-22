@@ -727,3 +727,303 @@ ul { list-style: none; }
   .workspace-body { flex-direction: column; align-items: flex-start; }
   .body-title { font-size: 22px; }
 }
+
+/* =========================================================
+   CATÁLOGO E INVENTARIO
+========================================================= */
+
+.inventory-module {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inventory-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.panel-label {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.inventory-toolbar h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -.02em;
+  margin-bottom: 5px;
+}
+
+.inventory-toolbar p {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.inventory-refresh-button {
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition:
+    background .15s,
+    border-color .15s;
+}
+
+.inventory-refresh-button:hover {
+  background: var(--bg);
+  border-color: rgba(0,0,0,.12);
+}
+
+/* RESUMEN */
+
+.inventory-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.inventory-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 20px;
+}
+
+.inventory-summary-card > span {
+  display: block;
+  font-size: 9px;
+  color: var(--ink-3);
+  letter-spacing: .06em;
+  margin-bottom: 12px;
+}
+
+.inventory-summary-card strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -.03em;
+}
+
+.inventory-summary-card p {
+  margin-top: 7px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+/* BUSCADOR */
+
+.inventory-search-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.inventory-search {
+  width: 100%;
+  max-width: 440px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 13px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.inventory-search > span {
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+.inventory-search input {
+  width: 100%;
+  outline: none;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.inventory-search input::placeholder {
+  color: var(--ink-3);
+}
+
+.inventory-result-count {
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+/* TABLA */
+
+.inventory-table-container {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.inventory-table th {
+  padding: 13px 16px;
+  text-align: left;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  background: #fafafa;
+  border-bottom: 1px solid var(--line);
+}
+
+.inventory-table td {
+  padding: 15px 16px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.inventory-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.inventory-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.product-code {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+
+.product-name {
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.stock-value {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+/* ESTADOS */
+
+.inventory-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 20px;
+  font-size: 9.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.inventory-status-ok {
+  color: var(--ok);
+  background: var(--ok-dim);
+}
+
+.inventory-status-warning {
+  color: #b7791f;
+  background: rgba(183, 121, 31, .10);
+}
+
+.inventory-status-danger {
+  color: var(--err-ink);
+  background: var(--err-bg);
+}
+
+/* MENSAJES */
+
+.inventory-loading {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.inventory-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+.inventory-error {
+  padding: 14px 16px;
+  border-radius: var(--r);
+  color: var(--err-ink);
+  background: var(--err-bg);
+  font-size: 12px;
+}
+
+.inventory-empty {
+  padding: 40px !important;
+  text-align: center !important;
+  color: var(--ink-3) !important;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1000px) {
+  .inventory-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .inventory-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .inventory-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-search-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .inventory-search {
+    max-width: none;
+  }
+}
