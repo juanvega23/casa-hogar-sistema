@@ -1,6 +1,16 @@
-import { useEffect, useState } from 'react'
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+} from 'react'
+
 import { supabase } from './lib/supabase'
-import { menusByRole, type RoleCode } from './config/roleMenus'
+import {
+  menusByRole,
+  type RoleCode,
+} from './config/roleMenus'
+
+import './App.css'
 
 type Rol = {
   codigo: string
@@ -22,15 +32,35 @@ type PerfilRespuesta = {
 }
 
 function obtenerRol(roles: Rol | Rol[] | null): Rol | null {
-  if (!roles) {
-    return null
-  }
-
-  if (Array.isArray(roles)) {
-    return roles[0] ?? null
-  }
-
+  if (!roles) return null
+  if (Array.isArray(roles)) return roles[0] ?? null
   return roles
+}
+
+const menuIcons: Record<string, string> = {
+  dashboard: '⊞',
+  reportes: '≡',
+  'inventario-consulta': '◻',
+  inventario: '◻',
+  compras: '◇',
+  'compras-consulta': '◇',
+  proveedores: '○',
+  'proveedores-consulta': '○',
+  alertas: '◬',
+  ventas: '▤',
+  caja: '▣',
+  'productos-consulta': '⊕',
+  productos: '◫',
+  movimientos: '⇄',
+  reposicion: '↻',
+  usuarios: '◉',
+  roles: '◎',
+  auditoria: '≋',
+  configuracion: '⊙',
+}
+
+function getMenuIcon(id: string) {
+  return menuIcons[id] ?? '·'
 }
 
 function App() {
@@ -40,86 +70,56 @@ function App() {
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [moduloActivo, setModuloActivo] = useState('')
 
   const rolActual = perfil?.roles ?? null
-
   const menu = rolActual
     ? menusByRole[rolActual.codigo as RoleCode] ?? []
     : []
-
-  // =====================================================
-  // 1. RECUPERAR SESIÓN AL ABRIR LA APLICACIÓN
-  // =====================================================
+  const moduloSeleccionado =
+    menu.find((item) => item.id === moduloActivo) ?? menu[0]
 
   useEffect(() => {
     async function obtenerSesionInicial() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
+      const { data: { session } } = await supabase.auth.getSession()
       setUserId(session?.user.id ?? null)
-
-      if (!session) {
-        setCargando(false)
-      }
+      if (!session) setCargando(false)
     }
-
     obtenerSesionInicial()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user.id ?? null)
-
-      if (!session) {
-        setPerfil(null)
-        setCargando(false)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUserId(session?.user.id ?? null)
+        if (!session) {
+          setPerfil(null)
+          setModuloActivo('')
+          setCargando(false)
+        }
       }
-    })
+    )
 
-    return () => {
-      subscription.unsubscribe()
-    }
+    return () => { subscription.unsubscribe() }
   }, [])
 
-  // =====================================================
-  // 2. CARGAR PERFIL Y ROL
-  // =====================================================
-
   useEffect(() => {
-    if (!userId) {
-      return
-    }
+    if (!userId) return
 
     async function cargarPerfil() {
       setCargando(true)
-
       const { data, error } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          nombre_completo,
-          activo,
-          roles (
-            codigo,
-            nombre
-          )
-        `)
+        .select(`id, nombre_completo, activo, roles ( codigo, nombre )`)
         .eq('id', userId)
         .single()
 
       if (error) {
-        setMensaje(
-          `Error al leer el perfil: ${error.message}`
-        )
+        setMensaje(`Error al leer el perfil: ${error.message}`)
         setPerfil(null)
         setCargando(false)
         return
       }
 
-      const respuesta =
-        data as unknown as PerfilRespuesta
-
+      const respuesta = data as unknown as PerfilRespuesta
       const perfilData: Perfil = {
         id: respuesta.id,
         nombre_completo: respuesta.nombre_completo,
@@ -127,31 +127,21 @@ function App() {
         roles: obtenerRol(respuesta.roles),
       }
 
-      // Usuario inactivo
       if (!perfilData.activo) {
         await supabase.auth.signOut()
-
         setPerfil(null)
         setUserId(null)
-        setMensaje(
-          '⛔ Este usuario se encuentra inactivo.'
-        )
+        setMensaje('Este usuario se encuentra inactivo.')
         setCargando(false)
-
         return
       }
 
-      // Usuario sin rol
       if (!perfilData.roles) {
         await supabase.auth.signOut()
-
         setPerfil(null)
         setUserId(null)
-        setMensaje(
-          '⛔ Este usuario no tiene un rol asignado.'
-        )
+        setMensaje('Este usuario no tiene un rol asignado.')
         setCargando(false)
-
         return
       }
 
@@ -163,26 +153,21 @@ function App() {
     cargarPerfil()
   }, [userId])
 
-  // =====================================================
-  // 3. INICIAR SESIÓN
-  // =====================================================
+  useEffect(() => {
+    if (menu.length > 0 && !moduloActivo) {
+      setModuloActivo(menu[0].id)
+    }
+  }, [menu, moduloActivo])
 
-  async function iniciarSesion(
-    event: React.FormEvent<HTMLFormElement>
-  ) {
+  async function iniciarSesion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    setMensaje('Iniciando sesión...')
+    setMensaje('')
     setCargando(true)
 
-    const { data, error } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setMensaje(`Error: ${error.message}`)
+      setMensaje('Correo o contraseña incorrectos.')
       setCargando(false)
       return
     }
@@ -191,17 +176,11 @@ function App() {
     setPassword('')
   }
 
-  // =====================================================
-  // 4. CERRAR SESIÓN
-  // =====================================================
-
   async function cerrarSesion() {
     const { error } = await supabase.auth.signOut()
 
     if (error) {
-      setMensaje(
-        `Error al cerrar sesión: ${error.message}`
-      )
+      setMensaje(`Error al cerrar sesión: ${error.message}`)
       return
     }
 
@@ -209,359 +188,220 @@ function App() {
     setUserId(null)
     setEmail('')
     setPassword('')
-    setMensaje('Sesión cerrada correctamente.')
+    setModuloActivo('')
+    setMensaje('')
   }
 
-  // =====================================================
-  // 5. PANTALLA DE CARGA
-  // =====================================================
-
+  // ── CARGANDO ──────────────────────────────────────────────
   if (cargando) {
     return (
-      <main
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: 'Arial, sans-serif',
-        }}
-      >
-        <section style={{ textAlign: 'center' }}>
-          <h1>Casa Hogar Sistema</h1>
-          <p>Cargando sesión...</p>
-        </section>
-      </main>
+      <div className="splash">
+        <div className="splash-mark">CH</div>
+        <div className="splash-ring" />
+        <p className="splash-text">Cargando…</p>
+      </div>
     )
   }
 
-  // =====================================================
-  // 6. LOGIN
-  // =====================================================
-
+  // ── LOGIN ─────────────────────────────────────────────────
   if (!perfil || !rolActual) {
     return (
-      <main
-        style={{
-          minHeight: '100vh',
-          fontFamily: 'Arial, sans-serif',
-          backgroundColor: '#f5f5f5',
-        }}
-      >
-        <section
-          style={{
-            maxWidth: '420px',
-            margin: '0 auto',
-            paddingTop: '100px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              padding: '30px',
-              borderRadius: '10px',
-              boxShadow:
-                '0 2px 10px rgba(0,0,0,0.1)',
-            }}
-          >
-            <h1
-              style={{
-                textAlign: 'center',
-                marginBottom: '10px',
-              }}
-            >
-              Casa Hogar Sistema
-            </h1>
+      <div className="auth-page">
+        <div className="auth-card">
 
-            <p
-              style={{
-                textAlign: 'center',
-                marginBottom: '25px',
-                color: '#555',
-              }}
-            >
-              Iniciar sesión
-            </p>
-
-            <form onSubmit={iniciarSesion}>
-              <div
-                style={{
-                  marginBottom: '15px',
-                }}
-              >
-                <label
-                  htmlFor="email"
-                  style={{
-                    display: 'block',
-                    marginBottom: '5px',
-                  }}
-                >
-                  Correo
-                </label>
-
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(event) =>
-                    setEmail(event.target.value)
-                  }
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  marginBottom: '20px',
-                }}
-              >
-                <label
-                  htmlFor="password"
-                  style={{
-                    display: 'block',
-                    marginBottom: '5px',
-                  }}
-                >
-                  Contraseña
-                </label>
-
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(event) =>
-                    setPassword(event.target.value)
-                  }
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  cursor: 'pointer',
-                }}
-              >
-                Iniciar sesión
-              </button>
-            </form>
-
-            {mensaje && (
-              <p
-                style={{
-                  marginTop: '20px',
-                  textAlign: 'center',
-                }}
-              >
-                {mensaje}
-              </p>
-            )}
+          <div className="auth-header">
+            <div className="auth-mark">CH</div>
+            <div>
+              <p className="auth-system">Sistema de Gestión</p>
+              <h1 className="auth-title">Casa Hogar</h1>
+            </div>
           </div>
-        </section>
-      </main>
+
+          <p className="auth-subtitle">Ingresa tus credenciales para continuar.</p>
+
+          <form className="auth-form" onSubmit={iniciarSesion}>
+            <div className="field">
+              <label htmlFor="email">Correo electrónico</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="usuario@casahogar.test"
+                required
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="password">Contraseña</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            {mensaje && <p className="auth-error">{mensaje}</p>}
+
+            <button type="submit" className="auth-btn">Ingresar</button>
+          </form>
+
+          <p className="auth-note">Acceso exclusivo para personal autorizado.</p>
+        </div>
+      </div>
     )
   }
 
-  // =====================================================
-  // 7. INTERFAZ DEL USUARIO AUTENTICADO
-  // =====================================================
-
+  // ── APP ───────────────────────────────────────────────────
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        fontFamily: 'Arial, sans-serif',
-        backgroundColor: '#f5f5f5',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          minHeight: '100vh',
-        }}
-      >
-        {/* ============================================= */}
-        {/* MENÚ LATERAL */}
-        {/* ============================================= */}
+    <div className="shell">
+      {/* SIDEBAR */}
+      <aside className="nav">
+        <div className="nav-brand">
+          <div className="nav-mark">C</div>
+          <div>
+            <strong className="nav-name">Casa Hogar</strong>
+            <span className="nav-sub">Sistema de Gestión</span>
+          </div>
+        </div>
 
-        <aside
-          style={{
-            width: '250px',
-            backgroundColor: '#ffffff',
-            borderRight: '1px solid #ddd',
-            padding: '25px',
-            boxSizing: 'border-box',
-          }}
-        >
-          <h2
-            style={{
-              marginTop: 0,
-            }}
-          >
-            Casa Hogar
-          </h2>
+        <nav className="nav-menu">
+          {menu.map((item) => {
+            const activo = moduloSeleccionado?.id === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={activo ? 'nav-item nav-item--on' : 'nav-item'}
+                onClick={() => setModuloActivo(item.id)}
+              >
+                <span className="nav-icon">{getMenuIcon(item.id)}</span>
+                <span className="nav-label">{item.nombre}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-          <p
-            style={{
-              color: '#555',
-              fontSize: '14px',
-            }}
-          >
-            {rolActual.nombre}
-          </p>
-
-          <hr />
-
-          <h3>Módulos</h3>
-
-          <nav>
-            <ul
-              style={{
-                listStyle: 'none',
-                padding: 0,
-              }}
-            >
-              {menu.map((item) => (
-                <li
-                  key={item.id}
-                  style={{
-                    marginBottom: '10px',
-                  }}
-                >
-                  <button
-                    type="button"
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '10px',
-                      cursor: 'pointer',
-                      border: '1px solid #ddd',
-                      backgroundColor: '#fafafa',
-                      borderRadius: '5px',
-                    }}
-                  >
-                    {item.nombre}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          <hr />
-
-          <button
-            type="button"
-            onClick={cerrarSesion}
-            style={{
-              width: '100%',
-              padding: '10px',
-              cursor: 'pointer',
-              marginTop: '15px',
-            }}
-          >
+        <div className="nav-foot">
+          <div className="nav-user">
+            <div className="nav-avatar">
+              {perfil.nombre_completo?.charAt(0).toUpperCase() ?? 'U'}
+            </div>
+            <div className="nav-user-info">
+              <strong>{perfil.nombre_completo ?? 'Usuario'}</strong>
+              <span>{rolActual.nombre}</span>
+            </div>
+          </div>
+          <button type="button" className="nav-signout" onClick={cerrarSesion}>
             Cerrar sesión
           </button>
-        </aside>
+        </div>
+      </aside>
 
-        {/* ============================================= */}
-        {/* CONTENIDO PRINCIPAL */}
-        {/* ============================================= */}
-
-        <section
-          style={{
-            flex: 1,
-            padding: '40px',
-          }}
-        >
-          <h1>
-            Bienvenido a Casa Hogar Sistema
-          </h1>
-
-          <div
-            style={{
-              backgroundColor: 'white',
-              padding: '25px',
-              borderRadius: '10px',
-              boxShadow:
-                '0 2px 8px rgba(0,0,0,0.08)',
-              maxWidth: '700px',
-            }}
-          >
-            <h2>Información del usuario</h2>
-
-            <p>
-              <strong>Nombre:</strong>{' '}
-              {perfil.nombre_completo}
-            </p>
-
-            <p>
-              <strong>Rol:</strong>{' '}
-              {rolActual.nombre}
-            </p>
-
-            <p>
-              <strong>Código del rol:</strong>{' '}
-              {rolActual.codigo}
-            </p>
-
-            <p>
-              <strong>Estado:</strong>{' '}
-              {perfil.activo
-                ? 'Activo'
-                : 'Inactivo'}
-            </p>
+      {/* MAIN */}
+      <div className="content">
+        {/* TOPBAR */}
+        <header className="bar">
+          <div className="bar-path">
+            <span>Casa Hogar</span>
+            <span className="bar-sep">/</span>
+            <strong>{moduloSeleccionado?.nombre ?? 'Inicio'}</strong>
           </div>
 
-          <div
-            style={{
-              marginTop: '30px',
-              backgroundColor: 'white',
-              padding: '25px',
-              borderRadius: '10px',
-              boxShadow:
-                '0 2px 8px rgba(0,0,0,0.08)',
-              maxWidth: '700px',
-            }}
-          >
-            <h2>Módulos disponibles</h2>
+          <div className="bar-user">
+            <span className="bar-dot" />
+            <div className="bar-user-text">
+              <strong>{perfil.nombre_completo ?? 'Usuario'}</strong>
+              <span>{rolActual.nombre}</span>
+            </div>
+            <div className="bar-avatar">
+              {perfil.nombre_completo?.charAt(0).toUpperCase() ?? 'U'}
+            </div>
+          </div>
+        </header>
 
-            <p>
-              Según tu rol tienes acceso a:
-            </p>
-
-            <ul>
-              {menu.map((item) => (
-                <li key={item.id}>
-                  {item.nombre}
-                </li>
-              ))}
-            </ul>
+        {/* DASHBOARD */}
+        <main className="body">
+          <div className="body-head">
+            <div>
+              <h1 className="body-title">{moduloSeleccionado?.nombre ?? 'Inicio'}</h1>
+              <p className="body-desc">Panel de trabajo · {rolActual.nombre}</p>
+            </div>
+            <div className="body-badge">
+              <span className="badge-dot" />
+              Acceso autorizado
+            </div>
           </div>
 
-          {mensaje && (
-            <p
-              style={{
-                marginTop: '20px',
-              }}
-            >
-              {mensaje}
-            </p>
-          )}
-        </section>
+          {/* GRID */}
+          <div className="grid">
+            {/* Card principal */}
+            <div className="card card--main">
+              <p className="card-eyebrow">Módulo activo</p>
+              <div className="card-module">
+                <div className="card-icon">{getMenuIcon(moduloSeleccionado?.id ?? '')}</div>
+                <div>
+                  <h2 className="card-module-name">{moduloSeleccionado?.nombre}</h2>
+                  <p className="card-module-desc">
+                    Habilitado para el perfil de <strong>{rolActual.nombre}</strong>.
+                    Las funciones se incorporarán conforme avance el desarrollo.
+                  </p>
+                </div>
+              </div>
+              <div className="card-stats">
+                <div className="stat">
+                  <span className="stat-label">Acceso</span>
+                  <span className="stat-value stat-value--ok">Autorizado</span>
+                </div>
+                <div className="stat">
+                  <span className="stat-label">Estado</span>
+                  <span className="stat-value">Preparado</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Card lateral */}
+            <div className="card card--side">
+              <p className="card-eyebrow">Módulos disponibles</p>
+              <p className="card-count">{menu.length}</p>
+              <ul className="mod-list">
+                {menu.map((item) => (
+                  <li key={item.id} className="mod-item">
+                    <span className="mod-icon">{getMenuIcon(item.id)}</span>
+                    <span>{item.nombre}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* WORKSPACE */}
+          <div className="workspace">
+            <div className="workspace-head">
+              <div>
+                <p className="card-eyebrow">Área de trabajo</p>
+                <h2 className="workspace-title">{moduloSeleccionado?.nombre}</h2>
+              </div>
+              <span className="workspace-tag">Preparado</span>
+            </div>
+            <div className="workspace-body">
+              <div className="workspace-icon">{getMenuIcon(moduloSeleccionado?.id ?? '')}</div>
+              <div>
+                <h3 className="workspace-h3">Módulo listo para desarrollo</h3>
+                <p className="workspace-p">
+                  Aquí se integrarán las funciones de{' '}
+                  <strong>{moduloSeleccionado?.nombre}</strong> cuando corresponda
+                  dentro del plan de desarrollo.
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
-    </main>
+    </div>
   )
 }
 
