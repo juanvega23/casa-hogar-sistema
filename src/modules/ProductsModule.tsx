@@ -2,9 +2,15 @@ import {
   useEffect,
   useMemo,
   useState,
+  type FormEvent,
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+
+type Categoria = {
+  id: number
+  nombre: string
+}
 
 type CategoriaRelacion = {
   nombre: string
@@ -19,6 +25,7 @@ type ProductoRespuesta = {
   codigo: string
   nombre: string
   descripcion: string | null
+  categoria_id: number
   unidad_medida: string
   precio_compra: number
   precio_venta: number
@@ -41,12 +48,35 @@ type Producto = {
   codigo: string
   nombre: string
   descripcion: string
+  categoriaId: number
   categoria: string
   unidad: string
   precioCompra: number
   precioVenta: number
   stock: number
   stockMinimo: number
+}
+
+type FormProducto = {
+  codigo: string
+  nombre: string
+  descripcion: string
+  categoriaId: string
+  unidadMedida: string
+  precioCompra: string
+  precioVenta: string
+  stockMinimo: string
+}
+
+const formularioInicial: FormProducto = {
+  codigo: '',
+  nombre: '',
+  descripcion: '',
+  categoriaId: '',
+  unidadMedida: 'unidad',
+  precioCompra: '',
+  precioVenta: '',
+  stockMinimo: '',
 }
 
 function obtenerCategoria(
@@ -107,27 +137,65 @@ export default function ProductsModule() {
   const [productos, setProductos] =
     useState<Producto[]>([])
 
+  const [categorias, setCategorias] =
+    useState<Categoria[]>([])
+
   const [busqueda, setBusqueda] =
     useState('')
 
   const [cargando, setCargando] =
     useState(true)
 
+  const [guardando, setGuardando] =
+    useState(false)
+
   const [error, setError] =
     useState('')
 
-  async function cargarProductos() {
+  const [exito, setExito] =
+    useState('')
+
+  const [
+    puedeAdministrar,
+    setPuedeAdministrar,
+  ] = useState(false)
+
+  const [
+    mostrarFormulario,
+    setMostrarFormulario,
+  ] = useState(false)
+
+  const [
+    productoEditando,
+    setProductoEditando,
+  ] = useState<number | null>(
+    null,
+  )
+
+  const [
+    formulario,
+    setFormulario,
+  ] = useState<FormProducto>(
+    formularioInicial,
+  )
+
+  async function cargarDatos() {
     setCargando(true)
     setError('')
 
-    const { data, error } =
-      await supabase
+    const [
+      productosResultado,
+      categoriasResultado,
+      rolResultado,
+    ] = await Promise.all([
+      supabase
         .from('productos')
         .select(`
           id,
           codigo,
           nombre,
           descripcion,
+          categoria_id,
           unidad_medida,
           precio_compra,
           precio_venta,
@@ -143,26 +211,54 @@ export default function ProductsModule() {
         .eq('activo', true)
         .order('nombre', {
           ascending: true,
-        })
+        }),
 
-    if (error) {
+      supabase
+        .from('categorias')
+        .select(`
+          id,
+          nombre
+        `)
+        .order('nombre', {
+          ascending: true,
+        }),
+
+      supabase.rpc(
+        'current_role_code',
+      ),
+    ])
+
+    if (
+      productosResultado.error
+    ) {
       setError(
-        `No fue posible cargar los productos: ${error.message}`,
+        `No fue posible cargar los productos: ${productosResultado.error.message}`,
       )
 
-      setProductos([])
       setCargando(false)
+      return
+    }
 
+    if (
+      categoriasResultado.error
+    ) {
+      setError(
+        `No fue posible cargar las categorías: ${categoriasResultado.error.message}`,
+      )
+
+      setCargando(false)
       return
     }
 
     const respuesta =
-      (data ??
+      (productosResultado.data ??
         []) as unknown as ProductoRespuesta[]
 
     const lista =
       respuesta.map(
-        (producto): Producto => ({
+        (
+          producto,
+        ): Producto => ({
           id: producto.id,
 
           codigo:
@@ -173,7 +269,10 @@ export default function ProductsModule() {
 
           descripcion:
             producto.descripcion ??
-            'Sin descripción',
+            '',
+
+          categoriaId:
+            producto.categoria_id,
 
           categoria:
             obtenerCategoria(
@@ -209,11 +308,23 @@ export default function ProductsModule() {
       )
 
     setProductos(lista)
+
+    setCategorias(
+      (categoriasResultado.data ??
+        []) as Categoria[],
+    )
+
+    setPuedeAdministrar(
+      !rolResultado.error &&
+        rolResultado.data ===
+          'almacen',
+    )
+
     setCargando(false)
   }
 
   useEffect(() => {
-    cargarProductos()
+    cargarDatos()
   }, [])
 
   const productosFiltrados =
@@ -239,7 +350,298 @@ export default function ProductsModule() {
             .toLowerCase()
             .includes(termino),
       )
-    }, [productos, busqueda])
+    }, [
+      productos,
+      busqueda,
+    ])
+
+  const resumen =
+    useMemo(() => {
+      return {
+        total:
+          productos.length,
+
+        categorias:
+          new Set(
+            productos.map(
+              (producto) =>
+                producto.categoria,
+            ),
+          ).size,
+
+        conExistencia:
+          productos.filter(
+            (producto) =>
+              producto.stock > 0,
+          ).length,
+
+        sinExistencia:
+          productos.filter(
+            (producto) =>
+              producto.stock <= 0,
+          ).length,
+      }
+    }, [productos])
+
+  function actualizarFormulario(
+    campo: keyof FormProducto,
+    valor: string,
+  ) {
+    setFormulario(
+      (actual) => ({
+        ...actual,
+        [campo]: valor,
+      }),
+    )
+  }
+
+  function abrirNuevoProducto() {
+    setProductoEditando(null)
+
+    setFormulario({
+      ...formularioInicial,
+
+      categoriaId:
+        categorias.length > 0
+          ? String(
+              categorias[0].id,
+            )
+          : '',
+    })
+
+    setError('')
+    setExito('')
+    setMostrarFormulario(true)
+  }
+
+  function abrirEditarProducto(
+    producto: Producto,
+  ) {
+    setProductoEditando(
+      producto.id,
+    )
+
+    setFormulario({
+      codigo:
+        producto.codigo,
+
+      nombre:
+        producto.nombre,
+
+      descripcion:
+        producto.descripcion,
+
+      categoriaId:
+        String(
+          producto.categoriaId,
+        ),
+
+      unidadMedida:
+        producto.unidad,
+
+      precioCompra:
+        String(
+          producto.precioCompra,
+        ),
+
+      precioVenta:
+        String(
+          producto.precioVenta,
+        ),
+
+      stockMinimo:
+        String(
+          producto.stockMinimo,
+        ),
+    })
+
+    setError('')
+    setExito('')
+    setMostrarFormulario(true)
+  }
+
+  function cerrarFormulario() {
+    setMostrarFormulario(false)
+
+    setProductoEditando(null)
+
+    setFormulario(
+      formularioInicial,
+    )
+
+    setError('')
+  }
+
+  async function guardarProducto(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault()
+
+    setError('')
+    setExito('')
+
+    if (!puedeAdministrar) {
+      setError(
+        'No tienes permisos para administrar productos.',
+      )
+
+      return
+    }
+
+    const codigo =
+      formulario.codigo
+        .trim()
+        .toUpperCase()
+
+    const nombre =
+      formulario.nombre.trim()
+
+    const categoriaId =
+      Number(
+        formulario.categoriaId,
+      )
+
+    const precioCompra =
+      Number(
+        formulario.precioCompra,
+      )
+
+    const precioVenta =
+      Number(
+        formulario.precioVenta,
+      )
+
+    const stockMinimo =
+      Number(
+        formulario.stockMinimo,
+      )
+
+    if (
+      !codigo ||
+      !nombre ||
+      !categoriaId ||
+      !formulario.unidadMedida.trim()
+    ) {
+      setError(
+        'Completa los campos obligatorios.',
+      )
+
+      return
+    }
+
+    if (
+      !Number.isFinite(
+        precioCompra,
+      ) ||
+      precioCompra < 0 ||
+      !Number.isFinite(
+        precioVenta,
+      ) ||
+      precioVenta < 0 ||
+      !Number.isFinite(
+        stockMinimo,
+      ) ||
+      stockMinimo < 0
+    ) {
+      setError(
+        'Los precios y el stock mínimo deben ser valores válidos y no negativos.',
+      )
+
+      return
+    }
+
+    setGuardando(true)
+
+    const datosProducto = {
+      codigo,
+
+      nombre,
+
+      descripcion:
+        formulario.descripcion
+          .trim() ||
+        null,
+
+      categoria_id:
+        categoriaId,
+
+      unidad_medida:
+        formulario.unidadMedida
+          .trim(),
+
+      precio_compra:
+        precioCompra,
+
+      precio_venta:
+        precioVenta,
+
+      stock_minimo:
+        stockMinimo,
+    }
+
+    if (productoEditando) {
+      const { error } =
+        await supabase
+          .from('productos')
+          .update(
+            datosProducto,
+          )
+          .eq(
+            'id',
+            productoEditando,
+          )
+
+      if (error) {
+        setError(
+          `No fue posible actualizar el producto: ${error.message}`,
+        )
+
+        setGuardando(false)
+
+        return
+      }
+
+      setExito(
+        'Producto actualizado correctamente.',
+      )
+    } else {
+      const { error } =
+        await supabase
+          .from('productos')
+          .insert({
+            ...datosProducto,
+            activo: true,
+          })
+
+      if (error) {
+        const mensaje =
+          error.code === '23505'
+            ? 'Ya existe un producto con ese código.'
+            : `No fue posible crear el producto: ${error.message}`
+
+        setError(mensaje)
+        setGuardando(false)
+
+        return
+      }
+
+      setExito(
+        'Producto creado correctamente.',
+      )
+    }
+
+    setMostrarFormulario(false)
+
+    setProductoEditando(null)
+
+    setFormulario(
+      formularioInicial,
+    )
+
+    await cargarDatos()
+
+    setGuardando(false)
+  }
 
   if (cargando) {
     return (
@@ -272,13 +674,27 @@ export default function ProductsModule() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="inventory-refresh-button"
-          onClick={cargarProductos}
-        >
-          ↻ Actualizar
-        </button>
+        <div className="product-toolbar-actions">
+          <button
+            type="button"
+            className="inventory-refresh-button"
+            onClick={cargarDatos}
+          >
+            ↻ Actualizar
+          </button>
+
+          {puedeAdministrar && (
+            <button
+              type="button"
+              className="product-primary-button"
+              onClick={
+                abrirNuevoProducto
+              }
+            >
+              + Nuevo producto
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="inventory-summary-grid">
@@ -288,7 +704,7 @@ export default function ProductsModule() {
           </span>
 
           <strong>
-            {productos.length}
+            {resumen.total}
           </strong>
 
           <p>
@@ -302,14 +718,7 @@ export default function ProductsModule() {
           </span>
 
           <strong>
-            {
-              new Set(
-                productos.map(
-                  (producto) =>
-                    producto.categoria,
-                ),
-              ).size
-            }
+            {resumen.categorias}
           </strong>
 
           <p>
@@ -324,10 +733,7 @@ export default function ProductsModule() {
 
           <strong>
             {
-              productos.filter(
-                (producto) =>
-                  producto.stock > 0,
-              ).length
+              resumen.conExistencia
             }
           </strong>
 
@@ -343,10 +749,7 @@ export default function ProductsModule() {
 
           <strong>
             {
-              productos.filter(
-                (producto) =>
-                  producto.stock <= 0,
-              ).length
+              resumen.sinExistencia
             }
           </strong>
 
@@ -355,6 +758,285 @@ export default function ProductsModule() {
           </p>
         </article>
       </div>
+
+      {mostrarFormulario &&
+        puedeAdministrar && (
+          <section className="product-form-card">
+            <div className="product-form-head">
+              <div>
+                <span className="panel-label">
+                  {productoEditando
+                    ? 'EDITAR PRODUCTO'
+                    : 'NUEVO PRODUCTO'}
+                </span>
+
+                <h3>
+                  {productoEditando
+                    ? 'Actualizar producto'
+                    : 'Registrar producto'}
+                </h3>
+
+                <p>
+                  {productoEditando
+                    ? 'Modifica los datos maestros del producto.'
+                    : 'Registra un nuevo producto en el catálogo.'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="product-close-button"
+                onClick={
+                  cerrarFormulario
+                }
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              className="product-form"
+              onSubmit={
+                guardarProducto
+              }
+            >
+              <div className="product-field">
+                <label htmlFor="prod-codigo">
+                  Código *
+                </label>
+
+                <input
+                  id="prod-codigo"
+                  type="text"
+                  value={
+                    formulario.codigo
+                  }
+                  onChange={(event) =>
+                    actualizarFormulario(
+                      'codigo',
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Ej. PROD-002"
+                  required
+                />
+              </div>
+
+              <div className="product-field product-field--double">
+                <label htmlFor="prod-nombre">
+                  Nombre *
+                </label>
+
+                <input
+                  id="prod-nombre"
+                  type="text"
+                  value={
+                    formulario.nombre
+                  }
+                  onChange={(event) =>
+                    actualizarFormulario(
+                      'nombre',
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Nombre del producto"
+                  required
+                />
+              </div>
+
+              <div className="product-field">
+                <label htmlFor="prod-categoria">
+                  Categoría *
+                </label>
+
+                <select
+                  id="prod-categoria"
+                  value={
+                    formulario.categoriaId
+                  }
+                  onChange={(event) =>
+                    actualizarFormulario(
+                      'categoriaId',
+                      event.target.value,
+                    )
+                  }
+                  required
+                >
+                  <option value="">
+                    Seleccionar
+                  </option>
+
+                  {categorias.map(
+                    (categoria) => (
+                      <option
+                        key={
+                          categoria.id
+                        }
+                        value={
+                          categoria.id
+                        }
+                      >
+                        {
+                          categoria.nombre
+                        }
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+
+              <div className="product-field">
+                <label htmlFor="prod-unidad">
+                  Unidad *
+                </label>
+
+                <input
+                  id="prod-unidad"
+                  type="text"
+                  value={
+                    formulario.unidadMedida
+                  }
+                  onChange={(event) =>
+                    actualizarFormulario(
+                      'unidadMedida',
+                      event.target.value,
+                    )
+                  }
+                  placeholder="unidad"
+                  required
+                />
+              </div>
+
+              <div className="product-field">
+                <label htmlFor="prod-compra">
+                  Precio compra
+                </label>
+
+                <input
+                  id="prod-compra"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    formulario.precioCompra
+                  }
+                  onChange={(event) =>
+                    actualizarFormulario(
+                      'precioCompra',
+                      event.target.value,
+                    )
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="product-field">
+                <label htmlFor="prod-venta">
+                  Precio venta
+                </label>
+
+                <input
+                  id="prod-venta"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    formulario.precioVenta
+                  }
+                  onChange={(event) =>
+                    actualizarFormulario(
+                      'precioVenta',
+                      event.target.value,
+                    )
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="product-field">
+                <label htmlFor="prod-minimo">
+                  Stock mínimo
+                </label>
+
+                <input
+                  id="prod-minimo"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    formulario.stockMinimo
+                  }
+                  onChange={(event) =>
+                    actualizarFormulario(
+                      'stockMinimo',
+                      event.target.value,
+                    )
+                  }
+                  placeholder="0"
+                />
+              </div>
+
+              <div className="product-field product-field--full">
+                <label htmlFor="prod-descripcion">
+                  Descripción
+                </label>
+
+                <textarea
+                  id="prod-descripcion"
+                  value={
+                    formulario.descripcion
+                  }
+                  onChange={(event) =>
+                    actualizarFormulario(
+                      'descripcion',
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Descripción breve del producto"
+                  rows={3}
+                />
+              </div>
+
+              <div className="product-form-actions">
+                <button
+                  type="button"
+                  className="product-secondary-button"
+                  onClick={
+                    cerrarFormulario
+                  }
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="product-primary-button"
+                  disabled={
+                    guardando
+                  }
+                >
+                  {guardando
+                    ? 'Guardando...'
+                    : productoEditando
+                      ? 'Guardar cambios'
+                      : 'Crear producto'}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
+      {error && (
+        <div className="inventory-error">
+          {error}
+        </div>
+      )}
+
+      {exito && (
+        <div className="movement-success">
+          {exito}
+        </div>
+      )}
 
       <div className="inventory-search-row">
         <div className="inventory-search">
@@ -384,12 +1066,6 @@ export default function ProductsModule() {
         </span>
       </div>
 
-      {error && (
-        <div className="inventory-error">
-          {error}
-        </div>
-      )}
-
       {!error && (
         <div className="inventory-table-container">
           <table className="inventory-table">
@@ -408,6 +1084,15 @@ export default function ProductsModule() {
                 <th>
                   Existencia
                 </th>
+                <th>
+                  Stock mínimo
+                </th>
+
+                {puedeAdministrar && (
+                  <th>
+                    Acciones
+                  </th>
+                )}
               </tr>
             </thead>
 
@@ -468,13 +1153,39 @@ export default function ProductsModule() {
                           }
                         </strong>
                       </td>
+
+                      <td>
+                        {
+                          producto.stockMinimo
+                        }
+                      </td>
+
+                      {puedeAdministrar && (
+                        <td>
+                          <button
+                            type="button"
+                            className="product-edit-button"
+                            onClick={() =>
+                              abrirEditarProducto(
+                                producto,
+                              )
+                            }
+                          >
+                            Editar
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ),
                 )
               ) : (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={
+                      puedeAdministrar
+                        ? 9
+                        : 8
+                    }
                     className="inventory-empty"
                   >
                     No se encontraron
