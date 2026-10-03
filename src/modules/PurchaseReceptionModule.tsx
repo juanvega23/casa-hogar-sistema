@@ -23,7 +23,11 @@ type CompraRespuesta = {
   fecha_compra: string
   tipo_compra: 'directa' | 'cotizacion' | 'licitacion'
   total: number | string
-  estado: 'registrada' | 'anulada'
+  estado:
+  | 'registrada'
+  | 'autorizada'
+  | 'recibida'
+  | 'anulada'
   proveedores:
     | ProveedorRelacion
     | ProveedorRelacion[]
@@ -186,7 +190,7 @@ export default function PurchaseReceptionModule() {
             fecha_recepcion
           )
         `)
-        .eq('estado', 'registrada')
+        .eq('estado', 'autorizada')
         .order('created_at', {
           ascending: false,
         })

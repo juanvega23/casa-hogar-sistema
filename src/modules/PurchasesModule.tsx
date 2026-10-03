@@ -1,307 +1,159 @@
 import {
-
   useEffect,
-
   useMemo,
-
   useState,
-
 } from 'react'
-
-
 
 import { supabase } from '../lib/supabase'
 
-
-
-
-
 type Proveedor = {
-
   id: number
-
   codigo: string
-
   nombre: string
-
   activo?: boolean
-
 }
-
-
 
 type Producto = {
-
   id: number
-
   codigo: string
-
   nombre: string
-
   unidad_medida: string
-
   precio_compra: number | string | null
-
   activo: boolean
-
 }
-
-
 
 type ProveedorRelacion =
-
   | Proveedor
-
   | Proveedor[]
-
   | null
-
-
 
 type ProductoDetalle = {
-
   codigo: string
-
   nombre: string
-
   unidad_medida: string
-
 }
-
-
 
 type ProductoDetalleRelacion =
-
   | ProductoDetalle
-
   | ProductoDetalle[]
-
   | null
 
+type EstadoCompra =
+  | 'registrada'
+  | 'autorizada'
+  | 'recibida'
+  | 'anulada'
 
+type TipoCompra =
+  | 'directa'
+  | 'cotizacion'
+  | 'licitacion'
 
 type Compra = {
-
   id: number
-
   numero: string
-
   proveedor_id: number
-
   fecha_compra: string
-
   referencia_documento: string | null
-
   observaciones: string | null
-
   total: number | string
-
-  tipo_compra:
-    | 'directa'
-    | 'cotizacion'
-    | 'licitacion'
-
-  estado: 'registrada' | 'anulada'
-
+  tipo_compra: TipoCompra
+  estado: EstadoCompra
+  autorizada_at: string | null
   motivo_anulacion: string | null
-
   anulada_at: string | null
-
   created_at: string
-
   proveedores: ProveedorRelacion
-
 }
-
-
 
 type DetalleCompra = {
-
   id: number
-
   compra_id: number
-
   producto_id: number
-
   cantidad: number | string
-
   costo_unitario: number | string
-
   subtotal: number | string
-
   productos: ProductoDetalleRelacion
-
 }
-
-
 
 type ItemCompra = {
-
   producto_id: number
-
   codigo: string
-
   nombre: string
-
   unidad_medida: string
-
   cantidad: string
-
   costo_unitario: string
-
 }
-
-
 
 type PurchasesModuleProps = {
-
   roleCode: string
-
 }
-
-
-
-
 
 function fechaLocalActual() {
-
   const fecha = new Date()
 
-
-
   const year =
-
     fecha.getFullYear()
 
-
-
   const month =
-
     String(
-
       fecha.getMonth() + 1,
-
     ).padStart(2, '0')
-
-
 
   const day =
-
     String(
-
       fecha.getDate(),
-
     ).padStart(2, '0')
 
-
-
   return `${year}-${month}-${day}`
-
 }
-
-
-
-
 
 function obtenerProveedor(
-
   relacion: ProveedorRelacion,
-
 ) {
-
   if (!relacion) {
-
     return null
-
   }
-
-
 
   if (Array.isArray(relacion)) {
-
     return relacion[0] ?? null
-
   }
 
-
-
   return relacion
-
 }
-
-
-
-
 
 function obtenerProductoDetalle(
-
   relacion: ProductoDetalleRelacion,
-
 ) {
-
   if (!relacion) {
-
     return null
-
   }
-
-
 
   if (Array.isArray(relacion)) {
-
     return relacion[0] ?? null
-
   }
 
-
-
   return relacion
-
 }
-
-
-
-
 
 function moneda(
-
   valor: number | string,
-
 ) {
-
   const numero =
-
     Number(valor) || 0
 
-
-
   return new Intl.NumberFormat(
-
     'es-NI',
-
     {
-
       style: 'currency',
-
       currency: 'NIO',
-
       minimumFractionDigits: 2,
-
     },
-
   ).format(numero)
-
 }
 
-
-
-
-
 function etiquetaTipoCompra(
-  tipo:
-    | 'directa'
-    | 'cotizacion'
-    | 'licitacion',
+  tipo: TipoCompra,
 ) {
   if (tipo === 'cotizacion') {
     return 'Cotización'
@@ -314,2133 +166,1495 @@ function etiquetaTipoCompra(
   return 'Compra directa'
 }
 
+function etiquetaEstadoCompra(
+  estado: EstadoCompra,
+) {
+  if (estado === 'registrada') {
+    return 'Registrada'
+  }
 
+  if (estado === 'autorizada') {
+    return 'Autorizada'
+  }
 
+  if (estado === 'recibida') {
+    return 'Recibida'
+  }
 
+  return 'Anulada'
+}
+
+function claseEstadoCompra(
+  estado: EstadoCompra,
+) {
+  if (estado === 'anulada') {
+    return 'status-badge status-danger'
+  }
+
+  if (
+    estado === 'autorizada' ||
+    estado === 'recibida'
+  ) {
+    return 'status-badge status-success'
+  }
+
+  return 'status-badge'
+}
+
+function obtenerMensajeError(
+  err: unknown,
+  respaldo: string,
+) {
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    'message' in err &&
+    typeof (
+      err as {
+        message?: unknown
+      }
+    ).message === 'string'
+  ) {
+    return (
+      (
+        err as {
+          message: string
+        }
+      ).message ||
+      respaldo
+    )
+  }
+
+  if (err instanceof Error) {
+    return err.message
+  }
+
+  return respaldo
+}
 
 function PurchasesModule({
-
   roleCode,
-
 }: PurchasesModuleProps) {
-
-  const [proveedores, setProveedores] =
-
+  const [
+    proveedores,
+    setProveedores,
+  ] =
     useState<Proveedor[]>([])
 
-
-
-  const [productos, setProductos] =
-
+  const [
+    productos,
+    setProductos,
+  ] =
     useState<Producto[]>([])
 
-
-
-  const [compras, setCompras] =
-
+  const [
+    compras,
+    setCompras,
+  ] =
     useState<Compra[]>([])
 
-
-
-  const [detalles, setDetalles] =
-
+  const [
+    detalles,
+    setDetalles,
+  ] =
     useState<DetalleCompra[]>([])
 
-
-
   const [
-
     compraSeleccionada,
-
     setCompraSeleccionada,
-
   ] =
-
-    useState<Compra | null>(null)
-
-
+    useState<Compra | null>(
+      null,
+    )
 
   const [
-
     mostrarFormulario,
-
     setMostrarFormulario,
-
   ] =
-
     useState(false)
 
-
-
-  const [cargando, setCargando] =
-
+  const [
+    cargando,
+    setCargando,
+  ] =
     useState(true)
 
-
-
-  const [guardando, setGuardando] =
-
+  const [
+    guardando,
+    setGuardando,
+  ] =
     useState(false)
 
-
+  const [
+    procesandoAccion,
+    setProcesandoAccion,
+  ] =
+    useState(false)
 
   const [
-
     cargandoDetalle,
-
     setCargandoDetalle,
-
   ] =
-
     useState(false)
 
-
-
-  const [mensaje, setMensaje] =
-
+  const [
+    mensaje,
+    setMensaje,
+  ] =
     useState('')
-
-
-
-  const [error, setError] =
-
-    useState('')
-
-
-
-  const [busqueda, setBusqueda] =
-
-    useState('')
-
-
 
   const [
-
-    proveedorId,
-
-    setProveedorId,
-
+    error,
+    setError,
   ] =
-
     useState('')
 
+  const [
+    busqueda,
+    setBusqueda,
+  ] =
+    useState('')
 
+  const [
+    proveedorId,
+    setProveedorId,
+  ] =
+    useState('')
 
   const [
     tipoCompra,
     setTipoCompra,
-  ] = useState<
-    | 'directa'
-    | 'cotizacion'
-    | 'licitacion'
-  >('directa')
-
-
-
-  const [fechaCompra, setFechaCompra] =
-
-    useState(fechaLocalActual())
-
-
-
-  const [
-
-    referenciaDocumento,
-
-    setReferenciaDocumento,
-
   ] =
-
-    useState('')
-
-
-
-  const [
-
-    observaciones,
-
-    setObservaciones,
-
-  ] =
-
-    useState('')
-
-
-
-  const [
-
-    productoElegido,
-
-    setProductoElegido,
-
-  ] =
-
-    useState('')
-
-
-
-  const [items, setItems] =
-
-    useState<ItemCompra[]>([])
-
-
-
-
-
-  const puedeAnular =
-
-    roleCode === 'administracion' ||
-
-    roleCode === 'gerencia'
-
-
-
-
-
-  // ==========================================================
-
-  // CARGAR DATOS
-
-  // ==========================================================
-
-
-
-  async function cargarProveedores() {
-
-    const { data, error } =
-
-      await supabase
-
-        .from('proveedores')
-
-        .select(`
-
-          id,
-
-          codigo,
-
-          nombre,
-
-          activo
-
-        `)
-
-        .eq('activo', true)
-
-        .order('nombre', {
-
-          ascending: true,
-
-        })
-
-
-
-    if (error) {
-
-      throw error
-
-    }
-
-
-
-    setProveedores(
-
-      (data ?? []) as Proveedor[],
-
+    useState<TipoCompra>(
+      'directa',
     )
 
+  const [
+    fechaCompra,
+    setFechaCompra,
+  ] =
+    useState(
+      fechaLocalActual(),
+    )
+
+  const [
+    referenciaDocumento,
+    setReferenciaDocumento,
+  ] =
+    useState('')
+
+  const [
+    observaciones,
+    setObservaciones,
+  ] =
+    useState('')
+
+  const [
+    productoElegido,
+    setProductoElegido,
+  ] =
+    useState('')
+
+  const [
+    items,
+    setItems,
+  ] =
+    useState<ItemCompra[]>([])
+
+  const puedeAnular =
+    roleCode ===
+      'administracion' ||
+    roleCode ===
+      'gerencia'
+
+  const puedeAutorizar =
+    roleCode ===
+      'administracion' ||
+    roleCode ===
+      'gerencia'
+
+
+  // ==========================================================
+  // CARGAR DATOS
+  // ==========================================================
+
+  async function cargarProveedores() {
+    const {
+      data,
+      error,
+    } =
+      await supabase
+        .from('proveedores')
+        .select(`
+          id,
+          codigo,
+          nombre,
+          activo
+        `)
+        .eq(
+          'activo',
+          true,
+        )
+        .order(
+          'nombre',
+          {
+            ascending:
+              true,
+          },
+        )
+
+    if (error) {
+      throw error
+    }
+
+    setProveedores(
+      (data ??
+        []) as Proveedor[],
+    )
   }
-
-
-
 
 
   async function cargarProductos() {
-
-    const { data, error } =
-
+    const {
+      data,
+      error,
+    } =
       await supabase
-
         .from('productos')
-
         .select(`
-
           id,
-
           codigo,
-
           nombre,
-
           unidad_medida,
-
           precio_compra,
-
           activo
-
         `)
-
-        .eq('activo', true)
-
-        .order('nombre', {
-
-          ascending: true,
-
-        })
-
-
+        .eq(
+          'activo',
+          true,
+        )
+        .order(
+          'nombre',
+          {
+            ascending:
+              true,
+          },
+        )
 
     if (error) {
-
       throw error
-
     }
 
-
-
     setProductos(
-
-      (data ?? []) as Producto[],
-
+      (data ??
+        []) as Producto[],
     )
-
   }
-
-
-
 
 
   async function cargarCompras() {
-
-    const { data, error } =
-
+    const {
+      data,
+      error,
+    } =
       await supabase
-
         .from('compras')
-
         .select(`
-
           id,
-
           numero,
-
           proveedor_id,
-
           tipo_compra,
-
           fecha_compra,
-
           referencia_documento,
-
           observaciones,
-
           total,
-
           estado,
-
+          autorizada_at,
           motivo_anulacion,
-
           anulada_at,
-
           created_at,
-
           proveedores (
-
             id,
-
             codigo,
-
             nombre
-
           )
-
         `)
-
-        .order('created_at', {
-
-          ascending: false,
-
-        })
-
+        .order(
+          'created_at',
+          {
+            ascending:
+              false,
+          },
+        )
         .limit(100)
 
-
-
     if (error) {
-
       throw error
-
     }
 
-
-
     setCompras(
-
-      (data ?? []) as unknown as Compra[],
-
+      (data ??
+        []) as unknown as Compra[],
     )
-
   }
-
-
-
 
 
   async function cargarTodo() {
-
     try {
-
       setCargando(true)
-
       setError('')
 
-
-
       await Promise.all([
-
         cargarProveedores(),
-
         cargarProductos(),
-
         cargarCompras(),
-
       ])
-
     } catch (err) {
-
       setError(
-
-        err instanceof Error
-
-          ? err.message
-
-          : 'No fue posible cargar el módulo de compras.',
-
+        obtenerMensajeError(
+          err,
+          'No fue posible cargar el módulo de compras.',
+        ),
       )
-
     } finally {
-
       setCargando(false)
-
     }
-
   }
-
-
-
 
 
   useEffect(() => {
-
     void cargarTodo()
-
   }, [])
 
 
-
-
-
   // ==========================================================
-
   // ESTADÍSTICAS
-
   // ==========================================================
-
-
 
   const comprasRegistradas =
-
     useMemo(
-
       () =>
-
         compras.filter(
-
           compra =>
-
             compra.estado ===
-
             'registrada',
-
         ),
-
       [compras],
-
     )
-
-
-
 
 
   const comprasAnuladas =
-
     useMemo(
-
       () =>
-
         compras.filter(
-
           compra =>
-
             compra.estado ===
-
             'anulada',
-
         ),
-
       [compras],
-
     )
-
-
-
 
 
   const totalVigente =
-
     useMemo(
-
       () =>
-
-        comprasRegistradas.reduce(
-
-          (total, compra) =>
-
-            total +
-
-            Number(compra.total),
-
-          0,
-
-        ),
-
-      [comprasRegistradas],
-
+        compras
+          .filter(
+            compra =>
+              compra.estado !==
+              'anulada',
+          )
+          .reduce(
+            (
+              total,
+              compra,
+            ) =>
+              total +
+              Number(
+                compra.total,
+              ),
+            0,
+          ),
+      [compras],
     )
 
 
-
-
-
   // ==========================================================
-
   // BUSCADOR
-
   // ==========================================================
-
-
 
   const comprasFiltradas =
-
     useMemo(() => {
-
       const termino =
-
         busqueda
-
           .trim()
-
           .toLowerCase()
 
-
-
       if (!termino) {
-
         return compras
-
       }
 
-
-
       return compras.filter(
-
         compra => {
-
           const proveedor =
-
             obtenerProveedor(
-
               compra.proveedores,
-
             )
 
-
-
           const texto = [
-
             compra.numero,
-
-                        compra.tipo_compra,
-
-compra.estado,
-
+            compra.tipo_compra,
+            etiquetaTipoCompra(
+              compra.tipo_compra,
+            ),
+            compra.estado,
+            etiquetaEstadoCompra(
+              compra.estado,
+            ),
             compra.fecha_compra,
-
             compra.referencia_documento ??
-
               '',
-
-            proveedor?.codigo ?? '',
-
-            proveedor?.nombre ?? '',
-
+            proveedor?.codigo ??
+              '',
+            proveedor?.nombre ??
+              '',
           ]
-
             .join(' ')
-
             .toLowerCase()
 
-
-
           return texto.includes(
-
             termino,
-
           )
-
         },
-
       )
-
     }, [
-
       compras,
-
       busqueda,
-
     ])
 
 
-
-
-
   // ==========================================================
-
   // NUEVA COMPRA
-
   // ==========================================================
-
-
 
   function abrirNuevaCompra() {
-
     setProveedorId('')
 
-        setTipoCompra('directa')
-
-setFechaCompra(
-
-      fechaLocalActual(),
-
+    setTipoCompra(
+      'directa',
     )
 
+    setFechaCompra(
+      fechaLocalActual(),
+    )
 
-
-    setReferenciaDocumento('')
+    setReferenciaDocumento(
+      '',
+    )
 
     setObservaciones('')
 
-    setProductoElegido('')
+    setProductoElegido(
+      '',
+    )
 
     setItems([])
 
-
-
-    setCompraSeleccionada(null)
+    setCompraSeleccionada(
+      null,
+    )
 
     setDetalles([])
 
-
-
     setError('')
-
     setMensaje('')
 
-
-
-    setMostrarFormulario(true)
-
+    setMostrarFormulario(
+      true,
+    )
   }
-
-
-
 
 
   function cancelarCompra() {
-
     if (guardando) {
-
       return
-
     }
 
-
-
-    setMostrarFormulario(false)
+    setMostrarFormulario(
+      false,
+    )
 
     setItems([])
 
-    setProductoElegido('')
-
+    setProductoElegido(
+      '',
+    )
   }
 
 
-
-
-
   // ==========================================================
-
   // AGREGAR PRODUCTO
-
   // ==========================================================
-
-
 
   function agregarProducto() {
-
     setError('')
-
     setMensaje('')
 
-
-
     if (!productoElegido) {
-
       setError(
-
         'Seleccione un producto.',
-
       )
 
       return
-
     }
-
-
 
     const producto =
-
       productos.find(
-
         item =>
-
           String(item.id) ===
-
           productoElegido,
-
       )
-
-
 
     if (!producto) {
-
       setError(
-
         'El producto seleccionado no existe.',
-
       )
 
       return
-
     }
-
-
 
     const yaExiste =
-
       items.some(
-
         item =>
-
           item.producto_id ===
-
           producto.id,
-
       )
 
-
-
     if (yaExiste) {
-
       setError(
-
         'Ese producto ya está incluido en la compra.',
-
       )
 
       return
-
     }
-
-
 
     const precioCompra =
-
       Number(
-
-        producto.precio_compra ?? 0,
-
+        producto.precio_compra ??
+          0,
       )
 
-
-
-    const nuevoItem: ItemCompra = {
-
+    const nuevoItem:
+      ItemCompra = {
       producto_id:
-
         producto.id,
 
-
-
       codigo:
-
         producto.codigo,
 
-
-
       nombre:
-
         producto.nombre,
 
-
-
       unidad_medida:
-
         producto.unidad_medida,
 
-
-
       cantidad:
-
         '1',
 
-
-
       costo_unitario:
-
-        precioCompra.toFixed(2),
-
+        precioCompra.toFixed(
+          2,
+        ),
     }
 
-
-
     setItems(
-
       actuales => [
-
         ...actuales,
-
         nuevoItem,
-
       ],
-
     )
 
-
-
-    setProductoElegido('')
-
+    setProductoElegido(
+      '',
+    )
   }
-
-
-
 
 
   function actualizarItem(
-
     productoId: number,
-
     campo:
-
       | 'cantidad'
-
       | 'costo_unitario',
-
     valor: string,
-
   ) {
-
     setItems(
-
       actuales =>
-
         actuales.map(
-
           item =>
-
             item.producto_id ===
-
             productoId
-
               ? {
-
                   ...item,
-
-                  [campo]: valor,
-
+                  [campo]:
+                    valor,
                 }
-
               : item,
-
         ),
-
     )
-
   }
-
-
-
 
 
   function eliminarItem(
-
     productoId: number,
-
   ) {
-
     setItems(
-
       actuales =>
-
         actuales.filter(
-
           item =>
-
             item.producto_id !==
-
             productoId,
-
         ),
-
     )
-
   }
-
-
-
 
 
   function obtenerSubtotal(
-
     item: ItemCompra,
-
   ) {
-
     const cantidad =
-
-      Number(item.cantidad)
-
-
+      Number(
+        item.cantidad,
+      )
 
     const costo =
-
-      Number(item.costo_unitario)
-
-
+      Number(
+        item.costo_unitario,
+      )
 
     if (
-
-      !Number.isFinite(cantidad) ||
-
-      !Number.isFinite(costo)
-
+      !Number.isFinite(
+        cantidad,
+      ) ||
+      !Number.isFinite(
+        costo,
+      )
     ) {
-
       return 0
-
     }
 
-
-
-    return cantidad * costo
-
+    return (
+      cantidad *
+      costo
+    )
   }
 
 
-
-
-
   const totalCompra =
-
     useMemo(
-
       () =>
-
         items.reduce(
-
-          (total, item) =>
-
+          (
+            total,
+            item,
+          ) =>
             total +
-
-            obtenerSubtotal(item),
-
+            obtenerSubtotal(
+              item,
+            ),
           0,
-
         ),
-
       [items],
-
     )
 
 
-
-
-
   // ==========================================================
-
   // REGISTRAR COMPRA
-
   // ==========================================================
-
-
 
   async function registrarCompra() {
-
     try {
-
       setGuardando(true)
-
       setError('')
-
       setMensaje('')
 
-
-
       if (!proveedorId) {
-
         throw new Error(
-
           'Seleccione un proveedor.',
-
         )
-
       }
-
-
 
       if (!fechaCompra) {
-
         throw new Error(
-
           'Seleccione la fecha de compra.',
-
         )
-
       }
 
-
-
-      if (items.length === 0) {
-
+      if (
+        items.length ===
+        0
+      ) {
         throw new Error(
-
           'Agregue al menos un producto.',
-
         )
-
       }
 
 
-
-
-
-      for (const item of items) {
-
+      for (
+        const item of
+        items
+      ) {
         const cantidad =
-
-          Number(item.cantidad)
-
-
+          Number(
+            item.cantidad,
+          )
 
         const costo =
-
-          Number(item.costo_unitario)
-
-
+          Number(
+            item.costo_unitario,
+          )
 
         if (
-
-          !Number.isFinite(cantidad) ||
-
+          !Number.isFinite(
+            cantidad,
+          ) ||
           cantidad <= 0
-
         ) {
-
           throw new Error(
-
             `La cantidad de ${item.nombre} debe ser mayor que cero.`,
-
           )
-
         }
 
-
-
         if (
-
           item.unidad_medida
-
             .trim()
-
-            .toLowerCase() === 'unidad' &&
-
-          !Number.isInteger(cantidad)
-
-        ) {
-
-          throw new Error(
-
-            `La cantidad de ${item.nombre} debe ser un número entero porque su unidad de medida es unidad.`,
-
+            .toLowerCase() ===
+            'unidad' &&
+          !Number.isInteger(
+            cantidad,
           )
-
+        ) {
+          throw new Error(
+            `La cantidad de ${item.nombre} debe ser un número entero porque su unidad de medida es unidad.`,
+          )
         }
-
-
 
         if (
-
-          !Number.isFinite(costo) ||
-
+          !Number.isFinite(
+            costo,
+          ) ||
           costo < 0
-
         ) {
-
           throw new Error(
-
             `El costo de ${item.nombre} no es válido.`,
-
           )
-
         }
-
       }
-
-
-
 
 
       const itemsRpc =
-
         items.map(
-
           item => ({
-
             producto_id:
-
               item.producto_id,
 
-
-
             cantidad:
-
               Number(
-
                 item.cantidad,
-
               ),
-
-
 
             costo_unitario:
-
               Number(
-
                 item.costo_unitario,
-
               ),
-
           }),
-
         )
 
 
-
-
-
-      const { data, error } =
-
+      const {
+        data,
+        error,
+      } =
         await supabase.rpc(
-
           'registrar_compra',
-
           {
-
             p_proveedor_id:
-
-              Number(proveedorId),
-
-
+              Number(
+                proveedorId,
+              ),
 
             p_items:
-
               itemsRpc,
 
-
-
             p_tipo_compra:
-
               tipoCompra,
 
             p_fecha_compra:
-
               fechaCompra,
 
-
-
             p_referencia_documento:
-
               referenciaDocumento
-
                 .trim() ||
-
               null,
-
-
 
             p_observaciones:
-
               observaciones
-
                 .trim() ||
-
               null,
-
           },
-
         )
 
 
-
-
-
       if (error) {
-
         throw error
-
       }
 
 
-
-
-
       const resultado =
-
         Array.isArray(data)
-
           ? data[0]
-
           : data
 
 
-
-
-
       const numero =
-
         resultado?.numero ??
-
         'registrada'
 
 
-
-
-
       setMensaje(
-
-        `Compra ${numero} registrada correctamente.`,
-
+        `Compra ${numero} registrada correctamente. Está pendiente de autorización.`,
       )
 
 
-
-
-
-      setMostrarFormulario(false)
+      setMostrarFormulario(
+        false,
+      )
 
       setProveedorId('')
 
-            setTipoCompra('directa')
+      setTipoCompra(
+        'directa',
+      )
 
-setReferenciaDocumento('')
+      setFechaCompra(
+        fechaLocalActual(),
+      )
+
+      setReferenciaDocumento(
+        '',
+      )
 
       setObservaciones('')
 
-      setProductoElegido('')
+      setProductoElegido(
+        '',
+      )
 
       setItems([])
 
 
-
-
-
       await cargarCompras()
-
     } catch (err) {
-
       setError(
-
-        err instanceof Error
-
-          ? err.message
-
-          : 'No fue posible registrar la compra.',
-
+        obtenerMensajeError(
+          err,
+          'No fue posible registrar la compra.',
+        ),
       )
-
     } finally {
-
       setGuardando(false)
-
     }
-
   }
 
 
-
-
-
   // ==========================================================
-
   // VER DETALLE
-
   // ==========================================================
-
-
 
   async function verDetalle(
-
     compra: Compra,
-
   ) {
-
     try {
-
-      setCargandoDetalle(true)
+      setCargandoDetalle(
+        true,
+      )
 
       setError('')
-
       setMensaje('')
 
-
-
       setCompraSeleccionada(
-
         compra,
-
       )
 
 
-
-      const { data, error } =
-
+      const {
+        data,
+        error,
+      } =
         await supabase
-
-          .from('detalle_compras')
-
-          .select(`
-
-            id,
-
-            compra_id,
-
-            producto_id,
-
-            cantidad,
-
-            costo_unitario,
-
-            subtotal,
-
-            productos (
-
-              codigo,
-
-              nombre,
-
-              unidad_medida
-
-            )
-
-          `)
-
-          .eq(
-
-            'compra_id',
-
-            compra.id,
-
+          .from(
+            'detalle_compras',
           )
-
-          .order('id', {
-
-            ascending: true,
-
-          })
-
+          .select(`
+            id,
+            compra_id,
+            producto_id,
+            cantidad,
+            costo_unitario,
+            subtotal,
+            productos (
+              codigo,
+              nombre,
+              unidad_medida
+            )
+          `)
+          .eq(
+            'compra_id',
+            compra.id,
+          )
+          .order(
+            'id',
+            {
+              ascending:
+                true,
+            },
+          )
 
 
       if (error) {
-
         throw error
-
       }
-
 
 
       setDetalles(
-
-        (data ?? []) as unknown as DetalleCompra[],
-
+        (data ??
+          []) as unknown as DetalleCompra[],
       )
-
     } catch (err) {
-
       setError(
-
-        err instanceof Error
-
-          ? err.message
-
-          : 'No fue posible cargar el detalle de la compra.',
-
+        obtenerMensajeError(
+          err,
+          'No fue posible cargar el detalle de la compra.',
+        ),
       )
-
     } finally {
-
-      setCargandoDetalle(false)
-
+      setCargandoDetalle(
+        false,
+      )
     }
-
   }
-
-
-
 
 
   function cerrarDetalle() {
-
-    setCompraSeleccionada(null)
+    setCompraSeleccionada(
+      null,
+    )
 
     setDetalles([])
-
   }
 
 
-
-
-
+  // ==========================================================
+  // AUTORIZAR COMPRA
   // ==========================================================
 
-  // ANULAR COMPRA
-
-  // ==========================================================
-
-
-
-  async function anularCompra(
-
+  async function autorizarCompra(
     compra: Compra,
-
   ) {
-
-    if (!puedeAnular) {
-
+    if (
+      !puedeAutorizar ||
+      compra.estado !==
+        'registrada' ||
+      procesandoAccion
+    ) {
       return
-
     }
-
 
 
     const confirmado =
-
       window.confirm(
-
-        `¿Deseas anular la compra ${compra.numero}? El inventario será revertido automáticamente.`,
-
+        `¿Deseas autorizar la compra ${compra.numero}? Después de autorizarla podrá ser recibida por Almacén.`,
       )
-
 
 
     if (!confirmado) {
-
       return
-
     }
-
-
-
-    const motivo =
-
-      window.prompt(
-
-        'Indique el motivo de la anulación:',
-
-      )
-
-
-
-    if (
-
-      motivo === null
-
-    ) {
-
-      return
-
-    }
-
-
-
-    if (
-
-      motivo.trim().length < 3
-
-    ) {
-
-      setError(
-
-        'Debe indicar un motivo válido de al menos 3 caracteres.',
-
-      )
-
-      return
-
-    }
-
-
-
 
 
     try {
+      setProcesandoAccion(
+        true,
+      )
 
       setError('')
-
       setMensaje('')
 
 
-
-      const { error } =
-
+      const {
+        error,
+      } =
         await supabase.rpc(
-
-          'anular_compra',
-
+          'autorizar_compra',
           {
-
             p_compra_id:
-
               compra.id,
-
-
-
-            p_motivo:
-
-              motivo.trim(),
-
           },
-
         )
 
 
-
       if (error) {
-
         throw error
-
       }
-
 
 
       setMensaje(
-
-        `Compra ${compra.numero} anulada correctamente.`,
-
+        `Compra ${compra.numero} autorizada correctamente.`,
       )
-
 
 
       if (
-
-        compraSeleccionada?.id ===
-
+        compraSeleccionada
+          ?.id ===
         compra.id
-
       ) {
-
         cerrarDetalle()
-
       }
 
 
-
       await cargarCompras()
-
     } catch (err) {
-
       setError(
-
-        err instanceof Error
-
-          ? err.message
-
-          : 'No fue posible anular la compra.',
-
+        obtenerMensajeError(
+          err,
+          'No fue posible autorizar la compra.',
+        ),
       )
+    } finally {
+      setProcesandoAccion(
+        false,
+      )
+    }
+  }
 
+
+  // ==========================================================
+  // ANULAR COMPRA
+  // ==========================================================
+
+  async function anularCompra(
+    compra: Compra,
+  ) {
+    if (
+      !puedeAnular ||
+      procesandoAccion
+    ) {
+      return
     }
 
+
+    if (
+      compra.estado !==
+        'registrada' &&
+      compra.estado !==
+        'autorizada'
+    ) {
+      setError(
+        'Solo pueden anularse compras registradas o autorizadas que todavía no hayan sido recibidas.',
+      )
+
+      return
+    }
+
+
+    const confirmado =
+      window.confirm(
+        `¿Deseas anular la compra ${compra.numero}?`,
+      )
+
+
+    if (!confirmado) {
+      return
+    }
+
+
+    const motivo =
+      window.prompt(
+        'Indique el motivo de la anulación:',
+      )
+
+
+    if (
+      motivo === null
+    ) {
+      return
+    }
+
+
+    if (
+      motivo
+        .trim()
+        .length < 3
+    ) {
+      setError(
+        'Debe indicar un motivo válido de al menos 3 caracteres.',
+      )
+
+      return
+    }
+
+
+    try {
+      setProcesandoAccion(
+        true,
+      )
+
+      setError('')
+      setMensaje('')
+
+
+      const {
+        error,
+      } =
+        await supabase.rpc(
+          'anular_compra',
+          {
+            p_compra_id:
+              compra.id,
+
+            p_motivo:
+              motivo.trim(),
+          },
+        )
+
+
+      if (error) {
+        throw error
+      }
+
+
+      setMensaje(
+        `Compra ${compra.numero} anulada correctamente.`,
+      )
+
+
+      if (
+        compraSeleccionada
+          ?.id ===
+        compra.id
+      ) {
+        cerrarDetalle()
+      }
+
+
+      await cargarCompras()
+    } catch (err) {
+      setError(
+        obtenerMensajeError(
+          err,
+          'No fue posible anular la compra.',
+        ),
+      )
+    } finally {
+      setProcesandoAccion(
+        false,
+      )
+    }
   }
 
 
-
-
-
   // ==========================================================
-
   // INTERFAZ
-
   // ==========================================================
-
-
 
   if (cargando) {
-
     return (
-
       <div className="inventory-module">
-
         <div className="inventory-toolbar">
-
           Cargando compras...
-
         </div>
-
       </div>
-
     )
-
   }
-
-
-
 
 
   return (
-
     <div className="inventory-module">
 
-
-
       {/* ====================================================
-
           ENCABEZADO
-
       ==================================================== */}
 
-
-
       <div className="inventory-toolbar">
-
-
-
         <div>
-
           <span className="panel-label">
-
             ABASTECIMIENTO
-
           </span>
 
-
-
           <h2>
-
             Compras
-
           </h2>
 
-
-
           <p>
-
-            Registro de compras,
-
-            recepción de productos y
-
-            actualización automática del
-
-            inventario.
-
+            Registra, autoriza y da seguimiento a las compras antes de su recepción en Almacén.
           </p>
-
         </div>
-
-
-
 
 
         <div
-
           style={{
-
-            display: 'flex',
-
-            gap: '10px',
-
-            alignItems: 'center',
-
+            display:
+              'flex',
+            gap:
+              '10px',
+            alignItems:
+              'center',
           }}
-
         >
-
-
-
           <button
-
             type="button"
-
             className="secondary-button"
-
             onClick={() =>
-
               void cargarTodo()
-
             }
-
           >
-
             ↻ Actualizar
-
           </button>
-
-
-
 
 
           <button
-
             type="button"
-
             className="primary-button"
-
             onClick={
-
               abrirNuevaCompra
-
             }
-
           >
-
             + Nueva compra
-
           </button>
-
-
-
         </div>
-
       </div>
 
 
-
-
-
       {/* ====================================================
-
           ESTADÍSTICAS
-
       ==================================================== */}
-
-
 
       <div className="inventory-stats">
-
-
-
         <div className="inventory-stat-card">
-
           <span>
-
-            COMPRAS REGISTRADAS
-
+            PENDIENTES DE AUTORIZACIÓN
           </span>
 
-
-
           <strong>
-
-            {comprasRegistradas.length}
-
+            {
+              comprasRegistradas.length
+            }
           </strong>
 
-
-
           <small>
-
-            actualmente vigentes
-
+            compras registradas
           </small>
-
         </div>
 
 
-
-
-
         <div className="inventory-stat-card">
-
           <span>
-
             COMPRAS ANULADAS
-
           </span>
 
-
-
           <strong>
-
-            {comprasAnuladas.length}
-
+            {
+              comprasAnuladas.length
+            }
           </strong>
 
-
-
           <small>
-
-            movimientos revertidos
-
+            compras canceladas
           </small>
-
         </div>
 
 
-
-
-
         <div className="inventory-stat-card">
-
           <span>
-
             TOTAL VIGENTE
-
           </span>
-
-
 
           <strong
-
             style={{
-
-              fontSize: '20px',
-
+              fontSize:
+                '20px',
             }}
-
           >
-
-            {moneda(totalVigente)}
-
+            {moneda(
+              totalVigente,
+            )}
           </strong>
 
-
-
           <small>
-
             compras no anuladas
-
           </small>
-
         </div>
-
-
-
 
 
         <div className="inventory-stat-card">
-
           <span>
-
             PROVEEDORES ACTIVOS
-
           </span>
 
-
-
           <strong>
-
-            {proveedores.length}
-
+            {
+              proveedores.length
+            }
           </strong>
 
-
-
           <small>
-
             disponibles
-
           </small>
-
         </div>
-
-
-
       </div>
 
 
-
-
-
       {/* ====================================================
-
           MENSAJES
-
       ==================================================== */}
 
-
-
       {mensaje && (
-
         <div className="success-message">
-
           {mensaje}
-
         </div>
-
       )}
-
-
-
 
 
       {error && (
-
         <div className="error-message">
-
           {error}
-
         </div>
-
       )}
 
 
-
-
-
       {/* ====================================================
-
           NUEVA COMPRA
-
       ==================================================== */}
 
-
-
       {mostrarFormulario && (
-
-
-
         <div className="inventory-toolbar">
-
-
-
           <div
-
             style={{
-
-              width: '100%',
-
+              width:
+                '100%',
             }}
-
           >
-
-
-
             <div
-
               style={{
-
-                display: 'flex',
-
+                display:
+                  'flex',
                 justifyContent:
-
                   'space-between',
-
                 alignItems:
-
                   'flex-start',
-
-                gap: '20px',
-
-                marginBottom: '24px',
-
+                gap:
+                  '20px',
+                marginBottom:
+                  '24px',
               }}
-
             >
-
-
-
               <div>
-
                 <span className="panel-label">
-
                   NUEVA COMPRA
-
                 </span>
 
-
-
                 <h2>
-
                   Registrar compra
-
                 </h2>
 
-
-
                 <p>
-
-                  Selecciona el proveedor
-
-                  y agrega los productos
-
-                  recibidos.
-
+                  Selecciona el proveedor y agrega los productos de la compra.
                 </p>
-
               </div>
 
 
-
-
-
               <button
-
                 type="button"
-
                 className="secondary-button"
-
                 onClick={
-
                   cancelarCompra
-
                 }
-
-                disabled={guardando}
-
+                disabled={
+                  guardando
+                }
               >
-
                 ✕ Cerrar
-
               </button>
-
-
-
             </div>
-
-
-
 
 
             {/* DATOS GENERALES */}
 
-
-
             <div
-
               style={{
-
-                display: 'grid',
-
+                display:
+                  'grid',
                 gridTemplateColumns:
-
                   '2fr 1fr 1fr 1fr',
-
-                gap: '16px',
-
-                marginBottom: '18px',
-
+                gap:
+                  '16px',
+                marginBottom:
+                  '18px',
               }}
-
             >
-
-
-
               <label>
-
                 Proveedor *
 
-
-
                 <select
-
-                  value={proveedorId}
-
-                  onChange={event =>
-
-                    setProveedorId(
-
-                      event.target.value,
-
-                    )
-
+                  value={
+                    proveedorId
                   }
-
+                  onChange={
+                    event =>
+                      setProveedorId(
+                        event
+                          .target
+                          .value,
+                      )
+                  }
                 >
-
                   <option value="">
-
                     Seleccione proveedor
-
                   </option>
 
-
-
                   {proveedores.map(
-
                     proveedor => (
-
                       <option
-
                         key={
-
                           proveedor.id
-
                         }
-
                         value={
-
                           proveedor.id
-
                         }
-
                       >
-
                         {proveedor.codigo}
-
                         {' - '}
-
                         {proveedor.nombre}
-
                       </option>
-
                     ),
-
                   )}
-
                 </select>
-
               </label>
+
 
               <label>
                 Tipo de compra *
 
                 <select
-                  value={tipoCompra}
-                  onChange={event =>
-                    setTipoCompra(
-                      event.target.value as
-                        | 'directa'
-                        | 'cotizacion'
-                        | 'licitacion',
-                    )
+                  value={
+                    tipoCompra
+                  }
+                  onChange={
+                    event =>
+                      setTipoCompra(
+                        event
+                          .target
+                          .value as TipoCompra,
+                      )
                   }
                 >
                   <option value="directa">
@@ -2458,891 +1672,495 @@ setReferenciaDocumento('')
               </label>
 
 
-
-
               <label>
-
                 Fecha de compra *
 
-
-
                 <input
-
                   type="date"
-
-                  value={fechaCompra}
-
-                  onChange={event =>
-
-                    setFechaCompra(
-
-                      event.target.value,
-
-                    )
-
+                  value={
+                    fechaCompra
                   }
-
+                  onChange={
+                    event =>
+                      setFechaCompra(
+                        event
+                          .target
+                          .value,
+                      )
+                  }
                 />
-
               </label>
-
-
-
 
 
               <label>
-
                 Factura / referencia
 
-
-
                 <input
-
                   type="text"
-
                   value={
-
                     referenciaDocumento
-
                   }
-
-                  onChange={event =>
-
-                    setReferenciaDocumento(
-
-                      event.target.value,
-
-                    )
-
+                  onChange={
+                    event =>
+                      setReferenciaDocumento(
+                        event
+                          .target
+                          .value,
+                      )
                   }
-
                   placeholder="Ej. FACT-0025"
-
                 />
-
               </label>
-
-
-
             </div>
 
 
-
-
-
             <label>
-
               Observaciones
 
-
-
               <textarea
-
-                value={observaciones}
-
-                onChange={event =>
-
-                  setObservaciones(
-
-                    event.target.value,
-
-                  )
-
+                value={
+                  observaciones
                 }
-
+                onChange={
+                  event =>
+                    setObservaciones(
+                      event
+                        .target
+                        .value,
+                    )
+                }
                 placeholder="Información adicional de la compra..."
-
               />
-
             </label>
-
-
-
 
 
             {/* AGREGAR PRODUCTO */}
 
-
-
             <div
-
               style={{
-
-                display: 'flex',
-
-                alignItems: 'flex-end',
-
-                gap: '10px',
-
-                marginTop: '22px',
-
-                marginBottom: '14px',
-
+                display:
+                  'flex',
+                alignItems:
+                  'flex-end',
+                gap:
+                  '10px',
+                marginTop:
+                  '22px',
+                marginBottom:
+                  '14px',
               }}
-
             >
-
-
-
               <label
-
                 style={{
-
                   flex: 1,
-
                 }}
-
               >
-
                 Agregar producto
 
-
-
                 <select
-
                   value={
-
                     productoElegido
-
                   }
-
-                  onChange={event =>
-
-                    setProductoElegido(
-
-                      event.target.value,
-
-                    )
-
+                  onChange={
+                    event =>
+                      setProductoElegido(
+                        event
+                          .target
+                          .value,
+                      )
                   }
-
                 >
-
                   <option value="">
-
                     Seleccione producto
-
                   </option>
 
-
-
                   {productos.map(
-
                     producto => (
-
                       <option
-
                         key={
-
                           producto.id
-
                         }
-
                         value={
-
                           producto.id
-
                         }
-
                       >
-
                         {producto.codigo}
-
                         {' - '}
-
                         {producto.nombre}
-
                       </option>
-
                     ),
-
                   )}
-
                 </select>
-
               </label>
 
 
-
-
-
               <button
-
                 type="button"
-
                 className="secondary-button"
-
                 onClick={
-
                   agregarProducto
-
                 }
-
               >
-
                 + Agregar
-
               </button>
-
-
-
             </div>
-
-
-
 
 
             {/* DETALLE TEMPORAL */}
 
-
-
             <div className="inventory-table-wrapper">
-
-
-
               <table className="inventory-table">
-
-
-
                 <thead>
-
                   <tr>
-
-                    <th>CÓDIGO</th>
-
-                    <th>PRODUCTO</th>
-
-                    <th>UNIDAD</th>
-
-                    <th>CANTIDAD</th>
-
                     <th>
-
-                      COSTO UNITARIO
-
+                      CÓDIGO
                     </th>
 
-                    <th>SUBTOTAL</th>
+                    <th>
+                      PRODUCTO
+                    </th>
+
+                    <th>
+                      UNIDAD
+                    </th>
+
+                    <th>
+                      CANTIDAD
+                    </th>
+
+                    <th>
+                      COSTO UNITARIO
+                    </th>
+
+                    <th>
+                      SUBTOTAL
+                    </th>
 
                     <th />
-
                   </tr>
-
                 </thead>
 
 
-
-
-
                 <tbody>
-
-
-
-                  {items.length === 0 && (
-
+                  {items.length ===
+                    0 && (
                     <tr>
-
                       <td
-
-                        colSpan={7}
-
+                        colSpan={
+                          7
+                        }
                         style={{
-
                           textAlign:
-
                             'center',
-
                           padding:
-
                             '30px',
-
                         }}
-
                       >
-
-                        Agrega productos a
-
-                        la compra.
-
+                        Agrega productos a la compra.
                       </td>
-
                     </tr>
-
                   )}
 
 
-
-
-
                   {items.map(
-
                     item => (
-
-
-
-                    <tr
-
-                      key={
-
-                        item.producto_id
-
-                      }
-
-                    >
-
-
-
-                      <td>
-
-                        {item.codigo}
-
-                      </td>
-
-
-
-
-
-                      <td>
-
-                        <strong>
-
-                          {item.nombre}
-
-                        </strong>
-
-                      </td>
-
-
-
-
-
-                      <td>
-
-                        {
-
-                          item.unidad_medida
-
+                      <tr
+                        key={
+                          item.producto_id
                         }
+                      >
+                        <td>
+                          {
+                            item.codigo
+                          }
+                        </td>
 
-                      </td>
+
+                        <td>
+                          <strong>
+                            {
+                              item.nombre
+                            }
+                          </strong>
+                        </td>
 
 
-
-
-
-                      <td>
-
-                        <input
-
-                          type="number"
-
-                          min={
-
+                        <td>
+                          {
                             item.unidad_medida
-
-                              .trim()
-
-                              .toLowerCase() === 'unidad'
-
-                              ? '1'
-
-                              : '0.01'
-
                           }
+                        </td>
 
-                          step={
 
-                            item.unidad_medida
+                        <td>
+                          <input
+                            type="number"
+                            min={
+                              item.unidad_medida
+                                .trim()
+                                .toLowerCase() ===
+                              'unidad'
+                                ? '1'
+                                : '0.01'
+                            }
+                            step={
+                              item.unidad_medida
+                                .trim()
+                                .toLowerCase() ===
+                              'unidad'
+                                ? '1'
+                                : '0.01'
+                            }
+                            value={
+                              item.cantidad
+                            }
+                            onChange={
+                              event =>
+                                actualizarItem(
+                                  item.producto_id,
+                                  'cantidad',
+                                  event
+                                    .target
+                                    .value,
+                                )
+                            }
+                            style={{
+                              width:
+                                '90px',
+                            }}
+                          />
+                        </td>
 
-                              .trim()
 
-                              .toLowerCase() === 'unidad'
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={
+                              item.costo_unitario
+                            }
+                            onChange={
+                              event =>
+                                actualizarItem(
+                                  item.producto_id,
+                                  'costo_unitario',
+                                  event
+                                    .target
+                                    .value,
+                                )
+                            }
+                            style={{
+                              width:
+                                '110px',
+                            }}
+                          />
+                        </td>
 
-                              ? '1'
 
-                              : '0.01'
+                        <td>
+                          <strong>
+                            {moneda(
+                              obtenerSubtotal(
+                                item,
+                              ),
+                            )}
+                          </strong>
+                        </td>
 
-                          }
 
-                          value={
-
-                            item.cantidad
-
-                          }
-
-                          onChange={
-
-                            event =>
-
-                              actualizarItem(
-
+                        <td>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() =>
+                              eliminarItem(
                                 item.producto_id,
-
-                                'cantidad',
-
-                                event.target
-
-                                  .value,
-
                               )
-
-                          }
-
-                          style={{
-
-                            width: '90px',
-
-                          }}
-
-                        />
-
-                      </td>
-
-
-
-
-
-                      <td>
-
-                        <input
-
-                          type="number"
-
-                          min="0"
-
-                          step="0.01"
-
-                          value={
-
-                            item.costo_unitario
-
-                          }
-
-                          onChange={
-
-                            event =>
-
-                              actualizarItem(
-
-                                item.producto_id,
-
-                                'costo_unitario',
-
-                                event.target
-
-                                  .value,
-
-                              )
-
-                          }
-
-                          style={{
-
-                            width: '110px',
-
-                          }}
-
-                        />
-
-                      </td>
-
-
-
-
-
-                      <td>
-
-                        <strong>
-
-                          {moneda(
-
-                            obtenerSubtotal(
-
-                              item,
-
-                            ),
-
-                          )}
-
-                        </strong>
-
-                      </td>
-
-
-
-
-
-                      <td>
-
-                        <button
-
-                          type="button"
-
-                          className="secondary-button"
-
-                          onClick={() =>
-
-                            eliminarItem(
-
-                              item.producto_id,
-
-                            )
-
-                          }
-
-                        >
-
-                          Quitar
-
-                        </button>
-
-                      </td>
-
-
-
-                    </tr>
-
-
-
-                  ))}
-
-
-
+                            }
+                          >
+                            Quitar
+                          </button>
+                        </td>
+                      </tr>
+                    ),
+                  )}
                 </tbody>
-
-
-
               </table>
-
-
-
             </div>
-
-
-
 
 
             {/* TOTAL */}
 
-
-
             <div
-
               style={{
-
-                display: 'flex',
-
-                alignItems: 'center',
-
+                display:
+                  'flex',
+                alignItems:
+                  'center',
                 justifyContent:
-
                   'space-between',
-
-                gap: '20px',
-
-                marginTop: '20px',
-
+                gap:
+                  '20px',
+                marginTop:
+                  '20px',
               }}
-
             >
-
-
-
               <div>
-
                 <span
-
                   style={{
-
-                    display: 'block',
-
-                    fontSize: '10px',
-
-                    color: '#7b8494',
-
-                    marginBottom: '5px',
-
+                    display:
+                      'block',
+                    fontSize:
+                      '10px',
+                    color:
+                      '#7b8494',
+                    marginBottom:
+                      '5px',
                   }}
-
                 >
-
                   TOTAL DE COMPRA
-
                 </span>
 
-
-
                 <strong
-
                   style={{
-
-                    fontSize: '25px',
-
+                    fontSize:
+                      '25px',
                   }}
-
                 >
-
-                  {moneda(totalCompra)}
-
+                  {moneda(
+                    totalCompra,
+                  )}
                 </strong>
-
               </div>
-
-
-
 
 
               <div
-
                 style={{
-
-                  display: 'flex',
-
-                  gap: '10px',
-
+                  display:
+                    'flex',
+                  gap:
+                    '10px',
                 }}
-
               >
-
-
-
                 <button
-
                   type="button"
-
                   className="secondary-button"
-
                   onClick={
-
                     cancelarCompra
-
                   }
-
-                  disabled={guardando}
-
+                  disabled={
+                    guardando
+                  }
                 >
-
                   Cancelar
-
                 </button>
-
-
-
 
 
                 <button
-
                   type="button"
-
                   className="primary-button"
-
                   onClick={() =>
-
                     void registrarCompra()
-
                   }
-
                   disabled={
-
                     guardando
-
                   }
-
                 >
-
                   {guardando
-
                     ? 'Registrando...'
-
                     : 'Registrar compra'}
-
                 </button>
-
-
-
               </div>
-
-
-
             </div>
-
-
-
           </div>
-
-
-
         </div>
-
-
-
       )}
 
 
-
-
-
       {/* ====================================================
-
           DETALLE DE COMPRA
-
       ==================================================== */}
 
-
-
       {compraSeleccionada && (
-
-
-
         <div className="inventory-toolbar">
-
-
-
           <div
-
             style={{
-
-              width: '100%',
-
+              width:
+                '100%',
             }}
-
           >
-
-
-
             <div
-
               style={{
-
-                display: 'flex',
-
+                display:
+                  'flex',
                 justifyContent:
-
                   'space-between',
-
-                gap: '20px',
-
-                marginBottom: '20px',
-
+                gap:
+                  '20px',
+                marginBottom:
+                  '20px',
               }}
-
             >
-
-
-
               <div>
-
                 <span className="panel-label">
-
                   DETALLE DE COMPRA
-
                 </span>
 
-
-
                 <h2>
-
                   {
-
-                    compraSeleccionada.numero
-
+                    compraSeleccionada
+                      .numero
                   }
-
                 </h2>
 
-
-
                 <p>
-
-                  {
-
-                    obtenerProveedor(
-
-                      compraSeleccionada.proveedores,
-
-                    )?.nombre ??
-
-                    'Proveedor'
-
-                  }
-
+                  {obtenerProveedor(
+                    compraSeleccionada
+                      .proveedores,
+                  )?.nombre ??
+                    'Proveedor'}
                 </p>
-
               </div>
-
-
-
 
 
               <button
-
                 type="button"
-
                 className="secondary-button"
-
                 onClick={
-
                   cerrarDetalle
-
                 }
-
               >
-
                 ✕ Cerrar
-
               </button>
-
-
-
             </div>
 
 
-
-
-
             <div
-
               style={{
-
-                display: 'grid',
-
+                display:
+                  'grid',
                 gridTemplateColumns:
-
                   'repeat(5, minmax(0, 1fr))',
-
-                gap: '14px',
-
-                marginBottom: '20px',
-
+                gap:
+                  '14px',
+                marginBottom:
+                  '20px',
               }}
-
             >
-
-
-
               <div>
-
                 <span className="panel-label">
-
                   FECHA
-
                 </span>
 
-
-
                 <strong>
-
                   {
-
                     compraSeleccionada
-
                       .fecha_compra
-
                   }
-
                 </strong>
-
               </div>
+
 
               <div>
                 <span className="panel-label">
@@ -3351,622 +2169,383 @@ setReferenciaDocumento('')
 
                 <strong>
                   {etiquetaTipoCompra(
-                    compraSeleccionada.tipo_compra,
+                    compraSeleccionada
+                      .tipo_compra,
                   )}
                 </strong>
               </div>
 
 
-
-
               <div>
-
                 <span className="panel-label">
-
                   REFERENCIA
-
                 </span>
 
-
-
                 <strong>
-
-                  {
-
-                    compraSeleccionada
-
-                      .referencia_documento ||
-
-                    '—'
-
-                  }
-
+                  {compraSeleccionada
+                    .referencia_documento ||
+                    '—'}
                 </strong>
-
               </div>
 
 
-
-
-
               <div>
-
                 <span className="panel-label">
-
                   ESTADO
-
                 </span>
-
-
 
                 <span
-
                   className={
-
-                    compraSeleccionada
-
-                      .estado ===
-
-                    'registrada'
-
-                      ? 'status-badge status-success'
-
-                      : 'status-badge status-danger'
-
+                    claseEstadoCompra(
+                      compraSeleccionada
+                        .estado,
+                    )
                   }
-
                 >
-
-                  {
-
+                  {etiquetaEstadoCompra(
                     compraSeleccionada
-
-                      .estado ===
-
-                    'registrada'
-
-                      ? 'Registrada'
-
-                      : 'Anulada'
-
-                  }
-
+                      .estado,
+                  )}
                 </span>
-
               </div>
-
-
-
 
 
               <div>
-
                 <span className="panel-label">
-
                   TOTAL
-
                 </span>
 
-
-
                 <strong>
-
                   {moneda(
-
                     compraSeleccionada
-
                       .total,
-
                   )}
-
                 </strong>
-
               </div>
-
-
-
             </div>
 
 
-
-
-
             {compraSeleccionada
-
-              .observaciones && (
-
+              .autorizada_at && (
               <p
-
                 style={{
-
-                  marginBottom: '18px',
-
+                  marginBottom:
+                    '18px',
                 }}
-
               >
+                Autorizada el:{' '}
 
-                {
-
-                  compraSeleccionada
-
-                    .observaciones
-
-                }
-
+                <strong>
+                  {new Date(
+                    compraSeleccionada
+                      .autorizada_at,
+                  ).toLocaleString(
+                    'es-NI',
+                  )}
+                </strong>
               </p>
-
             )}
 
 
-
+            {compraSeleccionada
+              .observaciones && (
+              <p
+                style={{
+                  marginBottom:
+                    '18px',
+                }}
+              >
+                {
+                  compraSeleccionada
+                    .observaciones
+                }
+              </p>
+            )}
 
 
             {compraSeleccionada
-
               .motivo_anulacion && (
-
               <div
-
                 className="error-message"
-
                 style={{
-
-                  marginBottom: '18px',
-
+                  marginBottom:
+                    '18px',
                 }}
-
               >
-
                 Motivo de anulación:{' '}
 
                 {
-
                   compraSeleccionada
-
                     .motivo_anulacion
-
                 }
-
               </div>
-
             )}
-
-
-
 
 
             <div className="inventory-table-wrapper">
-
-
-
               <table className="inventory-table">
-
-
-
                 <thead>
-
                   <tr>
-
-                    <th>CÓDIGO</th>
-
-                    <th>PRODUCTO</th>
-
-                    <th>UNIDAD</th>
-
-                    <th>CANTIDAD</th>
-
                     <th>
-
-                      COSTO UNITARIO
-
+                      CÓDIGO
                     </th>
 
-                    <th>SUBTOTAL</th>
+                    <th>
+                      PRODUCTO
+                    </th>
 
+                    <th>
+                      UNIDAD
+                    </th>
+
+                    <th>
+                      CANTIDAD
+                    </th>
+
+                    <th>
+                      COSTO UNITARIO
+                    </th>
+
+                    <th>
+                      SUBTOTAL
+                    </th>
                   </tr>
-
                 </thead>
 
 
-
-
-
                 <tbody>
-
-
-
                   {cargandoDetalle && (
-
                     <tr>
-
                       <td
-
-                        colSpan={6}
-
+                        colSpan={
+                          6
+                        }
                         style={{
-
                           textAlign:
-
                             'center',
-
                           padding:
-
                             '30px',
-
                         }}
-
                       >
-
                         Cargando detalle...
-
                       </td>
-
                     </tr>
-
                   )}
 
 
-
-
-
                   {!cargandoDetalle &&
-
                     detalles.map(
-
                       detalle => {
-
                         const producto =
-
                           obtenerProductoDetalle(
-
                             detalle.productos,
-
                           )
 
-
-
                         return (
-
                           <tr
-
                             key={
-
                               detalle.id
-
                             }
-
                           >
-
                             <td>
-
-                              {
-
-                                producto
-
-                                  ?.codigo ??
-
-                                '—'
-
-                              }
-
+                              {producto
+                                ?.codigo ??
+                                '—'}
                             </td>
 
 
-
                             <td>
-
                               <strong>
-
-                                {
-
-                                  producto
-
-                                    ?.nombre ??
-
-                                  'Producto'
-
-                                }
-
+                                {producto
+                                  ?.nombre ??
+                                  'Producto'}
                               </strong>
-
                             </td>
 
 
-
                             <td>
-
-                              {
-
-                                producto
-
-                                  ?.unidad_medida ??
-
-                                '—'
-
-                              }
-
+                              {producto
+                                ?.unidad_medida ??
+                                '—'}
                             </td>
 
 
-
                             <td>
-
                               {
-
                                 detalle.cantidad
-
                               }
-
                             </td>
 
 
-
                             <td>
-
                               {moneda(
-
                                 detalle
-
                                   .costo_unitario,
-
                               )}
-
                             </td>
-
 
 
                             <td>
-
                               <strong>
-
                                 {moneda(
-
                                   detalle
-
                                     .subtotal,
-
                                 )}
-
                               </strong>
-
                             </td>
-
                           </tr>
-
                         )
-
                       },
-
                     )}
-
-
-
                 </tbody>
-
-
-
               </table>
-
-
-
             </div>
-
-
-
           </div>
-
-
-
         </div>
-
-
-
       )}
 
 
-
-
-
       {/* ====================================================
-
           HISTORIAL
-
       ==================================================== */}
 
-
-
       <div
-
         style={{
-
-          display: 'flex',
-
-          alignItems: 'center',
-
+          display:
+            'flex',
+          alignItems:
+            'center',
           justifyContent:
-
             'space-between',
-
-          gap: '20px',
-
+          gap:
+            '20px',
         }}
-
       >
-
-
-
         <input
-
           type="search"
-
           className="inventory-search"
-
           placeholder="⌕  Buscar compra, proveedor, factura..."
-
-          value={busqueda}
-
-          onChange={event =>
-
-            setBusqueda(
-
-              event.target.value,
-
-            )
-
+          value={
+            busqueda
           }
-
+          onChange={
+            event =>
+              setBusqueda(
+                event
+                  .target
+                  .value,
+              )
+          }
         />
 
 
-
         <span
-
           style={{
-
-            fontSize: '11px',
-
-            color: '#7b8494',
-
+            fontSize:
+              '11px',
+            color:
+              '#7b8494',
           }}
-
         >
+          {
+            comprasFiltradas.length
+          }{' '}
 
-          {comprasFiltradas.length}
-
-          {' '}
-
-          {comprasFiltradas.length === 1
-
+          {comprasFiltradas.length ===
+          1
             ? 'compra'
-
             : 'compras'}
-
         </span>
-
-
-
       </div>
 
 
-
-
-
       <div className="inventory-table-wrapper">
-
-
-
         <table className="inventory-table">
-
-
-
           <thead>
-
             <tr>
+              <th>
+                NÚMERO
+              </th>
 
-              <th>NÚMERO</th>
+              <th>
+                FECHA
+              </th>
 
-              <th>FECHA</th>
+              <th>
+                TIPO
+              </th>
 
+              <th>
+                PROVEEDOR
+              </th>
 
-              <th>TIPO</th>
+              <th>
+                FACTURA / REF.
+              </th>
 
-              <th>PROVEEDOR</th>
+              <th>
+                TOTAL
+              </th>
 
-              <th>FACTURA / REF.</th>
+              <th>
+                ESTADO
+              </th>
 
-              <th>TOTAL</th>
-
-              <th>ESTADO</th>
-
-              <th>ACCIONES</th>
-
+              <th>
+                ACCIONES
+              </th>
             </tr>
-
           </thead>
 
 
-
-
-
           <tbody>
-
-
-
             {comprasFiltradas.length ===
-
               0 && (
-
               <tr>
-
                 <td
-
-                  colSpan={8}
-
+                  colSpan={
+                    8
+                  }
                   style={{
-
-                    textAlign: 'center',
-
-                    padding: '40px',
-
+                    textAlign:
+                      'center',
+                    padding:
+                      '40px',
                   }}
-
                 >
-
-                  No hay compras para
-
-                  mostrar.
-
+                  No hay compras para mostrar.
                 </td>
-
               </tr>
-
             )}
 
 
-
-
-
             {comprasFiltradas.map(
-
               compra => {
-
                 const proveedor =
-
                   obtenerProveedor(
-
                     compra.proveedores,
-
                   )
 
-
-
                 return (
-
-                  <tr key={compra.id}>
-
-
-
+                  <tr
+                    key={
+                      compra.id
+                    }
+                  >
                     <td>
-
                       <strong>
-
-                        {compra.numero}
-
+                        {
+                          compra.numero
+                        }
                       </strong>
-
                     </td>
-
-
-
 
 
                     <td>
-
-                      {compra.fecha_compra}
-
+                      {
+                        compra.fecha_compra
+                      }
                     </td>
-
-
 
 
                     <td>
@@ -3976,249 +2555,145 @@ setReferenciaDocumento('')
                     </td>
 
 
-
-
-
                     <td>
-
                       <strong>
-
-                        {
-
-                          proveedor?.nombre ??
-
-                          'Proveedor'
-
-                        }
-
+                        {proveedor
+                          ?.nombre ??
+                          'Proveedor'}
                       </strong>
-
-
 
                       {proveedor && (
-
                         <div
-
                           style={{
-
                             fontSize:
-
                               '10px',
-
                             color:
-
                               '#8a93a3',
-
                             marginTop:
-
                               '3px',
-
                           }}
-
                         >
-
                           {
-
                             proveedor.codigo
-
                           }
-
                         </div>
-
                       )}
-
                     </td>
 
 
-
-
-
                     <td>
-
-                      {
-
-                        compra.referencia_documento ||
-
-                        '—'
-
-                      }
-
+                      {compra
+                        .referencia_documento ||
+                        '—'}
                     </td>
 
 
-
-
-
                     <td>
-
                       <strong>
-
                         {moneda(
-
                           compra.total,
-
                         )}
-
                       </strong>
-
                     </td>
 
 
-
-
-
                     <td>
-
                       <span
-
                         className={
-
-                          compra.estado ===
-
-                          'registrada'
-
-                            ? 'status-badge status-success'
-
-                            : 'status-badge status-danger'
-
+                          claseEstadoCompra(
+                            compra.estado,
+                          )
                         }
-
                       >
-
-                        {compra.estado ===
-
-                        'registrada'
-
-                          ? 'Registrada'
-
-                          : 'Anulada'}
-
+                        {etiquetaEstadoCompra(
+                          compra.estado,
+                        )}
                       </span>
-
                     </td>
 
 
-
-
-
                     <td>
-
                       <div
-
                         style={{
-
-                          display: 'flex',
-
-                          gap: '8px',
-
+                          display:
+                            'flex',
+                          gap:
+                            '8px',
                           alignItems:
-
                             'center',
-
+                          flexWrap:
+                            'wrap',
                         }}
-
                       >
-
-
-
                         <button
-
                           type="button"
-
                           className="secondary-button"
-
                           onClick={() =>
-
                             void verDetalle(
-
                               compra,
-
                             )
-
                           }
-
+                          disabled={
+                            procesandoAccion
+                          }
                         >
-
                           Ver detalle
-
                         </button>
 
 
-
+                        {puedeAutorizar &&
+                          compra.estado ===
+                            'registrada' && (
+                            <button
+                              type="button"
+                              className="primary-button"
+                              onClick={() =>
+                                void autorizarCompra(
+                                  compra,
+                                )
+                              }
+                              disabled={
+                                procesandoAccion
+                              }
+                            >
+                              Autorizar
+                            </button>
+                          )}
 
 
                         {puedeAnular &&
-
-                          compra.estado ===
-
-                            'registrada' && (
-
-
-
-                          <button
-
-                            type="button"
-
-                            className="secondary-button"
-
-                            onClick={() =>
-
-                              void anularCompra(
-
-                                compra,
-
-                              )
-
-                            }
-
-                          >
-
-                            Anular
-
-                          </button>
-
-
-
-                        )}
-
-
-
+                          (
+                            compra.estado ===
+                              'registrada' ||
+                            compra.estado ===
+                              'autorizada'
+                          ) && (
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() =>
+                                void anularCompra(
+                                  compra,
+                                )
+                              }
+                              disabled={
+                                procesandoAccion
+                              }
+                            >
+                              Anular
+                            </button>
+                          )}
                       </div>
-
                     </td>
-
-
-
                   </tr>
-
                 )
-
               },
-
             )}
-
-
-
           </tbody>
-
-
-
         </table>
-
-
-
       </div>
-
-
-
     </div>
-
   )
-
 }
-
-
-
-
 
 export default PurchasesModule
