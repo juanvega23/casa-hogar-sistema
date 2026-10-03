@@ -27,6 +27,7 @@ export const menusByRole: Record<RoleCode, MenuItem[]> = {
     { id: 'inventario', nombre: 'Inventario' },
     { id: 'compras', nombre: 'Compras' },
     { id: 'proveedores', nombre: 'Proveedores' },
+    { id: 'devoluciones', nombre: 'Devoluciones de compra' },
     { id: 'reportes', nombre: 'Reportes' },
   ],
 
@@ -40,6 +41,7 @@ export const menusByRole: Record<RoleCode, MenuItem[]> = {
     { id: 'inventario', nombre: 'Inventario' },
     { id: 'productos', nombre: 'Productos' },
     { id: 'recepciones', nombre: 'Recepción de productos' },
+    { id: 'devoluciones', nombre: 'Devoluciones de compra' },
     { id: 'movimientos', nombre: 'Movimientos' },
     { id: 'reposicion', nombre: 'Reposición' },
   ],

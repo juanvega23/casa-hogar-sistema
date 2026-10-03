@@ -20,6 +20,7 @@ import CashModule from './modules/CashModule'
 import SuppliersModule from './modules/SuppliersModule'
 import PurchasesModule from './modules/PurchasesModule'
 import PurchaseReceptionModule from './modules/PurchaseReceptionModule'
+import PurchaseReturnsModule from './modules/PurchaseReturnsModule'
 
 import './App.css'
 
@@ -95,6 +96,9 @@ function getMenuIcon(id: string) {
 
     recepciones:
       'M4 7 12 3l8 4v10l-8 4-8-4z M4 7l8 5 8-5 M12 12v9 M8 15l2 2 4-4',
+
+    devoluciones:
+      'M9 14 4 9l5-5 M4 9h11a5 5 0 0 1 5 5v1 M20 15l-4-4 M20 15l-4 4',
 
     ventas:
       'M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6 M9 16h3',
@@ -595,6 +599,20 @@ function App() {
     ) {
       return (
         <PurchaseReceptionModule />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // DEVOLUCIONES DE COMPRA
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'devoluciones'
+    ) {
+      return (
+        <PurchaseReturnsModule />
       )
     }
 
@@ -1153,10 +1171,6 @@ function App() {
 
   return (
     <div className="shell">
-      {/* =================================================
-          SIDEBAR
-      ================================================= */}
-
       {menuAbierto && (
         <button
           className="nav-backdrop"
@@ -1293,15 +1307,7 @@ function App() {
       </aside>
 
 
-      {/* =================================================
-          CONTENIDO PRINCIPAL
-      ================================================= */}
-
       <section className="content">
-        {/* ===============================================
-            TOPBAR
-        =============================================== */}
-
         <header className="bar">
           <button
             className="menu-toggle"
@@ -1363,10 +1369,6 @@ function App() {
         </header>
 
 
-        {/* ===============================================
-            CUERPO
-        =============================================== */}
-
         <main className="body">
           <div className="body-head">
             <div>
@@ -1404,10 +1406,6 @@ function App() {
               Acceso autorizado
             </div>
           </div>
-
-          {/* =============================================
-              MÓDULO ACTUAL
-          ============================================= */}
 
           {renderModulo()}
         </main>
