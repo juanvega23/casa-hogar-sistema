@@ -39,6 +39,7 @@ export const menusByRole: Record<RoleCode, MenuItem[]> = {
   almacen: [
     { id: 'inventario', nombre: 'Inventario' },
     { id: 'productos', nombre: 'Productos' },
+    { id: 'recepciones', nombre: 'Recepción de productos' },
     { id: 'movimientos', nombre: 'Movimientos' },
     { id: 'reposicion', nombre: 'Reposición' },
   ],
