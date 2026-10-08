@@ -6,10 +6,17 @@ import {
 
 import { supabase } from '../lib/supabase'
 
+
+type PurchaseReceptionModuleProps = {
+  roleCode: string
+}
+
+
 type ProveedorRelacion = {
   codigo: string
   nombre: string
 }
+
 
 type RecepcionRelacion = {
   id: number
@@ -17,36 +24,52 @@ type RecepcionRelacion = {
   fecha_recepcion: string
 }
 
+
 type CompraRespuesta = {
   id: number
   numero: string
   fecha_compra: string
-  tipo_compra: 'directa' | 'cotizacion' | 'licitacion'
+
+  tipo_compra:
+    | 'directa'
+    | 'cotizacion'
+    | 'licitacion'
+
   total: number | string
+
   estado:
-  | 'registrada'
-  | 'autorizada'
-  | 'recibida'
-  | 'anulada'
+    | 'registrada'
+    | 'autorizada'
+    | 'recibida'
+    | 'anulada'
+
   proveedores:
     | ProveedorRelacion
     | ProveedorRelacion[]
     | null
+
   recepciones_compra:
     | RecepcionRelacion
     | RecepcionRelacion[]
     | null
 }
 
+
 type CompraPendiente = {
   id: number
   numero: string
   fechaCompra: string
-  tipoCompra: 'directa' | 'cotizacion' | 'licitacion'
+
+  tipoCompra:
+    | 'directa'
+    | 'cotizacion'
+    | 'licitacion'
+
   total: number
   proveedorCodigo: string
   proveedorNombre: string
 }
+
 
 type ProductoRelacion = {
   codigo: string
@@ -54,17 +77,20 @@ type ProductoRelacion = {
   unidad_medida: string
 }
 
+
 type DetalleRespuesta = {
   id: number
   producto_id: number
   cantidad: number | string
   costo_unitario: number | string
   subtotal: number | string
+
   productos:
     | ProductoRelacion
     | ProductoRelacion[]
     | null
 }
+
 
 type ItemRecepcion = {
   detalleId: number
@@ -76,15 +102,37 @@ type ItemRecepcion = {
   cantidadRecibida: string
 }
 
-function fechaLocalActual() {
-  const fecha = new Date()
 
-  const year = fecha.getFullYear()
-  const month = String(fecha.getMonth() + 1).padStart(2, '0')
-  const day = String(fecha.getDate()).padStart(2, '0')
+// ==========================================================
+// UTILIDADES
+// ==========================================================
+
+function fechaLocalActual() {
+  const fecha =
+    new Date()
+
+  const year =
+    fecha.getFullYear()
+
+  const month =
+    String(
+      fecha.getMonth() + 1,
+    ).padStart(
+      2,
+      '0',
+    )
+
+  const day =
+    String(
+      fecha.getDate(),
+    ).padStart(
+      2,
+      '0',
+    )
 
   return `${year}-${month}-${day}`
 }
+
 
 function obtenerProveedor(
   relacion:
@@ -92,10 +140,24 @@ function obtenerProveedor(
     | ProveedorRelacion[]
     | null,
 ) {
-  if (!relacion) return null
-  if (Array.isArray(relacion)) return relacion[0] ?? null
+  if (!relacion) {
+    return null
+  }
+
+  if (
+    Array.isArray(
+      relacion,
+    )
+  ) {
+    return (
+      relacion[0] ??
+      null
+    )
+  }
+
   return relacion
 }
+
 
 function obtenerProducto(
   relacion:
@@ -103,10 +165,24 @@ function obtenerProducto(
     | ProductoRelacion[]
     | null,
 ) {
-  if (!relacion) return null
-  if (Array.isArray(relacion)) return relacion[0] ?? null
+  if (!relacion) {
+    return null
+  }
+
+  if (
+    Array.isArray(
+      relacion,
+    )
+  ) {
+    return (
+      relacion[0] ??
+      null
+    )
+  }
+
   return relacion
 }
+
 
 function tieneRecepcion(
   relacion:
@@ -114,65 +190,208 @@ function tieneRecepcion(
     | RecepcionRelacion[]
     | null,
 ) {
-  if (!relacion) return false
-  if (Array.isArray(relacion)) return relacion.length > 0
+  if (!relacion) {
+    return false
+  }
+
+  if (
+    Array.isArray(
+      relacion,
+    )
+  ) {
+    return relacion.length > 0
+  }
+
   return true
 }
 
-function moneda(valor: number | string) {
-  return new Intl.NumberFormat('es-NI', {
-    style: 'currency',
-    currency: 'NIO',
-    minimumFractionDigits: 2,
-  }).format(Number(valor) || 0)
+
+function moneda(
+  valor: number | string,
+) {
+  return new Intl.NumberFormat(
+    'es-NI',
+    {
+      style: 'currency',
+      currency: 'NIO',
+      minimumFractionDigits: 2,
+    },
+  ).format(
+    Number(valor) || 0,
+  )
 }
 
+
 function nombreTipoCompra(
-  tipo: CompraPendiente['tipoCompra'],
+  tipo:
+    CompraPendiente['tipoCompra'],
 ) {
-  if (tipo === 'cotizacion') return 'Cotización'
-  if (tipo === 'licitacion') return 'Licitación'
+  if (
+    tipo ===
+    'cotizacion'
+  ) {
+    return 'Cotización'
+  }
+
+  if (
+    tipo ===
+    'licitacion'
+  ) {
+    return 'Licitación'
+  }
+
   return 'Compra directa'
 }
 
-export default function PurchaseReceptionModule() {
-  const [comprasPendientes, setComprasPendientes] =
-    useState<CompraPendiente[]>([])
 
-  const [compraSeleccionada, setCompraSeleccionada] =
-    useState<CompraPendiente | null>(null)
+function obtenerMensajeError(
+  err: unknown,
+  respaldo: string,
+) {
+  if (
+    typeof err ===
+      'object' &&
+    err !== null &&
+    'message' in err
+  ) {
+    const mensaje =
+      (
+        err as {
+          message?: unknown
+        }
+      ).message
 
-  const [items, setItems] =
-    useState<ItemRecepcion[]>([])
+    if (
+      typeof mensaje ===
+      'string'
+    ) {
+      return mensaje
+    }
+  }
 
-  const [fechaRecepcion, setFechaRecepcion] =
-    useState(fechaLocalActual())
+  if (
+    err instanceof Error
+  ) {
+    return err.message
+  }
 
-  const [observaciones, setObservaciones] =
+  return respaldo
+}
+
+
+// ==========================================================
+// COMPONENTE
+// ==========================================================
+
+export default function PurchaseReceptionModule({
+  roleCode,
+}: PurchaseReceptionModuleProps) {
+  /*
+   * Solamente Almacén / Bodeguero puede
+   * ejecutar la recepción física.
+   */
+  const puedeGestionarRecepcion =
+    roleCode === 'almacen'
+
+
+  const [
+    comprasPendientes,
+    setComprasPendientes,
+  ] =
+    useState<
+      CompraPendiente[]
+    >([])
+
+
+  const [
+    compraSeleccionada,
+    setCompraSeleccionada,
+  ] =
+    useState<
+      CompraPendiente | null
+    >(null)
+
+
+  const [
+    items,
+    setItems,
+  ] =
+    useState<
+      ItemRecepcion[]
+    >([])
+
+
+  const [
+    fechaRecepcion,
+    setFechaRecepcion,
+  ] =
+    useState(
+      fechaLocalActual(),
+    )
+
+
+  const [
+    observaciones,
+    setObservaciones,
+  ] =
     useState('')
 
-  const [busqueda, setBusqueda] =
+
+  const [
+    busqueda,
+    setBusqueda,
+  ] =
     useState('')
 
-  const [cargando, setCargando] =
+
+  const [
+    cargando,
+    setCargando,
+  ] =
     useState(true)
 
-  const [cargandoDetalle, setCargandoDetalle] =
+
+  const [
+    cargandoDetalle,
+    setCargandoDetalle,
+  ] =
     useState(false)
 
-  const [guardando, setGuardando] =
+
+  const [
+    guardando,
+    setGuardando,
+  ] =
     useState(false)
 
-  const [error, setError] =
+
+  const [
+    error,
+    setError,
+  ] =
     useState('')
 
-  const [mensaje, setMensaje] =
+
+  const [
+    mensaje,
+    setMensaje,
+  ] =
     useState('')
+
+
+  // ==========================================================
+  // CARGAR RECEPCIONES PENDIENTES
+  // ==========================================================
 
   async function cargarPendientes() {
-    const { data, error } =
+    const {
+      data,
+      error,
+    } =
       await supabase
-        .from('compras')
+        .from(
+          'compras',
+        )
         .select(`
           id,
           numero,
@@ -190,79 +409,126 @@ export default function PurchaseReceptionModule() {
             fecha_recepcion
           )
         `)
-        .eq('estado', 'autorizada')
-        .order('created_at', {
-          ascending: false,
-        })
+        .eq(
+          'estado',
+          'autorizada',
+        )
+        .order(
+          'created_at',
+          {
+            ascending:
+              false,
+          },
+        )
+
 
     if (error) {
       throw error
     }
 
+
     const respuesta =
-      (data ?? []) as unknown as CompraRespuesta[]
+      (
+        data ??
+        []
+      ) as unknown as CompraRespuesta[]
+
 
     const pendientes =
       respuesta
         .filter(
           compra =>
             !tieneRecepcion(
-              compra.recepciones_compra,
+              compra
+                .recepciones_compra,
             ),
         )
         .map(
-          (compra): CompraPendiente => {
+          (
+            compra,
+          ): CompraPendiente => {
             const proveedor =
               obtenerProveedor(
                 compra.proveedores,
               )
 
             return {
-              id: compra.id,
-              numero: compra.numero,
-              fechaCompra: compra.fecha_compra,
-              tipoCompra: compra.tipo_compra,
-              total: Number(compra.total) || 0,
+              id:
+                compra.id,
+
+              numero:
+                compra.numero,
+
+              fechaCompra:
+                compra.fecha_compra,
+
+              tipoCompra:
+                compra.tipo_compra,
+
+              total:
+                Number(
+                  compra.total,
+                ) || 0,
+
               proveedorCodigo:
-                proveedor?.codigo ?? '—',
+                proveedor
+                  ?.codigo ??
+                '—',
+
               proveedorNombre:
-                proveedor?.nombre ?? 'Proveedor',
+                proveedor
+                  ?.nombre ??
+                'Proveedor',
             }
           },
         )
 
-    setComprasPendientes(pendientes)
+
+    setComprasPendientes(
+      pendientes,
+    )
   }
+
 
   async function cargarTodo() {
     try {
-      setCargando(true)
+      setCargando(
+        true,
+      )
+
       setError('')
 
       await cargarPendientes()
     } catch (err) {
-  const supabaseError =
-    err as {
-      message?: string
-    }
-
-  setError(
-    supabaseError?.message ??
-      'No fue posible cargar las recepciones pendientes.',
-  )
-} finally {
-      setCargando(false)
+      setError(
+        obtenerMensajeError(
+          err,
+          'No fue posible cargar las recepciones pendientes.',
+        ),
+      )
+    } finally {
+      setCargando(
+        false,
+      )
     }
   }
+
 
   useEffect(() => {
     void cargarTodo()
   }, [])
 
+
+  // ==========================================================
+  // FILTRO
+  // ==========================================================
+
   const pendientesFiltradas =
     useMemo(() => {
       const termino =
-        busqueda.trim().toLowerCase()
+        busqueda
+          .trim()
+          .toLowerCase()
 
       if (!termino) {
         return comprasPendientes
@@ -275,27 +541,60 @@ export default function PurchaseReceptionModule() {
             compra.fechaCompra,
             compra.proveedorCodigo,
             compra.proveedorNombre,
-            nombreTipoCompra(compra.tipoCompra),
+            nombreTipoCompra(
+              compra.tipoCompra,
+            ),
           ]
             .join(' ')
             .toLowerCase()
 
-          return texto.includes(termino)
+          return texto.includes(
+            termino,
+          )
         },
       )
-    }, [comprasPendientes, busqueda])
+    }, [
+      comprasPendientes,
+      busqueda,
+    ])
+
+
+  // ==========================================================
+  // ABRIR RECEPCIÓN
+  // SOLO ALMACÉN
+  // ==========================================================
 
   async function abrirRecepcion(
     compra: CompraPendiente,
   ) {
+    if (
+      !puedeGestionarRecepcion
+    ) {
+      setError(
+        'Este perfil tiene acceso de consulta y no puede registrar recepciones.',
+      )
+
+      return
+    }
+
+
     try {
-      setCargandoDetalle(true)
+      setCargandoDetalle(
+        true,
+      )
+
       setError('')
       setMensaje('')
 
-      const { data, error } =
+
+      const {
+        data,
+        error,
+      } =
         await supabase
-          .from('detalle_compras')
+          .from(
+            'detalle_compras',
+          )
           .select(`
             id,
             producto_id,
@@ -308,128 +607,257 @@ export default function PurchaseReceptionModule() {
               unidad_medida
             )
           `)
-          .eq('compra_id', compra.id)
-          .order('id', {
-            ascending: true,
-          })
+          .eq(
+            'compra_id',
+            compra.id,
+          )
+          .order(
+            'id',
+            {
+              ascending:
+                true,
+            },
+          )
+
 
       if (error) {
         throw error
       }
 
-      const detalle =
-        (data ?? []) as unknown as DetalleRespuesta[]
 
-      if (detalle.length === 0) {
+      const detalle =
+        (
+          data ??
+          []
+        ) as unknown as DetalleRespuesta[]
+
+
+      if (
+        detalle.length ===
+        0
+      ) {
         throw new Error(
           'La compra no contiene productos para recibir.',
         )
       }
 
+
       const itemsRecepcion =
         detalle.map(
-          (item): ItemRecepcion => {
+          (
+            item,
+          ): ItemRecepcion => {
             const producto =
-              obtenerProducto(item.productos)
+              obtenerProducto(
+                item.productos,
+              )
 
             const cantidad =
-              Number(item.cantidad) || 0
+              Number(
+                item.cantidad,
+              ) || 0
 
             return {
-              detalleId: item.id,
-              productoId: item.producto_id,
-              codigo: producto?.codigo ?? '—',
-              nombre: producto?.nombre ?? 'Producto',
-              unidad: producto?.unidad_medida ?? '—',
-              cantidadComprada: cantidad,
-              cantidadRecibida: String(cantidad),
+              detalleId:
+                item.id,
+
+              productoId:
+                item.producto_id,
+
+              codigo:
+                producto
+                  ?.codigo ??
+                '—',
+
+              nombre:
+                producto
+                  ?.nombre ??
+                'Producto',
+
+              unidad:
+                producto
+                  ?.unidad_medida ??
+                '—',
+
+              cantidadComprada:
+                cantidad,
+
+              cantidadRecibida:
+                String(
+                  cantidad,
+                ),
             }
           },
         )
 
-      setCompraSeleccionada(compra)
-      setItems(itemsRecepcion)
-      setFechaRecepcion(fechaLocalActual())
+
+      setCompraSeleccionada(
+        compra,
+      )
+
+      setItems(
+        itemsRecepcion,
+      )
+
+      setFechaRecepcion(
+        fechaLocalActual(),
+      )
+
       setObservaciones('')
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'No fue posible cargar el detalle de la compra.',
+        obtenerMensajeError(
+          err,
+          'No fue posible cargar el detalle de la compra.',
+        ),
       )
     } finally {
-      setCargandoDetalle(false)
+      setCargandoDetalle(
+        false,
+      )
     }
   }
 
-  function cerrarRecepcion() {
-    if (guardando) return
 
-    setCompraSeleccionada(null)
+  // ==========================================================
+  // CERRAR RECEPCIÓN
+  // ==========================================================
+
+  function cerrarRecepcion() {
+    if (guardando) {
+      return
+    }
+
+    setCompraSeleccionada(
+      null,
+    )
+
     setItems([])
     setObservaciones('')
     setError('')
   }
 
+
+  // ==========================================================
+  // ACTUALIZAR CANTIDAD
+  // ==========================================================
+
   function actualizarCantidad(
     productoId: number,
     valor: string,
   ) {
+    if (
+      !puedeGestionarRecepcion
+    ) {
+      return
+    }
+
     setItems(
       actuales =>
         actuales.map(
           item =>
-            item.productoId === productoId
+            item.productoId ===
+            productoId
               ? {
                   ...item,
-                  cantidadRecibida: valor,
+                  cantidadRecibida:
+                    valor,
                 }
               : item,
         ),
     )
   }
 
+
+  // ==========================================================
+  // REGISTRAR RECEPCIÓN
+  // SOLO ALMACÉN
+  // ==========================================================
+
   async function registrarRecepcion() {
-    if (!compraSeleccionada) return
+    if (
+      !puedeGestionarRecepcion
+    ) {
+      setError(
+        'Este perfil no tiene permisos para registrar recepciones.',
+      )
+
+      return
+    }
+
+
+    if (
+      !compraSeleccionada
+    ) {
+      return
+    }
+
 
     try {
-      setGuardando(true)
+      setGuardando(
+        true,
+      )
+
       setError('')
       setMensaje('')
 
-      if (!fechaRecepcion) {
+
+      if (
+        !fechaRecepcion
+      ) {
         throw new Error(
           'Seleccione la fecha de recepción.',
         )
       }
 
-      if (items.length === 0) {
+
+      if (
+        items.length ===
+        0
+      ) {
         throw new Error(
           'No hay productos para recibir.',
         )
       }
 
-      for (const item of items) {
+
+      for (
+        const item of
+        items
+      ) {
         const cantidadRecibida =
-          Number(item.cantidadRecibida)
+          Number(
+            item.cantidadRecibida,
+          )
+
 
         if (
-          !Number.isFinite(cantidadRecibida) ||
-          cantidadRecibida <= 0
+          !Number.isFinite(
+            cantidadRecibida,
+          ) ||
+          cantidadRecibida <=
+            0
         ) {
           throw new Error(
             `La cantidad recibida de ${item.nombre} debe ser mayor que cero.`,
           )
         }
 
+
         if (
-          item.unidad.trim().toLowerCase() === 'unidad' &&
-          !Number.isInteger(cantidadRecibida)
+          item.unidad
+            .trim()
+            .toLowerCase() ===
+            'unidad' &&
+          !Number.isInteger(
+            cantidadRecibida,
+          )
         ) {
           throw new Error(
             `La cantidad recibida de ${item.nombre} debe ser un número entero.`,
           )
         }
+
 
         if (
           cantidadRecibida !==
@@ -441,61 +869,101 @@ export default function PurchaseReceptionModule() {
         }
       }
 
-      const itemsRpc =
-        items.map(item => ({
-          producto_id: item.productoId,
-          cantidad_recibida:
-            Number(item.cantidadRecibida),
-        }))
 
-      const { data, error } =
+      const itemsRpc =
+        items.map(
+          item => ({
+            producto_id:
+              item.productoId,
+
+            cantidad_recibida:
+              Number(
+                item.cantidadRecibida,
+              ),
+          }),
+        )
+
+
+      const {
+        data,
+        error,
+      } =
         await supabase.rpc(
           'registrar_recepcion_compra',
           {
             p_compra_id:
               compraSeleccionada.id,
-            p_items: itemsRpc,
+
+            p_items:
+              itemsRpc,
+
             p_fecha_recepcion:
               fechaRecepcion,
+
             p_observaciones:
-              observaciones.trim() || null,
+              observaciones
+                .trim() ||
+              null,
           },
         )
+
 
       if (error) {
         throw error
       }
 
+
       const resultado =
-        Array.isArray(data)
+        Array.isArray(
+          data,
+        )
           ? data[0]
           : data
 
+
       const numero =
-        resultado?.numero ?? 'registrada'
+        resultado
+          ?.numero ??
+        'registrada'
+
 
       const compraNumero =
-        compraSeleccionada.numero
+        compraSeleccionada
+          .numero
 
-      setCompraSeleccionada(null)
+
+      setCompraSeleccionada(
+        null,
+      )
+
       setItems([])
       setObservaciones('')
 
+
       await cargarPendientes()
+
 
       setMensaje(
         `Recepción ${numero} registrada correctamente para la compra ${compraNumero}.`,
       )
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'No fue posible registrar la recepción.',
+        obtenerMensajeError(
+          err,
+          'No fue posible registrar la recepción.',
+        ),
       )
     } finally {
-      setGuardando(false)
+      setGuardando(
+        false,
+      )
     }
   }
+
+
+  // ==========================================================
+  // CARGANDO
+  // ==========================================================
 
   if (cargando) {
     return (
@@ -507,8 +975,18 @@ export default function PurchaseReceptionModule() {
     )
   }
 
+
+  // ==========================================================
+  // INTERFAZ
+  // ==========================================================
+
   return (
     <div className="inventory-module">
+
+      {/* ====================================================
+          ENCABEZADO
+      ==================================================== */}
+
       <div className="inventory-toolbar">
         <div>
           <span className="panel-label">
@@ -520,18 +998,28 @@ export default function PurchaseReceptionModule() {
           </h2>
 
           <p>
-            Verifica las compras pendientes y confirma la entrada física de los productos al inventario.
+            {puedeGestionarRecepcion
+              ? 'Verifica las compras pendientes y confirma la entrada física de los productos al inventario.'
+              : 'Consulta las compras autorizadas pendientes de recepción.'}
           </p>
         </div>
+
 
         <button
           type="button"
           className="secondary-button"
-          onClick={() => void cargarTodo()}
+          onClick={() =>
+            void cargarTodo()
+          }
         >
           ↻ Actualizar
         </button>
       </div>
+
+
+      {/* ====================================================
+          ESTADÍSTICAS
+      ==================================================== */}
 
       <div className="inventory-stats">
         <div className="inventory-stat-card">
@@ -540,48 +1028,66 @@ export default function PurchaseReceptionModule() {
           </span>
 
           <strong>
-            {comprasPendientes.length}
+            {
+              comprasPendientes.length
+            }
           </strong>
 
           <small>
-            compras por recibir
+            {puedeGestionarRecepcion
+              ? 'compras por recibir'
+              : 'compras autorizadas'}
           </small>
         </div>
 
-        <div className="inventory-stat-card">
-          <span>
-            COMPRA SELECCIONADA
-          </span>
 
-          <strong
-            style={{
-              fontSize: '20px',
-            }}
-          >
-            {compraSeleccionada
-              ? compraSeleccionada.numero
-              : '—'}
-          </strong>
+        {puedeGestionarRecepcion && (
+          <>
+            <div className="inventory-stat-card">
+              <span>
+                COMPRA SELECCIONADA
+              </span>
 
-          <small>
-            para verificación
-          </small>
-        </div>
+              <strong
+                style={{
+                  fontSize:
+                    '20px',
+                }}
+              >
+                {compraSeleccionada
+                  ? compraSeleccionada.numero
+                  : '—'}
+              </strong>
 
-        <div className="inventory-stat-card">
-          <span>
-            PRODUCTOS A RECIBIR
-          </span>
+              <small>
+                para verificación
+              </small>
+            </div>
 
-          <strong>
-            {items.length}
-          </strong>
 
-          <small>
-            líneas de producto
-          </small>
-        </div>
+            <div className="inventory-stat-card">
+              <span>
+                PRODUCTOS A RECIBIR
+              </span>
+
+              <strong>
+                {
+                  items.length
+                }
+              </strong>
+
+              <small>
+                líneas de producto
+              </small>
+            </div>
+          </>
+        )}
       </div>
+
+
+      {/* ====================================================
+          MENSAJES
+      ==================================================== */}
 
       {mensaje && (
         <div className="success-message">
@@ -589,298 +1095,457 @@ export default function PurchaseReceptionModule() {
         </div>
       )}
 
+
       {error && (
         <div className="error-message">
           {error}
         </div>
       )}
 
-      {compraSeleccionada && (
-        <div className="inventory-toolbar">
-          <div
-            style={{
-              width: '100%',
-            }}
-          >
+
+      {/* ====================================================
+          FORMULARIO DE RECEPCIÓN
+          SOLO ALMACÉN
+      ==================================================== */}
+
+      {puedeGestionarRecepcion &&
+        compraSeleccionada && (
+          <div className="inventory-toolbar">
             <div
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                gap: '20px',
-                marginBottom: '22px',
+                width:
+                  '100%',
               }}
             >
-              <div>
-                <span className="panel-label">
-                  REGISTRAR RECEPCIÓN
-                </span>
+              <div
+                style={{
+                  display:
+                    'flex',
+                  justifyContent:
+                    'space-between',
+                  alignItems:
+                    'flex-start',
+                  gap:
+                    '20px',
+                  marginBottom:
+                    '22px',
+                }}
+              >
+                <div>
+                  <span className="panel-label">
+                    REGISTRAR RECEPCIÓN
+                  </span>
 
-                <h2>
-                  {compraSeleccionada.numero}
-                </h2>
+                  <h2>
+                    {
+                      compraSeleccionada.numero
+                    }
+                  </h2>
 
-                <p>
-                  {compraSeleccionada.proveedorNombre}
-                  {' · '}
-                  {nombreTipoCompra(
-                    compraSeleccionada.tipoCompra,
-                  )}
-                </p>
+                  <p>
+                    {
+                      compraSeleccionada.proveedorNombre
+                    }
+
+                    {' · '}
+
+                    {nombreTipoCompra(
+                      compraSeleccionada.tipoCompra,
+                    )}
+                  </p>
+                </div>
+
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={
+                    cerrarRecepcion
+                  }
+                  disabled={
+                    guardando
+                  }
+                >
+                  ✕ Cerrar
+                </button>
               </div>
 
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={cerrarRecepcion}
-                disabled={guardando}
+
+              <div
+                style={{
+                  display:
+                    'grid',
+                  gridTemplateColumns:
+                    '1fr 2fr',
+                  gap:
+                    '16px',
+                  marginBottom:
+                    '18px',
+                }}
               >
-                ✕ Cerrar
-              </button>
-            </div>
+                <label>
+                  Fecha de recepción *
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 2fr',
-                gap: '16px',
-                marginBottom: '18px',
-              }}
-            >
-              <label>
-                Fecha de recepción *
+                  <input
+                    type="date"
+                    value={
+                      fechaRecepcion
+                    }
+                    onChange={
+                      event =>
+                        setFechaRecepcion(
+                          event
+                            .target
+                            .value,
+                        )
+                    }
+                  />
+                </label>
 
-                <input
-                  type="date"
-                  value={fechaRecepcion}
-                  onChange={event =>
-                    setFechaRecepcion(
-                      event.target.value,
-                    )
-                  }
-                />
-              </label>
 
-              <label>
-                Observaciones
+                <label>
+                  Observaciones
 
-                <input
-                  type="text"
-                  value={observaciones}
-                  onChange={event =>
-                    setObservaciones(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Ej. Mercadería recibida en buen estado"
-                />
-              </label>
-            </div>
+                  <input
+                    type="text"
+                    value={
+                      observaciones
+                    }
+                    onChange={
+                      event =>
+                        setObservaciones(
+                          event
+                            .target
+                            .value,
+                        )
+                    }
+                    placeholder="Ej. Mercadería recibida en buen estado"
+                  />
+                </label>
+              </div>
 
-            <div className="inventory-table-wrapper">
-              <table className="inventory-table">
-                <thead>
-                  <tr>
-                    <th>CÓDIGO</th>
-                    <th>PRODUCTO</th>
-                    <th>UNIDAD</th>
-                    <th>CANTIDAD COMPRADA</th>
-                    <th>CANTIDAD RECIBIDA</th>
-                    <th>VERIFICACIÓN</th>
-                  </tr>
-                </thead>
 
-                <tbody>
-                  {cargandoDetalle && (
+              <div className="inventory-table-wrapper">
+                <table className="inventory-table">
+                  <thead>
                     <tr>
-                      <td
-                        colSpan={6}
-                        style={{
-                          textAlign: 'center',
-                          padding: '30px',
-                        }}
-                      >
-                        Cargando detalle...
-                      </td>
+                      <th>
+                        CÓDIGO
+                      </th>
+
+                      <th>
+                        PRODUCTO
+                      </th>
+
+                      <th>
+                        UNIDAD
+                      </th>
+
+                      <th>
+                        CANTIDAD COMPRADA
+                      </th>
+
+                      <th>
+                        CANTIDAD RECIBIDA
+                      </th>
+
+                      <th>
+                        VERIFICACIÓN
+                      </th>
                     </tr>
-                  )}
+                  </thead>
 
-                  {!cargandoDetalle &&
-                    items.map(item => {
-                      const recibida =
-                        Number(item.cantidadRecibida)
 
-                      const coincide =
-                        Number.isFinite(recibida) &&
-                        recibida ===
-                          item.cantidadComprada
+                  <tbody>
+                    {cargandoDetalle && (
+                      <tr>
+                        <td
+                          colSpan={
+                            6
+                          }
+                          style={{
+                            textAlign:
+                              'center',
+                            padding:
+                              '30px',
+                          }}
+                        >
+                          Cargando detalle...
+                        </td>
+                      </tr>
+                    )}
 
-                      return (
-                        <tr key={item.detalleId}>
-                          <td>
-                            {item.codigo}
-                          </td>
 
-                          <td>
-                            <strong>
-                              {item.nombre}
-                            </strong>
-                          </td>
+                    {!cargandoDetalle &&
+                      items.map(
+                        item => {
+                          const recibida =
+                            Number(
+                              item.cantidadRecibida,
+                            )
 
-                          <td>
-                            {item.unidad}
-                          </td>
+                          const coincide =
+                            Number.isFinite(
+                              recibida,
+                            ) &&
+                            recibida ===
+                              item.cantidadComprada
 
-                          <td>
-                            {item.cantidadComprada}
-                          </td>
 
-                          <td>
-                            <input
-                              type="number"
-                              min={
-                                item.unidad
-                                  .trim()
-                                  .toLowerCase() ===
-                                'unidad'
-                                  ? '1'
-                                  : '0.01'
-                              }
-                              step={
-                                item.unidad
-                                  .trim()
-                                  .toLowerCase() ===
-                                'unidad'
-                                  ? '1'
-                                  : '0.01'
-                              }
-                              value={
-                                item.cantidadRecibida
-                              }
-                              onChange={event =>
-                                actualizarCantidad(
-                                  item.productoId,
-                                  event.target.value,
-                                )
-                              }
-                              style={{
-                                width: '110px',
-                              }}
-                            />
-                          </td>
-
-                          <td>
-                            <span
-                              className={
-                                coincide
-                                  ? 'status-badge status-success'
-                                  : 'status-badge status-danger'
+                          return (
+                            <tr
+                              key={
+                                item.detalleId
                               }
                             >
-                              {coincide
-                                ? 'Coincide'
-                                : 'No coincide'}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                </tbody>
-              </table>
-            </div>
+                              <td>
+                                {
+                                  item.codigo
+                                }
+                              </td>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '10px',
-                marginTop: '20px',
-              }}
-            >
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={cerrarRecepcion}
-                disabled={guardando}
-              >
-                Cancelar
-              </button>
 
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() =>
-                  void registrarRecepcion()
-                }
-                disabled={
-                  guardando ||
-                  cargandoDetalle
-                }
+                              <td>
+                                <strong>
+                                  {
+                                    item.nombre
+                                  }
+                                </strong>
+                              </td>
+
+
+                              <td>
+                                {
+                                  item.unidad
+                                }
+                              </td>
+
+
+                              <td>
+                                {
+                                  item.cantidadComprada
+                                }
+                              </td>
+
+
+                              <td>
+                                <input
+                                  type="number"
+                                  min={
+                                    item.unidad
+                                      .trim()
+                                      .toLowerCase() ===
+                                    'unidad'
+                                      ? '1'
+                                      : '0.01'
+                                  }
+                                  step={
+                                    item.unidad
+                                      .trim()
+                                      .toLowerCase() ===
+                                    'unidad'
+                                      ? '1'
+                                      : '0.01'
+                                  }
+                                  value={
+                                    item.cantidadRecibida
+                                  }
+                                  onChange={
+                                    event =>
+                                      actualizarCantidad(
+                                        item.productoId,
+                                        event
+                                          .target
+                                          .value,
+                                      )
+                                  }
+                                  style={{
+                                    width:
+                                      '110px',
+                                  }}
+                                />
+                              </td>
+
+
+                              <td>
+                                <span
+                                  className={
+                                    coincide
+                                      ? 'status-badge status-success'
+                                      : 'status-badge status-danger'
+                                  }
+                                >
+                                  {coincide
+                                    ? 'Coincide'
+                                    : 'No coincide'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        },
+                      )}
+                  </tbody>
+                </table>
+              </div>
+
+
+              <div
+                style={{
+                  display:
+                    'flex',
+                  justifyContent:
+                    'flex-end',
+                  gap:
+                    '10px',
+                  marginTop:
+                    '20px',
+                }}
               >
-                {guardando
-                  ? 'Registrando...'
-                  : 'Confirmar recepción'}
-              </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={
+                    cerrarRecepcion
+                  }
+                  disabled={
+                    guardando
+                  }
+                >
+                  Cancelar
+                </button>
+
+
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() =>
+                    void registrarRecepcion()
+                  }
+                  disabled={
+                    guardando ||
+                    cargandoDetalle
+                  }
+                >
+                  {guardando
+                    ? 'Registrando...'
+                    : 'Confirmar recepción'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+
+      {/* ====================================================
+          BUSCADOR
+      ==================================================== */}
 
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '20px',
+          display:
+            'flex',
+          alignItems:
+            'center',
+          justifyContent:
+            'space-between',
+          gap:
+            '20px',
         }}
       >
         <input
           type="search"
           className="inventory-search"
           placeholder="⌕  Buscar compra, proveedor, tipo..."
-          value={busqueda}
-          onChange={event =>
-            setBusqueda(
-              event.target.value,
-            )
+          value={
+            busqueda
+          }
+          onChange={
+            event =>
+              setBusqueda(
+                event
+                  .target
+                  .value,
+              )
           }
         />
 
+
         <span
           style={{
-            fontSize: '11px',
-            color: '#7b8494',
+            fontSize:
+              '11px',
+            color:
+              '#7b8494',
           }}
         >
-          {pendientesFiltradas.length}{' '}
-          {pendientesFiltradas.length === 1
+          {
+            pendientesFiltradas.length
+          }{' '}
+
+          {pendientesFiltradas.length ===
+          1
             ? 'pendiente'
             : 'pendientes'}
         </span>
       </div>
 
+
+      {/* ====================================================
+          TABLA DE RECEPCIONES PENDIENTES
+      ==================================================== */}
+
       <div className="inventory-table-wrapper">
         <table className="inventory-table">
           <thead>
             <tr>
-              <th>COMPRA</th>
-              <th>FECHA</th>
-              <th>TIPO</th>
-              <th>PROVEEDOR</th>
-              <th>TOTAL</th>
-              <th>ESTADO</th>
-              <th>ACCIÓN</th>
+              <th>
+                COMPRA
+              </th>
+
+              <th>
+                FECHA
+              </th>
+
+              <th>
+                TIPO
+              </th>
+
+              <th>
+                PROVEEDOR
+              </th>
+
+              <th>
+                TOTAL
+              </th>
+
+              <th>
+                ESTADO
+              </th>
+
+              {puedeGestionarRecepcion && (
+                <th>
+                  ACCIÓN
+                </th>
+              )}
             </tr>
           </thead>
 
+
           <tbody>
-            {pendientesFiltradas.length === 0 && (
+            {pendientesFiltradas.length ===
+              0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={
+                    puedeGestionarRecepcion
+                      ? 7
+                      : 6
+                  }
                   style={{
-                    textAlign: 'center',
-                    padding: '40px',
+                    textAlign:
+                      'center',
+                    padding:
+                      '40px',
                   }}
                 >
                   No hay recepciones pendientes.
@@ -888,65 +1553,95 @@ export default function PurchaseReceptionModule() {
               </tr>
             )}
 
-            {pendientesFiltradas.map(compra => (
-              <tr key={compra.id}>
-                <td>
-                  <strong>
-                    {compra.numero}
-                  </strong>
-                </td>
 
-                <td>
-                  {compra.fechaCompra}
-                </td>
+            {pendientesFiltradas.map(
+              compra => (
+                <tr
+                  key={
+                    compra.id
+                  }
+                >
+                  <td>
+                    <strong>
+                      {
+                        compra.numero
+                      }
+                    </strong>
+                  </td>
 
-                <td>
-                  {nombreTipoCompra(
-                    compra.tipoCompra,
-                  )}
-                </td>
 
-                <td>
-                  <strong>
-                    {compra.proveedorNombre}
-                  </strong>
-
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      color: '#8a93a3',
-                      marginTop: '3px',
-                    }}
-                  >
-                    {compra.proveedorCodigo}
-                  </div>
-                </td>
-
-                <td>
-                  <strong>
-                    {moneda(compra.total)}
-                  </strong>
-                </td>
-
-                <td>
-                  <span className="status-badge status-danger">
-                    Pendiente
-                  </span>
-                </td>
-
-                <td>
-                  <button
-                    type="button"
-                    className="primary-button"
-                    onClick={() =>
-                      void abrirRecepcion(compra)
+                  <td>
+                    {
+                      compra.fechaCompra
                     }
-                  >
-                    Recibir
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+
+
+                  <td>
+                    {nombreTipoCompra(
+                      compra.tipoCompra,
+                    )}
+                  </td>
+
+
+                  <td>
+                    <strong>
+                      {
+                        compra.proveedorNombre
+                      }
+                    </strong>
+
+                    <div
+                      style={{
+                        fontSize:
+                          '10px',
+                        color:
+                          '#8a93a3',
+                        marginTop:
+                          '3px',
+                      }}
+                    >
+                      {
+                        compra.proveedorCodigo
+                      }
+                    </div>
+                  </td>
+
+
+                  <td>
+                    <strong>
+                      {moneda(
+                        compra.total,
+                      )}
+                    </strong>
+                  </td>
+
+
+                  <td>
+                    <span className="status-badge status-danger">
+                      Pendiente
+                    </span>
+                  </td>
+
+
+                  {puedeGestionarRecepcion && (
+                    <td>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() =>
+                          void abrirRecepcion(
+                            compra,
+                          )
+                        }
+                      >
+                        Recibir
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       </div>

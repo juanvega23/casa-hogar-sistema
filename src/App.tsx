@@ -122,11 +122,9 @@ function getMenuIcon(id: string) {
       'M12 3v2 M12 19v2 M3 12h2 M19 12h2 M5.6 5.6 7 7 M17 17l1.4 1.4 M18.4 5.6 17 7 M7 17l-1.4 1.4 M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z',
   }
 
-  const key =
-    id.replace(
-      '-consulta',
-      '',
-    )
+  const key = id
+    .replace('-consulta', '')
+    .replace('-modulo', '')
 
   return (
     <svg
@@ -191,6 +189,11 @@ function App() {
     setModuloActivo,
   ] = useState('')
 
+  const [
+    gruposAbiertos,
+    setGruposAbiertos,
+  ] = useState<Record<string, boolean>>({})
+
 
   // ===================================================
   // ROL Y MENÚ ACTUAL
@@ -206,12 +209,38 @@ function App() {
         ] ?? []
       : []
 
+  /*
+   * Los elementos con children son grupos.
+   * Los elementos sin children son pantallas navegables.
+   */
+  const itemsNavegables =
+    menu.flatMap(item =>
+      item.children?.length
+        ? item.children
+        : [item],
+    )
+
   const moduloSeleccionado =
-    menu.find(
+    itemsNavegables.find(
       item =>
-        item.id ===
-        moduloActivo,
-    ) ?? menu[0]
+        item.id === moduloActivo,
+    ) ??
+    itemsNavegables[0]
+
+  const grupoSeleccionado =
+    menu.find(item =>
+      item.children?.some(
+        child =>
+          child.id ===
+          moduloSeleccionado?.id,
+      ),
+    ) ?? null
+
+  const esConsulta =
+    moduloSeleccionado
+      ?.id
+      .endsWith('-consulta') ??
+    false
 
 
   // ===================================================
@@ -238,6 +267,21 @@ function App() {
     'compras-consulta',
   ]
 
+  const modulosMovimientos = [
+    'movimientos',
+    'movimientos-consulta',
+  ]
+
+  const modulosRecepciones = [
+    'recepciones',
+    'recepciones-consulta',
+  ]
+
+  const modulosDevoluciones = [
+    'devoluciones',
+    'devoluciones-consulta',
+  ]
+
   const mostrarInventario =
     moduloSeleccionado
       ? modulosInventario.includes(
@@ -262,6 +306,27 @@ function App() {
   const mostrarCompras =
     moduloSeleccionado
       ? modulosCompras.includes(
+          moduloSeleccionado.id,
+        )
+      : false
+
+  const mostrarMovimientos =
+    moduloSeleccionado
+      ? modulosMovimientos.includes(
+          moduloSeleccionado.id,
+        )
+      : false
+
+  const mostrarRecepciones =
+    moduloSeleccionado
+      ? modulosRecepciones.includes(
+          moduloSeleccionado.id,
+        )
+      : false
+
+  const mostrarDevoluciones =
+    moduloSeleccionado
+      ? modulosDevoluciones.includes(
           moduloSeleccionado.id,
         )
       : false
@@ -305,6 +370,7 @@ function App() {
             if (!session) {
               setPerfil(null)
               setModuloActivo('')
+              setGruposAbiertos({})
               setCargando(false)
             }
           },
@@ -409,6 +475,8 @@ function App() {
       }
 
       setPerfil(perfilData)
+      setModuloActivo('')
+      setGruposAbiertos({})
       setMensaje('')
       setCargando(false)
     }
@@ -481,7 +549,31 @@ function App() {
     setEmail('')
     setPassword('')
     setModuloActivo('')
+    setGruposAbiertos({})
     setMensaje('')
+  }
+
+
+  // ===================================================
+  // CONTROL DEL MENÚ DESPLEGABLE
+  // ===================================================
+
+  function alternarGrupo(
+    id: string,
+    abiertoPorDefecto: boolean,
+  ) {
+    setGruposAbiertos(
+      estadoActual => ({
+        ...estadoActual,
+
+        [id]:
+          estadoActual[id] ??
+          abiertoPorDefecto
+            ? !(estadoActual[id] ??
+                abiertoPorDefecto)
+            : true,
+      }),
+    )
   }
 
 
@@ -512,8 +604,13 @@ function App() {
 
     if (mostrarProductos) {
       return (
-        <ProductsModule />
-      )
+    <ProductsModule
+      roleCode={
+        rolActual?.codigo ??
+        ''
+      }
+    />
+  )
     }
 
 
@@ -521,10 +618,7 @@ function App() {
     // MOVIMIENTOS
     // -------------------------------------------------
 
-    if (
-      moduloSeleccionado.id ===
-      'movimientos'
-    ) {
+    if (mostrarMovimientos) {
       return (
         <MovementsModule />
       )
@@ -533,6 +627,7 @@ function App() {
 
     // -------------------------------------------------
     // REPOSICIÓN
+    // Se conserva para futura integración.
     // -------------------------------------------------
 
     if (
@@ -593,12 +688,14 @@ function App() {
     // RECEPCIÓN DE PRODUCTOS
     // -------------------------------------------------
 
-    if (
-      moduloSeleccionado.id ===
-      'recepciones'
-    ) {
+    if (mostrarRecepciones) {
       return (
-        <PurchaseReceptionModule />
+        <PurchaseReceptionModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
       )
     }
 
@@ -607,12 +704,14 @@ function App() {
     // DEVOLUCIONES DE COMPRA
     // -------------------------------------------------
 
-    if (
-      moduloSeleccionado.id ===
-      'devoluciones'
-    ) {
+    if (mostrarDevoluciones) {
       return (
-        <PurchaseReturnsModule />
+        <PurchaseReturnsModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
       )
     }
 
@@ -623,7 +722,12 @@ function App() {
 
     if (mostrarProveedores) {
       return (
-        <SuppliersModule />
+        <SuppliersModule
+  roleCode={
+    rolActual?.codigo ??
+    ''
+  }
+/>
       )
     }
 
@@ -637,7 +741,7 @@ function App() {
       'dashboard'
     ) {
       const accesos =
-        menu
+        itemsNavegables
           .filter(
             item =>
               item.id !==
@@ -658,14 +762,14 @@ function App() {
           <section className="dashboard-hero">
             <div className="dashboard-hero-content">
               <span className="dashboard-kicker">
-                <span />
-                {' '}
+                <span />{' '}
                 CASA HOGAR · PANEL DE CONTROL
               </span>
 
               <h2>
                 Todo tu trabajo,
                 <br />
+
                 <em>
                   en un solo lugar.
                 </em>
@@ -687,6 +791,7 @@ function App() {
                 >
                   Abrir{' '}
                   {principal.nombre}{' '}
+
                   <span aria-hidden="true">
                     ↗
                   </span>
@@ -704,6 +809,7 @@ function App() {
 
               <div className="hero-graphic-center">
                 CH
+
                 <span>
                   ◆
                 </span>
@@ -825,8 +931,7 @@ function App() {
                 </span>
 
                 <strong className="dashboard-profile-active">
-                  <i />
-                  {' '}
+                  <i />{' '}
                   Activo
                 </strong>
               </div>
@@ -865,9 +970,11 @@ function App() {
 
                 <p className="card-module-desc">
                   Habilitado para el perfil de{' '}
+
                   <strong>
                     {rolActual?.nombre}
                   </strong>
+
                   . Las funciones se incorporarán conforme avance el desarrollo.
                 </p>
               </div>
@@ -902,11 +1009,11 @@ function App() {
             </div>
 
             <div className="card-count">
-              {menu.length}
+              {itemsNavegables.length}
             </div>
 
             <div className="mod-list">
-              {menu.map(
+              {itemsNavegables.map(
                 item => (
                   <div
                     key={
@@ -957,11 +1064,13 @@ function App() {
 
               <p className="workspace-p">
                 Aquí se integrarán las funciones de{' '}
+
                 <strong>
                   {
                     moduloSeleccionado.nombre
                   }
                 </strong>{' '}
+
                 cuando corresponda dentro del plan de desarrollo.
               </p>
             </div>
@@ -1007,6 +1116,7 @@ function App() {
           <div className="auth-showcase-brand">
             <span className="showcase-mark">
               CH
+
               <span>
                 ◆
               </span>
@@ -1025,7 +1135,9 @@ function App() {
             <h1>
               Un espacio para
               <br />
+
               hacer que todo{' '}
+
               <em>
                 funcione mejor.
               </em>
@@ -1149,6 +1261,7 @@ function App() {
                 className="auth-btn"
               >
                 Ingresar al sistema{' '}
+
                 <span aria-hidden="true">
                   →
                 </span>
@@ -1192,6 +1305,7 @@ function App() {
         <div className="nav-brand">
           <div className="nav-mark">
             CH
+
             <span>
               ◆
             </span>
@@ -1218,47 +1332,171 @@ function App() {
         >
           {menu.map(
             item => {
-              const activo =
-                moduloSeleccionado
-                  ?.id ===
-                item.id
+              const tieneSubmenu =
+                Boolean(
+                  item.children?.length,
+                )
+
+              /*
+               * ELEMENTO NORMAL
+               */
+              if (!tieneSubmenu) {
+                const activo =
+                  moduloSeleccionado
+                    ?.id ===
+                  item.id
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={
+                      activo
+                        ? 'nav-item nav-item--on'
+                        : 'nav-item'
+                    }
+                    onClick={() => {
+                      setModuloActivo(
+                        item.id,
+                      )
+
+                      setMenuAbierto(
+                        false,
+                      )
+                    }}
+                    aria-current={
+                      activo
+                        ? 'page'
+                        : undefined
+                    }
+                  >
+                    <span className="nav-icon">
+                      {getMenuIcon(
+                        item.id,
+                      )}
+                    </span>
+
+                    <span>
+                      {item.nombre}
+                    </span>
+                  </button>
+                )
+              }
+
+              /*
+               * GRUPO DESPLEGABLE
+               */
+              const grupoActivo =
+                item.children?.some(
+                  child =>
+                    child.id ===
+                    moduloSeleccionado
+                      ?.id,
+                ) ?? false
+
+              const estaAbierto =
+                gruposAbiertos[
+                  item.id
+                ] ??
+                grupoActivo
 
               return (
-                <button
-                  key={
-                    item.id
-                  }
-                  type="button"
-                  className={
-                    activo
-                      ? 'nav-item nav-item--on'
-                      : 'nav-item'
-                  }
-                  onClick={() => {
-                    setModuloActivo(
-                      item.id,
-                    )
-
-                    setMenuAbierto(
-                      false,
-                    )
-                  }}
-                  aria-current={
-                    activo
-                      ? 'page'
-                      : undefined
-                  }
+                <div
+                  className="nav-group"
+                  key={item.id}
                 >
-                  <span className="nav-icon">
-                    {getMenuIcon(
-                      item.id,
-                    )}
-                  </span>
+                  <button
+                    type="button"
+                    className={
+                      grupoActivo
+                        ? 'nav-item nav-item--group nav-item--on'
+                        : 'nav-item nav-item--group'
+                    }
+                    onClick={() =>
+                      alternarGrupo(
+                        item.id,
+                        grupoActivo,
+                      )
+                    }
+                    aria-expanded={
+                      estaAbierto
+                    }
+                  >
+                    <span className="nav-icon">
+                      {getMenuIcon(
+                        item.id,
+                      )}
+                    </span>
 
-                  <span>
-                    {item.nombre}
-                  </span>
-                </button>
+                    <span>
+                      {item.nombre}
+                    </span>
+
+                    <span
+                      className={`nav-chevron ${
+                        estaAbierto
+                          ? 'nav-chevron--open'
+                          : ''
+                      }`}
+                      aria-hidden="true"
+                    >
+                      ›
+                    </span>
+                  </button>
+
+                  {estaAbierto && (
+                    <div className="nav-submenu">
+                      {item.children?.map(
+                        child => {
+                          const activo =
+                            moduloSeleccionado
+                              ?.id ===
+                            child.id
+
+                          return (
+                            <button
+                              key={
+                                child.id
+                              }
+                              type="button"
+                              className={
+                                activo
+                                  ? 'nav-item nav-subitem nav-item--on'
+                                  : 'nav-item nav-subitem'
+                              }
+                              onClick={() => {
+                                setModuloActivo(
+                                  child.id,
+                                )
+
+                                setMenuAbierto(
+                                  false,
+                                )
+                              }}
+                              aria-current={
+                                activo
+                                  ? 'page'
+                                  : undefined
+                              }
+                            >
+                              <span className="nav-icon">
+                                {getMenuIcon(
+                                  child.id,
+                                )}
+                              </span>
+
+                              <span>
+                                {
+                                  child.nombre
+                                }
+                              </span>
+                            </button>
+                          )
+                        },
+                      )}
+                    </div>
+                  )}
+                </div>
               )
             },
           )}
@@ -1299,8 +1537,8 @@ function App() {
           >
             <span aria-hidden="true">
               ↪
-            </span>
-            {' '}
+            </span>{' '}
+
             Cerrar sesión
           </button>
         </div>
@@ -1329,6 +1567,20 @@ function App() {
             <span>
               Casa Hogar
             </span>
+
+            {grupoSeleccionado && (
+              <>
+                <span className="bar-sep">
+                  /
+                </span>
+
+                <span>
+                  {
+                    grupoSeleccionado.nombre
+                  }
+                </span>
+              </>
+            )}
 
             <span className="bar-sep">
               /
@@ -1380,7 +1632,7 @@ function App() {
               <h1 className="body-title">
                 {moduloSeleccionado
                   ?.id ===
-                'dashboard'
+                  'dashboard'
                   ? 'Panel principal'
                   : moduloSeleccionado
                       ?.nombre ??
@@ -1390,20 +1642,30 @@ function App() {
               <p className="body-desc">
                 {moduloSeleccionado
                   ?.id ===
-                'dashboard'
+                  'dashboard'
                   ? 'Bienvenido a tu espacio de trabajo.'
-                  : `Gestiona ${
-                      moduloSeleccionado
-                        ?.nombre
-                        .toLowerCase() ??
-                      'tu área'
-                    } desde aquí.`}
+                  : esConsulta
+                    ? `Consulta ${
+                        moduloSeleccionado
+                          ?.nombre
+                          .toLowerCase() ??
+                        'la información'
+                      } desde aquí.`
+                    : `Gestiona ${
+                        moduloSeleccionado
+                          ?.nombre
+                          .toLowerCase() ??
+                        'tu área'
+                      } desde aquí.`}
               </p>
             </div>
 
             <div className="body-badge">
               <span className="badge-dot" />
-              Acceso autorizado
+
+              {esConsulta
+                ? 'Acceso de consulta'
+                : 'Acceso autorizado'}
             </div>
           </div>
 

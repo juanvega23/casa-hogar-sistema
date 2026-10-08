@@ -7,64 +7,93 @@ import {
 
 import { supabase } from '../lib/supabase'
 
+
+// ==========================================================
+// PROPS
+// ==========================================================
+
+type ProductsModuleProps = {
+  roleCode: string
+}
+
+
+// ==========================================================
+// CATÁLOGOS
+// ==========================================================
+
 type Catalogo = {
   id: number
   nombre: string
 }
 
-type RelacionNombre = {
+type CatalogoRelacion = {
   nombre: string
 }
 
+
+// ==========================================================
+// EXISTENCIAS
+// ==========================================================
+
 type ExistenciaRelacion = {
-  cantidad: number
+  cantidad: number | string
 }
+
+
+// ==========================================================
+// RESPUESTA DE PRODUCTOS
+// ==========================================================
 
 type ProductoRespuesta = {
   id: number
   codigo: string
   nombre: string
   descripcion: string | null
+
   categoria_id: number
+
   marca_id: number | null
   modelo_id: number | null
   color_id: number | null
   material_id: number | null
   unidad_medida_id: number | null
+
   unidad_medida: string
-  precio_compra: number
-  precio_venta: number
-  stock_minimo: number
+
+  precio_compra: number | string
+  precio_venta: number | string
+  stock_minimo: number | string
+
   activo: boolean
 
   categorias:
-    | RelacionNombre
-    | RelacionNombre[]
+    | CatalogoRelacion
+    | CatalogoRelacion[]
     | null
 
-  marca:
-    | RelacionNombre
-    | RelacionNombre[]
+  marcas:
+    | CatalogoRelacion
+    | CatalogoRelacion[]
     | null
 
-  modelo:
-    | RelacionNombre
-    | RelacionNombre[]
+  modelos:
+    | CatalogoRelacion
+    | CatalogoRelacion[]
     | null
 
-  color:
-    | RelacionNombre
-    | RelacionNombre[]
+  colores:
+    | CatalogoRelacion
+    | CatalogoRelacion[]
     | null
 
-  material:
-    | RelacionNombre
-    | RelacionNombre[]
+  materiales:
+    | CatalogoRelacion
+    | CatalogoRelacion[]
     | null
 
-  unidad_catalogo:
-    | RelacionNombre
-    | RelacionNombre[]
+  unidades_medida:
+    | CatalogoRelacion
+    | CatalogoRelacion[]
     | null
 
   existencias:
@@ -72,6 +101,11 @@ type ProductoRespuesta = {
     | ExistenciaRelacion[]
     | null
 }
+
+
+// ==========================================================
+// PRODUCTO PARA LA INTERFAZ
+// ==========================================================
 
 type Producto = {
   id: number
@@ -99,9 +133,15 @@ type Producto = {
 
   precioCompra: number
   precioVenta: number
+
   stock: number
   stockMinimo: number
 }
+
+
+// ==========================================================
+// FORMULARIO
+// ==========================================================
 
 type FormProducto = {
   codigo: string
@@ -109,6 +149,7 @@ type FormProducto = {
   descripcion: string
 
   categoriaId: string
+
   marcaId: string
   modeloId: string
   colorId: string
@@ -120,12 +161,14 @@ type FormProducto = {
   stockMinimo: string
 }
 
+
 const formularioInicial: FormProducto = {
   codigo: '',
   nombre: '',
   descripcion: '',
 
   categoriaId: '',
+
   marcaId: '',
   modeloId: '',
   colorId: '',
@@ -137,26 +180,35 @@ const formularioInicial: FormProducto = {
   stockMinimo: '',
 }
 
+
+// ==========================================================
+// UTILIDADES
+// ==========================================================
+
 function obtenerNombreRelacion(
   relacion:
-    | RelacionNombre
-    | RelacionNombre[]
+    | CatalogoRelacion
+    | CatalogoRelacion[]
     | null,
-  valorPorDefecto = 'Sin especificar',
+  respaldo: string,
 ) {
   if (!relacion) {
-    return valorPorDefecto
+    return respaldo
   }
 
   if (Array.isArray(relacion)) {
     return (
       relacion[0]?.nombre ??
-      valorPorDefecto
+      respaldo
     )
   }
 
-  return relacion.nombre
+  return (
+    relacion.nombre ??
+    respaldo
+  )
 }
+
 
 function obtenerStock(
   relacion:
@@ -169,18 +221,18 @@ function obtenerStock(
   }
 
   if (Array.isArray(relacion)) {
-    return relacion.reduce(
-      (total, existencia) =>
-        total +
-        Number(existencia.cantidad ?? 0),
-      0,
+    return Number(
+      relacion[0]?.cantidad ??
+        0,
     )
   }
 
   return Number(
-    relacion.cantidad ?? 0,
+    relacion.cantidad ??
+      0,
   )
 }
+
 
 function formatearCordobas(
   valor: number,
@@ -195,408 +247,687 @@ function formatearCordobas(
   ).format(valor)
 }
 
-function idOpcional(
-  valor: string,
+
+function obtenerMensajeError(
+  err: unknown,
+  respaldo: string,
 ) {
-  if (!valor) {
-    return null
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    'message' in err
+  ) {
+    const mensaje =
+      (
+        err as {
+          message?: unknown
+        }
+      ).message
+
+    if (
+      typeof mensaje ===
+      'string'
+    ) {
+      return mensaje
+    }
   }
 
-  const numero = Number(valor)
+  if (
+    err instanceof Error
+  ) {
+    return err.message
+  }
 
-  return Number.isFinite(numero)
-    ? numero
-    : null
+  return respaldo
 }
 
-export default function ProductsModule() {
-  const [productos, setProductos] =
-    useState<Producto[]>([])
 
-  const [categorias, setCategorias] =
-    useState<Catalogo[]>([])
+// ==========================================================
+// COMPONENTE
+// ==========================================================
 
-  const [marcas, setMarcas] =
-    useState<Catalogo[]>([])
+export default function ProductsModule({
+  roleCode,
+}: ProductsModuleProps) {
+  /*
+   * ÚNICAMENTE EL ENCARGADO DE COMPRAS
+   * ADMINISTRA EL CATÁLOGO DE PRODUCTOS.
+   */
+  const puedeAdministrar =
+    roleCode ===
+    'encargado_compras'
 
-  const [modelos, setModelos] =
-    useState<Catalogo[]>([])
 
-  const [colores, setColores] =
-    useState<Catalogo[]>([])
+  // ========================================================
+  // ESTADOS PRINCIPALES
+  // ========================================================
 
-  const [materiales, setMateriales] =
-    useState<Catalogo[]>([])
+  const [
+    productos,
+    setProductos,
+  ] =
+    useState<
+      Producto[]
+    >([])
+
+
+  const [
+    categorias,
+    setCategorias,
+  ] =
+    useState<
+      Catalogo[]
+    >([])
+
+
+  const [
+    marcas,
+    setMarcas,
+  ] =
+    useState<
+      Catalogo[]
+    >([])
+
+
+  const [
+    modelos,
+    setModelos,
+  ] =
+    useState<
+      Catalogo[]
+    >([])
+
+
+  const [
+    colores,
+    setColores,
+  ] =
+    useState<
+      Catalogo[]
+    >([])
+
+
+  const [
+    materiales,
+    setMateriales,
+  ] =
+    useState<
+      Catalogo[]
+    >([])
+
 
   const [
     unidadesMedida,
     setUnidadesMedida,
-  ] = useState<Catalogo[]>([])
+  ] =
+    useState<
+      Catalogo[]
+    >([])
 
-  const [busqueda, setBusqueda] =
-    useState('')
-
-  const [cargando, setCargando] =
-    useState(true)
-
-  const [guardando, setGuardando] =
-    useState(false)
-
-  const [error, setError] =
-    useState('')
-
-  const [exito, setExito] =
-    useState('')
 
   const [
-    puedeAdministrar,
-    setPuedeAdministrar,
-  ] = useState(false)
+    busqueda,
+    setBusqueda,
+  ] =
+    useState('')
+
+
+  const [
+    cargando,
+    setCargando,
+  ] =
+    useState(true)
+
+
+  const [
+    guardando,
+    setGuardando,
+  ] =
+    useState(false)
+
+
+  const [
+    error,
+    setError,
+  ] =
+    useState('')
+
+
+  const [
+    exito,
+    setExito,
+  ] =
+    useState('')
+
 
   const [
     mostrarFormulario,
     setMostrarFormulario,
-  ] = useState(false)
+  ] =
+    useState(false)
+
 
   const [
     productoEditando,
     setProductoEditando,
-  ] = useState<number | null>(
-    null,
-  )
+  ] =
+    useState<
+      number | null
+    >(null)
+
 
   const [
     formulario,
     setFormulario,
-  ] = useState<FormProducto>(
-    formularioInicial,
-  )
+  ] =
+    useState<FormProducto>(
+      formularioInicial,
+    )
+
+
+  // ========================================================
+  // CARGAR DATOS
+  // ========================================================
 
   async function cargarDatos() {
-    setCargando(true)
-    setError('')
+    try {
+      setCargando(true)
 
-    const [
-      productosResultado,
-      categoriasResultado,
-      marcasResultado,
-      modelosResultado,
-      coloresResultado,
-      materialesResultado,
-      unidadesResultado,
-      rolResultado,
-    ] = await Promise.all([
-      supabase
-        .from('productos')
-        .select(`
-          id,
-          codigo,
-          nombre,
-          descripcion,
-          categoria_id,
-          marca_id,
-          modelo_id,
-          color_id,
-          material_id,
-          unidad_medida_id,
-          unidad_medida,
-          precio_compra,
-          precio_venta,
-          stock_minimo,
-          activo,
-          categorias (
-            nombre
-          ),
-          marca:marcas (
-            nombre
-          ),
-          modelo:modelos (
-            nombre
-          ),
-          color:colores (
-            nombre
-          ),
-          material:materiales (
-            nombre
-          ),
-          unidad_catalogo:unidades_medida (
-            nombre
-          ),
-          existencias (
-            cantidad
-          )
-        `)
-        .eq('activo', true)
-        .order('nombre', {
-          ascending: true,
-        }),
+      setError('')
 
-      supabase
-        .from('categorias')
-        .select(`
-          id,
-          nombre
-        `)
-        .order('nombre', {
-          ascending: true,
-        }),
 
-      supabase
-        .from('marcas')
-        .select(`
-          id,
-          nombre
-        `)
-        .eq('activo', true)
-        .order('nombre', {
-          ascending: true,
-        }),
+      const [
+        productosResultado,
+        categoriasResultado,
+        marcasResultado,
+        modelosResultado,
+        coloresResultado,
+        materialesResultado,
+        unidadesResultado,
+      ] =
+        await Promise.all([
 
-      supabase
-        .from('modelos')
-        .select(`
-          id,
-          nombre
-        `)
-        .eq('activo', true)
-        .order('nombre', {
-          ascending: true,
-        }),
+          // --------------------------------------------------
+          // PRODUCTOS
+          // --------------------------------------------------
 
-      supabase
-        .from('colores')
-        .select(`
-          id,
-          nombre
-        `)
-        .eq('activo', true)
-        .order('nombre', {
-          ascending: true,
-        }),
+          supabase
+            .from(
+              'productos',
+            )
+            .select(`
+              id,
+              codigo,
+              nombre,
+              descripcion,
 
-      supabase
-        .from('materiales')
-        .select(`
-          id,
-          nombre
-        `)
-        .eq('activo', true)
-        .order('nombre', {
-          ascending: true,
-        }),
+              categoria_id,
 
-      supabase
-        .from('unidades_medida')
-        .select(`
-          id,
-          nombre
-        `)
-        .eq('activo', true)
-        .order('nombre', {
-          ascending: true,
-        }),
+              marca_id,
+              modelo_id,
+              color_id,
+              material_id,
+              unidad_medida_id,
 
-      supabase.rpc(
-        'current_role_code',
-      ),
-    ])
+              unidad_medida,
 
-    const errores = [
-      [
-        productosResultado.error,
-        'productos',
-      ],
-      [
-        categoriasResultado.error,
-        'categorías',
-      ],
-      [
-        marcasResultado.error,
-        'marcas',
-      ],
-      [
-        modelosResultado.error,
-        'modelos',
-      ],
-      [
-        coloresResultado.error,
-        'colores',
-      ],
-      [
-        materialesResultado.error,
-        'materiales',
-      ],
-      [
-        unidadesResultado.error,
-        'unidades de medida',
-      ],
-    ] as const
+              precio_compra,
+              precio_venta,
+              stock_minimo,
+              activo,
 
-    const primerError =
-      errores.find(
-        ([resultadoError]) =>
-          Boolean(resultadoError),
+              categorias (
+                nombre
+              ),
+
+              marcas (
+                nombre
+              ),
+
+              modelos (
+                nombre
+              ),
+
+              colores (
+                nombre
+              ),
+
+              materiales (
+                nombre
+              ),
+
+              unidades_medida (
+                nombre
+              ),
+
+              existencias (
+                cantidad
+              )
+            `)
+            .eq(
+              'activo',
+              true,
+            )
+            .order(
+              'nombre',
+              {
+                ascending:
+                  true,
+              },
+            ),
+
+
+          // --------------------------------------------------
+          // CATEGORÍAS
+          // --------------------------------------------------
+
+          supabase
+            .from(
+              'categorias',
+            )
+            .select(`
+              id,
+              nombre
+            `)
+            .order(
+              'nombre',
+              {
+                ascending:
+                  true,
+              },
+            ),
+
+
+          // --------------------------------------------------
+          // MARCAS
+          // --------------------------------------------------
+
+          supabase
+            .from(
+              'marcas',
+            )
+            .select(`
+              id,
+              nombre
+            `)
+            .eq(
+              'activo',
+              true,
+            )
+            .order(
+              'nombre',
+              {
+                ascending:
+                  true,
+              },
+            ),
+
+
+          // --------------------------------------------------
+          // MODELOS
+          // --------------------------------------------------
+
+          supabase
+            .from(
+              'modelos',
+            )
+            .select(`
+              id,
+              nombre
+            `)
+            .eq(
+              'activo',
+              true,
+            )
+            .order(
+              'nombre',
+              {
+                ascending:
+                  true,
+              },
+            ),
+
+
+          // --------------------------------------------------
+          // COLORES
+          // --------------------------------------------------
+
+          supabase
+            .from(
+              'colores',
+            )
+            .select(`
+              id,
+              nombre
+            `)
+            .eq(
+              'activo',
+              true,
+            )
+            .order(
+              'nombre',
+              {
+                ascending:
+                  true,
+              },
+            ),
+
+
+          // --------------------------------------------------
+          // MATERIALES
+          // --------------------------------------------------
+
+          supabase
+            .from(
+              'materiales',
+            )
+            .select(`
+              id,
+              nombre
+            `)
+            .eq(
+              'activo',
+              true,
+            )
+            .order(
+              'nombre',
+              {
+                ascending:
+                  true,
+              },
+            ),
+
+
+          // --------------------------------------------------
+          // UNIDADES
+          // --------------------------------------------------
+
+          supabase
+            .from(
+              'unidades_medida',
+            )
+            .select(`
+              id,
+              nombre
+            `)
+            .eq(
+              'activo',
+              true,
+            )
+            .order(
+              'nombre',
+              {
+                ascending:
+                  true,
+              },
+            ),
+        ])
+
+
+      // ======================================================
+      // ERRORES
+      // ======================================================
+
+      if (
+        productosResultado.error
+      ) {
+        throw new Error(
+          `No fue posible cargar los productos: ${productosResultado.error.message}`,
+        )
+      }
+
+
+      if (
+        categoriasResultado.error
+      ) {
+        throw new Error(
+          `No fue posible cargar las categorías: ${categoriasResultado.error.message}`,
+        )
+      }
+
+
+      if (
+        marcasResultado.error
+      ) {
+        throw new Error(
+          `No fue posible cargar las marcas: ${marcasResultado.error.message}`,
+        )
+      }
+
+
+      if (
+        modelosResultado.error
+      ) {
+        throw new Error(
+          `No fue posible cargar los modelos: ${modelosResultado.error.message}`,
+        )
+      }
+
+
+      if (
+        coloresResultado.error
+      ) {
+        throw new Error(
+          `No fue posible cargar los colores: ${coloresResultado.error.message}`,
+        )
+      }
+
+
+      if (
+        materialesResultado.error
+      ) {
+        throw new Error(
+          `No fue posible cargar los materiales: ${materialesResultado.error.message}`,
+        )
+      }
+
+
+      if (
+        unidadesResultado.error
+      ) {
+        throw new Error(
+          `No fue posible cargar las unidades de medida: ${unidadesResultado.error.message}`,
+        )
+      }
+
+
+      // ======================================================
+      // TRANSFORMAR PRODUCTOS
+      // ======================================================
+
+      const respuesta =
+        (
+          productosResultado.data ??
+          []
+        ) as unknown as ProductoRespuesta[]
+
+
+      const lista =
+        respuesta.map(
+          (
+            producto,
+          ): Producto => ({
+            id:
+              producto.id,
+
+            codigo:
+              producto.codigo,
+
+            nombre:
+              producto.nombre,
+
+            descripcion:
+              producto.descripcion ??
+              '',
+
+
+            categoriaId:
+              producto.categoria_id,
+
+            categoria:
+              obtenerNombreRelacion(
+                producto.categorias,
+                'Sin categoría',
+              ),
+
+
+            marcaId:
+              producto.marca_id,
+
+            marca:
+              obtenerNombreRelacion(
+                producto.marcas,
+                'Sin especificar',
+              ),
+
+
+            modeloId:
+              producto.modelo_id,
+
+            modelo:
+              obtenerNombreRelacion(
+                producto.modelos,
+                'Sin especificar',
+              ),
+
+
+            colorId:
+              producto.color_id,
+
+            color:
+              obtenerNombreRelacion(
+                producto.colores,
+                'Sin especificar',
+              ),
+
+
+            materialId:
+              producto.material_id,
+
+            material:
+              obtenerNombreRelacion(
+                producto.materiales,
+                'Sin especificar',
+              ),
+
+
+            unidadMedidaId:
+              producto.unidad_medida_id,
+
+            unidad:
+              obtenerNombreRelacion(
+                producto.unidades_medida,
+                producto.unidad_medida ||
+                  'Sin especificar',
+              ),
+
+
+            precioCompra:
+              Number(
+                producto.precio_compra ??
+                  0,
+              ),
+
+            precioVenta:
+              Number(
+                producto.precio_venta ??
+                  0,
+              ),
+
+
+            stock:
+              obtenerStock(
+                producto.existencias,
+              ),
+
+
+            stockMinimo:
+              Number(
+                producto.stock_minimo ??
+                  0,
+              ),
+          }),
+        )
+
+
+      setProductos(
+        lista,
       )
 
-    if (primerError) {
-      const [
-        resultadoError,
-        nombreCatalogo,
-      ] = primerError
+
+      setCategorias(
+        (
+          categoriasResultado.data ??
+          []
+        ) as Catalogo[],
+      )
+
+
+      setMarcas(
+        (
+          marcasResultado.data ??
+          []
+        ) as Catalogo[],
+      )
+
+
+      setModelos(
+        (
+          modelosResultado.data ??
+          []
+        ) as Catalogo[],
+      )
+
+
+      setColores(
+        (
+          coloresResultado.data ??
+          []
+        ) as Catalogo[],
+      )
+
+
+      setMateriales(
+        (
+          materialesResultado.data ??
+          []
+        ) as Catalogo[],
+      )
+
+
+      setUnidadesMedida(
+        (
+          unidadesResultado.data ??
+          []
+        ) as Catalogo[],
+      )
+    } catch (err) {
+      setProductos(
+        [],
+      )
 
       setError(
-        `No fue posible cargar ${nombreCatalogo}: ${resultadoError?.message ?? 'Error desconocido.'}`,
+        obtenerMensajeError(
+          err,
+          'No fue posible cargar los productos.',
+        ),
       )
-
-      setCargando(false)
-      return
+    } finally {
+      setCargando(
+        false,
+      )
     }
-
-    const respuesta =
-      (productosResultado.data ??
-        []) as unknown as ProductoRespuesta[]
-
-    const lista =
-      respuesta.map(
-        (
-          producto,
-        ): Producto => ({
-          id: producto.id,
-          codigo: producto.codigo,
-          nombre: producto.nombre,
-
-          descripcion:
-            producto.descripcion ??
-            '',
-
-          categoriaId:
-            producto.categoria_id,
-
-          categoria:
-            obtenerNombreRelacion(
-              producto.categorias,
-              'Sin categoría',
-            ),
-
-          marcaId:
-            producto.marca_id,
-
-          marca:
-            obtenerNombreRelacion(
-              producto.marca,
-            ),
-
-          modeloId:
-            producto.modelo_id,
-
-          modelo:
-            obtenerNombreRelacion(
-              producto.modelo,
-            ),
-
-          colorId:
-            producto.color_id,
-
-          color:
-            obtenerNombreRelacion(
-              producto.color,
-            ),
-
-          materialId:
-            producto.material_id,
-
-          material:
-            obtenerNombreRelacion(
-              producto.material,
-            ),
-
-          unidadMedidaId:
-            producto.unidad_medida_id,
-
-          unidad:
-            obtenerNombreRelacion(
-              producto.unidad_catalogo,
-              producto.unidad_medida ||
-                'Sin unidad',
-            ),
-
-          precioCompra:
-            Number(
-              producto.precio_compra ??
-                0,
-            ),
-
-          precioVenta:
-            Number(
-              producto.precio_venta ??
-                0,
-            ),
-
-          stock:
-            obtenerStock(
-              producto.existencias,
-            ),
-
-          stockMinimo:
-            Number(
-              producto.stock_minimo ??
-                0,
-            ),
-        }),
-      )
-
-    setProductos(lista)
-
-    setCategorias(
-      (categoriasResultado.data ??
-        []) as Catalogo[],
-    )
-
-    setMarcas(
-      (marcasResultado.data ??
-        []) as Catalogo[],
-    )
-
-    setModelos(
-      (modelosResultado.data ??
-        []) as Catalogo[],
-    )
-
-    setColores(
-      (coloresResultado.data ??
-        []) as Catalogo[],
-    )
-
-    setMateriales(
-      (materialesResultado.data ??
-        []) as Catalogo[],
-    )
-
-    setUnidadesMedida(
-      (unidadesResultado.data ??
-        []) as Catalogo[],
-    )
-
-    const rolActual =
-      rolResultado.error
-        ? ''
-        : String(
-            rolResultado.data ?? '',
-          )
-
-    setPuedeAdministrar(
-      [
-        'almacen',
-        'administracion',
-      ].includes(rolActual),
-    )
-
-    setCargando(false)
   }
 
+
   useEffect(() => {
-    cargarDatos()
+    void cargarDatos()
   }, [])
+
+
+  // ========================================================
+  // FILTRAR PRODUCTOS
+  // ========================================================
 
   const productosFiltrados =
     useMemo(() => {
@@ -605,38 +936,42 @@ export default function ProductsModule() {
           .trim()
           .toLowerCase()
 
+
       if (!termino) {
         return productos
       }
 
+
       return productos.filter(
-        (producto) =>
-          producto.codigo
+        producto => {
+          const texto = [
+            producto.codigo,
+            producto.nombre,
+            producto.categoria,
+            producto.marca,
+            producto.modelo,
+            producto.color,
+            producto.material,
+            producto.unidad,
+          ]
+            .join(' ')
             .toLowerCase()
-            .includes(termino) ||
-          producto.nombre
-            .toLowerCase()
-            .includes(termino) ||
-          producto.categoria
-            .toLowerCase()
-            .includes(termino) ||
-          producto.marca
-            .toLowerCase()
-            .includes(termino) ||
-          producto.modelo
-            .toLowerCase()
-            .includes(termino) ||
-          producto.color
-            .toLowerCase()
-            .includes(termino) ||
-          producto.material
-            .toLowerCase()
-            .includes(termino),
+
+
+          return texto.includes(
+            termino,
+          )
+        },
       )
     }, [
       productos,
       busqueda,
     ])
+
+
+  // ========================================================
+  // RESUMEN
+  // ========================================================
 
   const resumen =
     useMemo(() => {
@@ -647,43 +982,68 @@ export default function ProductsModule() {
         categorias:
           new Set(
             productos.map(
-              (producto) =>
+              producto =>
                 producto.categoria,
             ),
           ).size,
 
         conExistencia:
           productos.filter(
-            (producto) =>
-              producto.stock > 0,
+            producto =>
+              producto.stock >
+              0,
           ).length,
 
         sinExistencia:
           productos.filter(
-            (producto) =>
-              producto.stock <= 0,
+            producto =>
+              producto.stock <=
+              0,
           ).length,
       }
-    }, [productos])
+    }, [
+      productos,
+    ])
+
+
+  // ========================================================
+  // ACTUALIZAR FORMULARIO
+  // ========================================================
 
   function actualizarFormulario(
-    campo: keyof FormProducto,
+    campo:
+      keyof FormProducto,
     valor: string,
   ) {
     setFormulario(
-      (actual) => ({
+      actual => ({
         ...actual,
-        [campo]: valor,
+        [campo]:
+          valor,
       }),
     )
   }
 
-  function abrirNuevoProducto() {
-    setProductoEditando(null)
 
-    const unidadPorDefecto =
+  // ========================================================
+  // NUEVO PRODUCTO
+  // ========================================================
+
+  function abrirNuevoProducto() {
+    if (
+      !puedeAdministrar
+    ) {
+      setError(
+        'Este perfil solamente puede consultar productos.',
+      )
+
+      return
+    }
+
+
+    const unidadPredeterminada =
       unidadesMedida.find(
-        (unidad) =>
+        unidad =>
           unidad.nombre
             .trim()
             .toLowerCase() ===
@@ -691,48 +1051,87 @@ export default function ProductsModule() {
       ) ??
       unidadesMedida[0]
 
+
+    setProductoEditando(
+      null,
+    )
+
+
     setFormulario({
       ...formularioInicial,
 
       categoriaId:
-        categorias.length > 0
+        categorias.length >
+        0
           ? String(
               categorias[0].id,
             )
           : '',
 
       unidadMedidaId:
-        unidadPorDefecto
+        unidadPredeterminada
           ? String(
-              unidadPorDefecto.id,
+              unidadPredeterminada.id,
             )
           : '',
     })
 
+
     setError('')
     setExito('')
-    setMostrarFormulario(true)
+
+    setMostrarFormulario(
+      true,
+    )
   }
+
+
+  // ========================================================
+  // EDITAR PRODUCTO
+  // ========================================================
 
   function abrirEditarProducto(
     producto: Producto,
   ) {
+    if (
+      !puedeAdministrar
+    ) {
+      setError(
+        'Este perfil solamente puede consultar productos.',
+      )
+
+      return
+    }
+
+
+    let unidadId =
+      producto.unidadMedidaId
+
+
+    if (
+      !unidadId
+    ) {
+      const unidadEncontrada =
+        unidadesMedida.find(
+          unidad =>
+            unidad.nombre
+              .trim()
+              .toLowerCase() ===
+            producto.unidad
+              .trim()
+              .toLowerCase(),
+        )
+
+      unidadId =
+        unidadEncontrada?.id ??
+        null
+    }
+
+
     setProductoEditando(
       producto.id,
     )
 
-    const unidadRelacionada =
-      producto.unidadMedidaId ??
-      unidadesMedida.find(
-        (unidad) =>
-          unidad.nombre
-            .trim()
-            .toLowerCase() ===
-          producto.unidad
-            .trim()
-            .toLowerCase(),
-      )?.id ??
-      null
 
     setFormulario({
       codigo:
@@ -778,9 +1177,9 @@ export default function ProductsModule() {
           : '',
 
       unidadMedidaId:
-        unidadRelacionada
+        unidadId
           ? String(
-              unidadRelacionada,
+              unidadId,
             )
           : '',
 
@@ -800,125 +1199,199 @@ export default function ProductsModule() {
         ),
     })
 
+
     setError('')
     setExito('')
-    setMostrarFormulario(true)
+
+    setMostrarFormulario(
+      true,
+    )
   }
 
+
+  // ========================================================
+  // CERRAR FORMULARIO
+  // ========================================================
+
   function cerrarFormulario() {
-    setMostrarFormulario(false)
-    setProductoEditando(null)
+    if (
+      guardando
+    ) {
+      return
+    }
+
+    setMostrarFormulario(
+      false,
+    )
+
+    setProductoEditando(
+      null,
+    )
+
     setFormulario(
       formularioInicial,
     )
+
     setError('')
   }
 
+
+  // ========================================================
+  // GUARDAR PRODUCTO
+  // ========================================================
+
   async function guardarProducto(
-    event: FormEvent<HTMLFormElement>,
+    event:
+      FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault()
 
     setError('')
     setExito('')
 
-    if (!puedeAdministrar) {
+
+    if (
+      !puedeAdministrar
+    ) {
       setError(
-        'No tienes permisos para administrar productos.',
+        'No tiene permisos para administrar productos.',
       )
 
       return
     }
+
 
     const codigo =
       formulario.codigo
         .trim()
         .toUpperCase()
 
+
     const nombre =
-      formulario.nombre.trim()
+      formulario.nombre
+        .trim()
+
 
     const categoriaId =
       Number(
         formulario.categoriaId,
       )
 
+
     const unidadMedidaId =
       Number(
         formulario.unidadMedidaId,
       )
 
+
     const precioCompra =
       Number(
-        formulario.precioCompra ||
-          0,
+        formulario.precioCompra,
       )
+
 
     const precioVenta =
       Number(
-        formulario.precioVenta ||
-          0,
+        formulario.precioVenta,
       )
+
 
     const stockMinimo =
       Number(
-        formulario.stockMinimo ||
-          0,
+        formulario.stockMinimo,
       )
+
+
+    // ======================================================
+    // VALIDACIONES
+    // ======================================================
 
     if (
       !codigo ||
       !nombre ||
-      !categoriaId ||
-      !unidadMedidaId
+      !Number.isInteger(
+        categoriaId,
+      ) ||
+      categoriaId <= 0 ||
+      !Number.isInteger(
+        unidadMedidaId,
+      ) ||
+      unidadMedidaId <= 0
     ) {
       setError(
-        'Completa los campos obligatorios.',
+        'Complete los campos obligatorios.',
       )
 
       return
     }
+
 
     if (
       !Number.isFinite(
         precioCompra,
       ) ||
-      precioCompra < 0 ||
+      precioCompra <
+        0 ||
       !Number.isFinite(
         precioVenta,
       ) ||
-      precioVenta < 0 ||
+      precioVenta <
+        0 ||
       !Number.isFinite(
         stockMinimo,
       ) ||
-      stockMinimo < 0
+      stockMinimo <
+        0
     ) {
       setError(
-        'Los precios y el stock mínimo deben ser valores válidos y no negativos.',
+        'Los precios y el stock mínimo deben contener valores válidos y no negativos.',
       )
 
       return
     }
 
+
     const unidadSeleccionada =
       unidadesMedida.find(
-        (unidad) =>
+        unidad =>
           unidad.id ===
           unidadMedidaId,
       )
 
-    if (!unidadSeleccionada) {
+
+    if (
+      !unidadSeleccionada
+    ) {
       setError(
-        'Selecciona una unidad de medida válida.',
+        'Seleccione una unidad de medida válida.',
       )
 
       return
     }
 
-    setGuardando(true)
+
+    const numeroONull = (
+      valor: string,
+    ) => {
+      if (!valor) {
+        return null
+      }
+
+      const numero =
+        Number(valor)
+
+      return Number.isInteger(
+        numero,
+      ) &&
+        numero > 0
+        ? numero
+        : null
+    }
+
 
     const datosProducto = {
       codigo,
+
       nombre,
 
       descripcion:
@@ -929,33 +1402,38 @@ export default function ProductsModule() {
       categoria_id:
         categoriaId,
 
+
       marca_id:
-        idOpcional(
+        numeroONull(
           formulario.marcaId,
         ),
 
       modelo_id:
-        idOpcional(
+        numeroONull(
           formulario.modeloId,
         ),
 
       color_id:
-        idOpcional(
+        numeroONull(
           formulario.colorId,
         ),
 
       material_id:
-        idOpcional(
+        numeroONull(
           formulario.materialId,
         ),
 
       unidad_medida_id:
         unidadMedidaId,
 
-      // Se conserva temporalmente para no romper
-      // Compras, Ventas y otros módulos actuales.
+
+      /*
+       * Se mantiene también el campo de texto
+       * por compatibilidad con la estructura anterior.
+       */
       unidad_medida:
         unidadSeleccionada.nombre,
+
 
       precio_compra:
         precioCompra,
@@ -967,67 +1445,127 @@ export default function ProductsModule() {
         stockMinimo,
     }
 
-    if (productoEditando) {
-      const { error } =
-        await supabase
-          .from('productos')
-          .update(
-            datosProducto,
-          )
-          .eq(
-            'id',
-            productoEditando,
-          )
 
-      if (error) {
-        setError(
-          `No fue posible actualizar el producto: ${error.message}`,
-        )
-
-        setGuardando(false)
-        return
-      }
-
-      setExito(
-        'Producto actualizado correctamente.',
+    try {
+      setGuardando(
+        true,
       )
-    } else {
-      const { error } =
-        await supabase
-          .from('productos')
-          .insert({
-            ...datosProducto,
-            activo: true,
-          })
 
-      if (error) {
-        const mensaje =
-          error.code === '23505'
-            ? 'Ya existe un producto con ese código.'
-            : `No fue posible crear el producto: ${error.message}`
 
-        setError(mensaje)
-        setGuardando(false)
-        return
+      // ======================================================
+      // EDITAR
+      // ======================================================
+
+      if (
+        productoEditando !==
+        null
+      ) {
+        const {
+          error:
+            actualizarError,
+        } =
+          await supabase
+            .from(
+              'productos',
+            )
+            .update(
+              datosProducto,
+            )
+            .eq(
+              'id',
+              productoEditando,
+            )
+
+
+        if (
+          actualizarError
+        ) {
+          throw actualizarError
+        }
+
+
+        setExito(
+          'Producto actualizado correctamente.',
+        )
+      } else {
+
+        // ====================================================
+        // CREAR
+        // ====================================================
+
+        const {
+          error:
+            insertarError,
+        } =
+          await supabase
+            .from(
+              'productos',
+            )
+            .insert({
+              ...datosProducto,
+              activo:
+                true,
+            })
+
+
+        if (
+          insertarError
+        ) {
+          if (
+            insertarError.code ===
+            '23505'
+          ) {
+            throw new Error(
+              'Ya existe un producto con ese código.',
+            )
+          }
+
+          throw insertarError
+        }
+
+
+        setExito(
+          'Producto creado correctamente.',
+        )
       }
 
-      setExito(
-        'Producto creado correctamente.',
+
+      setMostrarFormulario(
+        false,
+      )
+
+      setProductoEditando(
+        null,
+      )
+
+      setFormulario(
+        formularioInicial,
+      )
+
+
+      await cargarDatos()
+    } catch (err) {
+      setError(
+        obtenerMensajeError(
+          err,
+          'No fue posible guardar el producto.',
+        ),
+      )
+    } finally {
+      setGuardando(
+        false,
       )
     }
-
-    setMostrarFormulario(false)
-    setProductoEditando(null)
-    setFormulario(
-      formularioInicial,
-    )
-
-    await cargarDatos()
-
-    setGuardando(false)
   }
 
-  if (cargando) {
+
+  // ========================================================
+  // CARGANDO
+  // ========================================================
+
+  if (
+    cargando
+  ) {
     return (
       <div className="inventory-loading">
         <div className="inventory-spinner" />
@@ -1039,8 +1577,18 @@ export default function ProductsModule() {
     )
   }
 
+
+  // ========================================================
+  // INTERFAZ
+  // ========================================================
+
   return (
     <div className="inventory-module">
+
+      {/* ====================================================
+          ENCABEZADO
+      ==================================================== */}
+
       <div className="inventory-toolbar">
         <div>
           <span className="panel-label">
@@ -1052,20 +1600,24 @@ export default function ProductsModule() {
           </h2>
 
           <p>
-            Administración del catálogo
-            maestro de productos de
-            Casa Hogar.
+            {puedeAdministrar
+              ? 'Administración del catálogo maestro de productos de Casa Hogar.'
+              : 'Consulta del catálogo maestro de productos de Casa Hogar.'}
           </p>
         </div>
+
 
         <div className="product-toolbar-actions">
           <button
             type="button"
             className="inventory-refresh-button"
-            onClick={cargarDatos}
+            onClick={() =>
+              void cargarDatos()
+            }
           >
             ↻ Actualizar
           </button>
+
 
           {puedeAdministrar && (
             <button
@@ -1081,6 +1633,11 @@ export default function ProductsModule() {
         </div>
       </div>
 
+
+      {/* ====================================================
+          RESUMEN
+      ==================================================== */}
+
       <div className="inventory-summary-grid">
         <article className="inventory-summary-card">
           <span>
@@ -1088,7 +1645,9 @@ export default function ProductsModule() {
           </span>
 
           <strong>
-            {resumen.total}
+            {
+              resumen.total
+            }
           </strong>
 
           <p>
@@ -1096,19 +1655,23 @@ export default function ProductsModule() {
           </p>
         </article>
 
+
         <article className="inventory-summary-card">
           <span>
             CATEGORÍAS
           </span>
 
           <strong>
-            {resumen.categorias}
+            {
+              resumen.categorias
+            }
           </strong>
 
           <p>
             utilizadas
           </p>
         </article>
+
 
         <article className="inventory-summary-card">
           <span>
@@ -1125,6 +1688,7 @@ export default function ProductsModule() {
             productos
           </p>
         </article>
+
 
         <article className="inventory-summary-card">
           <span>
@@ -1143,29 +1707,40 @@ export default function ProductsModule() {
         </article>
       </div>
 
+
+      {/* ====================================================
+          FORMULARIO
+          SOLO ENCARGADO DE COMPRAS
+      ==================================================== */}
+
       {mostrarFormulario &&
         puedeAdministrar && (
           <section className="product-form-card">
+
             <div className="product-form-head">
               <div>
                 <span className="panel-label">
-                  {productoEditando
+                  {productoEditando !==
+                  null
                     ? 'EDITAR PRODUCTO'
                     : 'NUEVO PRODUCTO'}
                 </span>
 
                 <h3>
-                  {productoEditando
+                  {productoEditando !==
+                  null
                     ? 'Actualizar producto'
                     : 'Registrar producto'}
                 </h3>
 
                 <p>
-                  {productoEditando
+                  {productoEditando !==
+                  null
                     ? 'Modifica los datos maestros del producto.'
                     : 'Registra un nuevo producto en el catálogo.'}
                 </p>
               </div>
+
 
               <button
                 type="button"
@@ -1178,12 +1753,16 @@ export default function ProductsModule() {
               </button>
             </div>
 
+
             <form
               className="product-form"
               onSubmit={
                 guardarProducto
               }
             >
+
+              {/* CÓDIGO */}
+
               <div className="product-field">
                 <label htmlFor="prod-codigo">
                   Código *
@@ -1195,16 +1774,22 @@ export default function ProductsModule() {
                   value={
                     formulario.codigo
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'codigo',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'codigo',
+                        event
+                          .target
+                          .value,
+                      )
                   }
-                  placeholder="Ej. PROD-003"
+                  placeholder="Ej. PROD-004"
                   required
                 />
               </div>
+
+
+              {/* NOMBRE */}
 
               <div className="product-field product-field--double">
                 <label htmlFor="prod-nombre">
@@ -1217,16 +1802,22 @@ export default function ProductsModule() {
                   value={
                     formulario.nombre
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'nombre',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'nombre',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                   placeholder="Nombre del producto"
                   required
                 />
               </div>
+
+
+              {/* CATEGORÍA */}
 
               <div className="product-field">
                 <label htmlFor="prod-categoria">
@@ -1238,11 +1829,14 @@ export default function ProductsModule() {
                   value={
                     formulario.categoriaId
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'categoriaId',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'categoriaId',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                   required
                 >
@@ -1251,7 +1845,7 @@ export default function ProductsModule() {
                   </option>
 
                   {categorias.map(
-                    (categoria) => (
+                    categoria => (
                       <option
                         key={
                           categoria.id
@@ -1269,6 +1863,9 @@ export default function ProductsModule() {
                 </select>
               </div>
 
+
+              {/* MARCA */}
+
               <div className="product-field">
                 <label htmlFor="prod-marca">
                   Marca
@@ -1279,11 +1876,14 @@ export default function ProductsModule() {
                   value={
                     formulario.marcaId
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'marcaId',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'marcaId',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                 >
                   <option value="">
@@ -1291,17 +1891,26 @@ export default function ProductsModule() {
                   </option>
 
                   {marcas.map(
-                    (marca) => (
+                    marca => (
                       <option
-                        key={marca.id}
-                        value={marca.id}
+                        key={
+                          marca.id
+                        }
+                        value={
+                          marca.id
+                        }
                       >
-                        {marca.nombre}
+                        {
+                          marca.nombre
+                        }
                       </option>
                     ),
                   )}
                 </select>
               </div>
+
+
+              {/* MODELO */}
 
               <div className="product-field">
                 <label htmlFor="prod-modelo">
@@ -1313,11 +1922,14 @@ export default function ProductsModule() {
                   value={
                     formulario.modeloId
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'modeloId',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'modeloId',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                 >
                   <option value="">
@@ -1325,17 +1937,26 @@ export default function ProductsModule() {
                   </option>
 
                   {modelos.map(
-                    (modelo) => (
+                    modelo => (
                       <option
-                        key={modelo.id}
-                        value={modelo.id}
+                        key={
+                          modelo.id
+                        }
+                        value={
+                          modelo.id
+                        }
                       >
-                        {modelo.nombre}
+                        {
+                          modelo.nombre
+                        }
                       </option>
                     ),
                   )}
                 </select>
               </div>
+
+
+              {/* COLOR */}
 
               <div className="product-field">
                 <label htmlFor="prod-color">
@@ -1347,11 +1968,14 @@ export default function ProductsModule() {
                   value={
                     formulario.colorId
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'colorId',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'colorId',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                 >
                   <option value="">
@@ -1359,17 +1983,26 @@ export default function ProductsModule() {
                   </option>
 
                   {colores.map(
-                    (color) => (
+                    color => (
                       <option
-                        key={color.id}
-                        value={color.id}
+                        key={
+                          color.id
+                        }
+                        value={
+                          color.id
+                        }
                       >
-                        {color.nombre}
+                        {
+                          color.nombre
+                        }
                       </option>
                     ),
                   )}
                 </select>
               </div>
+
+
+              {/* MATERIAL */}
 
               <div className="product-field">
                 <label htmlFor="prod-material">
@@ -1381,11 +2014,14 @@ export default function ProductsModule() {
                   value={
                     formulario.materialId
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'materialId',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'materialId',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                 >
                   <option value="">
@@ -1393,7 +2029,7 @@ export default function ProductsModule() {
                   </option>
 
                   {materiales.map(
-                    (material) => (
+                    material => (
                       <option
                         key={
                           material.id
@@ -1411,6 +2047,9 @@ export default function ProductsModule() {
                 </select>
               </div>
 
+
+              {/* UNIDAD */}
+
               <div className="product-field">
                 <label htmlFor="prod-unidad">
                   Unidad de medida *
@@ -1421,11 +2060,14 @@ export default function ProductsModule() {
                   value={
                     formulario.unidadMedidaId
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'unidadMedidaId',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'unidadMedidaId',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                   required
                 >
@@ -1434,17 +2076,26 @@ export default function ProductsModule() {
                   </option>
 
                   {unidadesMedida.map(
-                    (unidad) => (
+                    unidad => (
                       <option
-                        key={unidad.id}
-                        value={unidad.id}
+                        key={
+                          unidad.id
+                        }
+                        value={
+                          unidad.id
+                        }
                       >
-                        {unidad.nombre}
+                        {
+                          unidad.nombre
+                        }
                       </option>
                     ),
                   )}
                 </select>
               </div>
+
+
+              {/* PRECIO COMPRA */}
 
               <div className="product-field">
                 <label htmlFor="prod-compra">
@@ -1459,15 +2110,21 @@ export default function ProductsModule() {
                   value={
                     formulario.precioCompra
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'precioCompra',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'precioCompra',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                   placeholder="0.00"
                 />
               </div>
+
+
+              {/* PRECIO VENTA */}
 
               <div className="product-field">
                 <label htmlFor="prod-venta">
@@ -1482,15 +2139,21 @@ export default function ProductsModule() {
                   value={
                     formulario.precioVenta
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'precioVenta',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'precioVenta',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                   placeholder="0.00"
                 />
               </div>
+
+
+              {/* STOCK MÍNIMO */}
 
               <div className="product-field">
                 <label htmlFor="prod-minimo">
@@ -1505,15 +2168,21 @@ export default function ProductsModule() {
                   value={
                     formulario.stockMinimo
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'stockMinimo',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'stockMinimo',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                   placeholder="0"
                 />
               </div>
+
+
+              {/* DESCRIPCIÓN */}
 
               <div className="product-field product-field--full">
                 <label htmlFor="prod-descripcion">
@@ -1525,16 +2194,22 @@ export default function ProductsModule() {
                   value={
                     formulario.descripcion
                   }
-                  onChange={(event) =>
-                    actualizarFormulario(
-                      'descripcion',
-                      event.target.value,
-                    )
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'descripcion',
+                        event
+                          .target
+                          .value,
+                      )
                   }
                   placeholder="Descripción breve del producto"
                   rows={3}
                 />
               </div>
+
+
+              {/* BOTONES */}
 
               <div className="product-form-actions">
                 <button
@@ -1542,6 +2217,9 @@ export default function ProductsModule() {
                   className="product-secondary-button"
                   onClick={
                     cerrarFormulario
+                  }
+                  disabled={
+                    guardando
                   }
                 >
                   Cancelar
@@ -1556,7 +2234,8 @@ export default function ProductsModule() {
                 >
                   {guardando
                     ? 'Guardando...'
-                    : productoEditando
+                    : productoEditando !==
+                        null
                       ? 'Guardar cambios'
                       : 'Crear producto'}
                 </button>
@@ -1565,11 +2244,17 @@ export default function ProductsModule() {
           </section>
         )}
 
+
+      {/* ====================================================
+          MENSAJES
+      ==================================================== */}
+
       {error && (
         <div className="inventory-error">
           {error}
         </div>
       )}
+
 
       {exito && (
         <div className="movement-success">
@@ -1577,26 +2262,40 @@ export default function ProductsModule() {
         </div>
       )}
 
+
+      {/* ====================================================
+          BÚSQUEDA
+      ==================================================== */}
+
       <div className="inventory-search-row">
         <div className="inventory-search">
-          <span>⌕</span>
+          <span>
+            ⌕
+          </span>
 
           <input
             type="text"
-            value={busqueda}
-            onChange={(event) =>
-              setBusqueda(
-                event.target.value,
-              )
+            value={
+              busqueda
             }
-            placeholder="Buscar por código, producto, categoría, marca, modelo, color o material..."
+            onChange={
+              event =>
+                setBusqueda(
+                  event
+                    .target
+                    .value,
+                )
+            }
+            placeholder="Buscar por código, producto, categoría, marca, modelo, color..."
           />
         </div>
+
 
         <span className="inventory-result-count">
           {
             productosFiltrados.length
           }{' '}
+
           resultado
           {productosFiltrados.length ===
           1
@@ -1605,25 +2304,48 @@ export default function ProductsModule() {
         </span>
       </div>
 
+
+      {/* ====================================================
+          TABLA
+      ==================================================== */}
+
       {!error && (
         <div className="inventory-table-container">
           <table className="inventory-table">
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Producto</th>
-                <th>Categoría</th>
-                <th>Características</th>
-                <th>Unidad</th>
+                <th>
+                  Código
+                </th>
+
+                <th>
+                  Producto
+                </th>
+
+                <th>
+                  Categoría
+                </th>
+
+                <th>
+                  Características
+                </th>
+
+                <th>
+                  Unidad
+                </th>
+
                 <th>
                   Precio compra
                 </th>
+
                 <th>
                   Precio venta
                 </th>
+
                 <th>
                   Existencia
                 </th>
+
                 <th>
                   Stock mínimo
                 </th>
@@ -1636,11 +2358,12 @@ export default function ProductsModule() {
               </tr>
             </thead>
 
+
             <tbody>
               {productosFiltrados.length >
               0 ? (
                 productosFiltrados.map(
-                  (producto) => (
+                  producto => (
                     <tr
                       key={
                         producto.id
@@ -1654,6 +2377,7 @@ export default function ProductsModule() {
                         </span>
                       </td>
 
+
                       <td>
                         <strong className="product-name">
                           {
@@ -1662,11 +2386,13 @@ export default function ProductsModule() {
                         </strong>
                       </td>
 
+
                       <td>
                         {
                           producto.categoria
                         }
                       </td>
+
 
                       <td>
                         <div>
@@ -1675,18 +2401,21 @@ export default function ProductsModule() {
                             producto.marca
                           }
                         </div>
+
                         <div>
                           Modelo:{' '}
                           {
                             producto.modelo
                           }
                         </div>
+
                         <div>
                           Color:{' '}
                           {
                             producto.color
                           }
                         </div>
+
                         <div>
                           Material:{' '}
                           {
@@ -1695,11 +2424,13 @@ export default function ProductsModule() {
                         </div>
                       </td>
 
+
                       <td>
                         {
                           producto.unidad
                         }
                       </td>
+
 
                       <td>
                         {formatearCordobas(
@@ -1707,11 +2438,13 @@ export default function ProductsModule() {
                         )}
                       </td>
 
+
                       <td>
                         {formatearCordobas(
                           producto.precioVenta,
                         )}
                       </td>
+
 
                       <td>
                         <strong className="stock-value">
@@ -1721,11 +2454,13 @@ export default function ProductsModule() {
                         </strong>
                       </td>
 
+
                       <td>
                         {
                           producto.stockMinimo
                         }
                       </td>
+
 
                       {puedeAdministrar && (
                         <td>
@@ -1755,8 +2490,7 @@ export default function ProductsModule() {
                     }
                     className="inventory-empty"
                   >
-                    No se encontraron
-                    productos.
+                    No se encontraron productos.
                   </td>
                 </tr>
               )}

@@ -7,10 +7,16 @@ import {
 import { supabase } from '../lib/supabase'
 
 
+type PurchaseReturnsModuleProps = {
+  roleCode: string
+}
+
+
 type ProveedorRelacion = {
   codigo: string
   nombre: string
 }
+
 
 type CompraRespuesta = {
   id: number
@@ -23,6 +29,7 @@ type CompraRespuesta = {
     | null
 }
 
+
 type CompraRecibida = {
   id: number
   numero: string
@@ -32,11 +39,13 @@ type CompraRecibida = {
   proveedorNombre: string
 }
 
+
 type ProductoRelacion = {
   codigo: string
   nombre: string
   unidad_medida: string
 }
+
 
 type DetalleRecepcionRespuesta = {
   id: number
@@ -48,10 +57,12 @@ type DetalleRecepcionRespuesta = {
     | null
 }
 
+
 type DetalleDevolucionAnterior = {
   producto_id: number
   cantidad_devuelta: number | string
 }
+
 
 type ItemDevolucion = {
   productoId: number
@@ -64,6 +75,7 @@ type ItemDevolucion = {
   cantidadDevolver: string
 }
 
+
 type CompraHistorialRelacion = {
   numero: string
   proveedores:
@@ -71,6 +83,7 @@ type CompraHistorialRelacion = {
     | ProveedorRelacion[]
     | null
 }
+
 
 type DevolucionRespuesta = {
   id: number
@@ -80,11 +93,13 @@ type DevolucionRespuesta = {
   motivo: string
   observaciones: string | null
   created_at: string
+
   compras:
     | CompraHistorialRelacion
     | CompraHistorialRelacion[]
     | null
 }
+
 
 type DevolucionHistorial = {
   id: number
@@ -98,15 +113,18 @@ type DevolucionHistorial = {
   proveedorCodigo: string
 }
 
+
 type DetalleDevolucionRespuesta = {
   id: number
   producto_id: number
   cantidad_devuelta: number | string
+
   productos:
     | ProductoRelacion
     | ProductoRelacion[]
     | null
 }
+
 
 type DetalleDevolucionVista = {
   id: number
@@ -116,6 +134,10 @@ type DetalleDevolucionVista = {
   cantidadDevuelta: number
 }
 
+
+// ==========================================================
+// UTILIDADES
+// ==========================================================
 
 function fechaLocalActual() {
   const fecha = new Date()
@@ -239,8 +261,7 @@ function obtenerMensajeError(
   respaldo: string,
 ) {
   if (
-    typeof err ===
-      'object' &&
+    typeof err === 'object' &&
     err !== null &&
     'message' in err
   ) {
@@ -269,7 +290,17 @@ function obtenerMensajeError(
 }
 
 
-export default function PurchaseReturnsModule() {
+// ==========================================================
+// COMPONENTE
+// ==========================================================
+
+export default function PurchaseReturnsModule({
+  roleCode,
+}: PurchaseReturnsModuleProps) {
+  const puedeGestionarDevoluciones =
+    roleCode ===
+    'responsable_compras'
+
   const [
     comprasRecibidas,
     setComprasRecibidas,
@@ -477,7 +508,7 @@ export default function PurchaseReturnsModule() {
 
 
   // ==========================================================
-  // CARGAR HISTORIAL DE DEVOLUCIONES
+  // CARGAR HISTORIAL
   // ==========================================================
 
   async function cargarHistorial() {
@@ -537,7 +568,7 @@ export default function PurchaseReturnsModule() {
             obtenerProveedor(
               compra
                 ?.proveedores ??
-                null,
+              null,
             )
 
           return {
@@ -688,11 +719,22 @@ export default function PurchaseReturnsModule() {
 
   // ==========================================================
   // ABRIR DEVOLUCIÓN
+  // SOLO RESPONSABLE DE COMPRAS
   // ==========================================================
 
   async function abrirDevolucion(
     compra: CompraRecibida,
   ) {
+    if (
+      !puedeGestionarDevoluciones
+    ) {
+      setError(
+        'Este perfil tiene acceso de consulta y no puede registrar devoluciones.',
+      )
+
+      return
+    }
+
     try {
       setCargandoDetalle(
         true,
@@ -711,7 +753,7 @@ export default function PurchaseReturnsModule() {
 
 
       // --------------------------------------------------------
-      // RECEPCIÓN DE LA COMPRA
+      // RECEPCIÓN
       // --------------------------------------------------------
 
       const {
@@ -733,13 +775,11 @@ export default function PurchaseReturnsModule() {
           )
           .single()
 
-
       if (
         recepcionError
       ) {
         throw recepcionError
       }
-
 
       if (
         !recepcionData
@@ -786,20 +826,17 @@ export default function PurchaseReturnsModule() {
             },
           )
 
-
       if (
         detalleRecepcionError
       ) {
         throw detalleRecepcionError
       }
 
-
       const detalleRecepcion =
         (
           detalleRecepcionData ??
           []
         ) as unknown as DetalleRecepcionRespuesta[]
-
 
       if (
         detalleRecepcion.length ===
@@ -812,7 +849,7 @@ export default function PurchaseReturnsModule() {
 
 
       // --------------------------------------------------------
-      // DEVOLUCIONES ANTERIORES DE ESA COMPRA
+      // DEVOLUCIONES PREVIAS
       // --------------------------------------------------------
 
       const {
@@ -833,13 +870,11 @@ export default function PurchaseReturnsModule() {
             compra.id,
           )
 
-
       if (
         devolucionesError
       ) {
         throw devolucionesError
       }
-
 
       const idsDevoluciones =
         (
@@ -850,11 +885,9 @@ export default function PurchaseReturnsModule() {
             item.id,
         )
 
-
       let detallesDevueltos:
         DetalleDevolucionAnterior[] =
           []
-
 
       if (
         idsDevoluciones.length >
@@ -879,13 +912,11 @@ export default function PurchaseReturnsModule() {
               idsDevoluciones,
             )
 
-
         if (
           detallesError
         ) {
           throw detallesError
         }
-
 
         detallesDevueltos =
           (
@@ -896,7 +927,7 @@ export default function PurchaseReturnsModule() {
 
 
       // --------------------------------------------------------
-      // CONSTRUIR ITEMS DISPONIBLES
+      // CALCULAR DISPONIBILIDAD
       // --------------------------------------------------------
 
       const itemsCalculados =
@@ -913,7 +944,6 @@ export default function PurchaseReturnsModule() {
               Number(
                 detalle.cantidad_recibida,
               ) || 0
-
 
             const yaDevuelta =
               detallesDevueltos
@@ -934,14 +964,12 @@ export default function PurchaseReturnsModule() {
                   0,
                 )
 
-
             const disponible =
               Math.max(
                 recibida -
                   yaDevuelta,
                 0,
               )
-
 
             return {
               productoId:
@@ -977,14 +1005,12 @@ export default function PurchaseReturnsModule() {
           },
         )
 
-
       const disponibles =
         itemsCalculados.filter(
           item =>
             item.cantidadDisponible >
             0,
         )
-
 
       if (
         disponibles.length ===
@@ -994,7 +1020,6 @@ export default function PurchaseReturnsModule() {
           `La compra ${compra.numero} ya no tiene productos disponibles para devolución.`,
         )
       }
-
 
       setCompraSeleccionada(
         compra,
@@ -1026,7 +1051,7 @@ export default function PurchaseReturnsModule() {
 
 
   // ==========================================================
-  // CERRAR DEVOLUCIÓN
+  // CERRAR
   // ==========================================================
 
   function cerrarDevolucion() {
@@ -1039,11 +1064,8 @@ export default function PurchaseReturnsModule() {
     )
 
     setItems([])
-
     setMotivo('')
-
     setObservaciones('')
-
     setError('')
   }
 
@@ -1056,6 +1078,12 @@ export default function PurchaseReturnsModule() {
     productoId: number,
     valor: string,
   ) {
+    if (
+      !puedeGestionarDevoluciones
+    ) {
+      return
+    }
+
     setItems(
       actuales =>
         actuales.map(
@@ -1064,6 +1092,7 @@ export default function PurchaseReturnsModule() {
             productoId
               ? {
                   ...item,
+
                   cantidadDevolver:
                     valor,
                 }
@@ -1079,11 +1108,20 @@ export default function PurchaseReturnsModule() {
 
   async function registrarDevolucion() {
     if (
+      !puedeGestionarDevoluciones
+    ) {
+      setError(
+        'Este perfil no tiene permisos para registrar devoluciones de compra.',
+      )
+
+      return
+    }
+
+    if (
       !compraSeleccionada
     ) {
       return
     }
-
 
     try {
       setGuardando(
@@ -1093,7 +1131,6 @@ export default function PurchaseReturnsModule() {
       setError('')
       setMensaje('')
 
-
       if (
         !fechaDevolucion
       ) {
@@ -1101,7 +1138,6 @@ export default function PurchaseReturnsModule() {
           'Seleccione la fecha de devolución.',
         )
       }
-
 
       if (
         motivo
@@ -1113,7 +1149,6 @@ export default function PurchaseReturnsModule() {
         )
       }
 
-
       const itemsSeleccionados =
         items.filter(
           item =>
@@ -1121,7 +1156,6 @@ export default function PurchaseReturnsModule() {
               item.cantidadDevolver,
             ) > 0,
         )
-
 
       if (
         itemsSeleccionados.length ===
@@ -1132,7 +1166,6 @@ export default function PurchaseReturnsModule() {
         )
       }
 
-
       for (
         const item of
         itemsSeleccionados
@@ -1141,7 +1174,6 @@ export default function PurchaseReturnsModule() {
           Number(
             item.cantidadDevolver,
           )
-
 
         if (
           !Number.isFinite(
@@ -1154,7 +1186,6 @@ export default function PurchaseReturnsModule() {
           )
         }
 
-
         if (
           cantidad >
           item.cantidadDisponible
@@ -1163,7 +1194,6 @@ export default function PurchaseReturnsModule() {
             `No puede devolver ${cantidad} de ${item.nombre}. Disponible para devolución: ${item.cantidadDisponible}.`,
           )
         }
-
 
         if (
           item.unidad
@@ -1180,7 +1210,6 @@ export default function PurchaseReturnsModule() {
         }
       }
 
-
       const itemsRpc =
         itemsSeleccionados.map(
           item => ({
@@ -1193,7 +1222,6 @@ export default function PurchaseReturnsModule() {
               ),
           }),
         )
-
 
       const {
         data,
@@ -1221,11 +1249,9 @@ export default function PurchaseReturnsModule() {
           },
         )
 
-
       if (error) {
         throw error
       }
-
 
       const resultado =
         Array.isArray(
@@ -1234,33 +1260,26 @@ export default function PurchaseReturnsModule() {
           ? data[0]
           : data
 
-
       const numero =
         resultado
           ?.numero ??
         'registrada'
 
-
       const compraNumero =
         compraSeleccionada.numero
-
 
       setCompraSeleccionada(
         null,
       )
 
       setItems([])
-
       setMotivo('')
-
       setObservaciones('')
-
 
       await Promise.all([
         cargarComprasRecibidas(),
         cargarHistorial(),
       ])
-
 
       setMensaje(
         `Devolución ${numero} registrada correctamente para la compra ${compraNumero}.`,
@@ -1306,7 +1325,6 @@ export default function PurchaseReturnsModule() {
         devolucion,
       )
 
-
       const {
         data,
         error,
@@ -1337,18 +1355,15 @@ export default function PurchaseReturnsModule() {
             },
           )
 
-
       if (error) {
         throw error
       }
-
 
       const respuesta =
         (
           data ??
           []
         ) as unknown as DetalleDevolucionRespuesta[]
-
 
       const detalle =
         respuesta.map(
@@ -1387,7 +1402,6 @@ export default function PurchaseReturnsModule() {
           },
         )
 
-
       setDetalleDevolucion(
         detalle,
       )
@@ -1418,7 +1432,7 @@ export default function PurchaseReturnsModule() {
 
 
   // ==========================================================
-  // INTERFAZ
+  // CARGANDO
   // ==========================================================
 
   if (cargando) {
@@ -1431,6 +1445,10 @@ export default function PurchaseReturnsModule() {
     )
   }
 
+
+  // ==========================================================
+  // INTERFAZ
+  // ==========================================================
 
   return (
     <div className="inventory-module">
@@ -1450,10 +1468,11 @@ export default function PurchaseReturnsModule() {
           </h2>
 
           <p>
-            Registra productos devueltos al proveedor y actualiza automáticamente el inventario.
+            {puedeGestionarDevoluciones
+              ? 'Registra devoluciones al proveedor y consulta su historial.'
+              : 'Consulta las devoluciones de compra y su historial.'}
           </p>
         </div>
-
 
         <button
           type="button"
@@ -1484,7 +1503,7 @@ export default function PurchaseReturnsModule() {
           </strong>
 
           <small>
-            disponibles para revisión
+            disponibles para consulta
           </small>
         </div>
 
@@ -1506,43 +1525,47 @@ export default function PurchaseReturnsModule() {
         </div>
 
 
-        <div className="inventory-stat-card">
-          <span>
-            COMPRA SELECCIONADA
-          </span>
+        {puedeGestionarDevoluciones && (
+          <>
+            <div className="inventory-stat-card">
+              <span>
+                COMPRA SELECCIONADA
+              </span>
 
-          <strong
-            style={{
-              fontSize:
-                '20px',
-            }}
-          >
-            {compraSeleccionada
-              ? compraSeleccionada.numero
-              : '—'}
-          </strong>
+              <strong
+                style={{
+                  fontSize:
+                    '20px',
+                }}
+              >
+                {compraSeleccionada
+                  ? compraSeleccionada.numero
+                  : '—'}
+              </strong>
 
-          <small>
-            para devolución
-          </small>
-        </div>
+              <small>
+                para devolución
+              </small>
+            </div>
 
 
-        <div className="inventory-stat-card">
-          <span>
-            PRODUCTOS DISPONIBLES
-          </span>
+            <div className="inventory-stat-card">
+              <span>
+                PRODUCTOS DISPONIBLES
+              </span>
 
-          <strong>
-            {
-              items.length
-            }
-          </strong>
+              <strong>
+                {
+                  items.length
+                }
+              </strong>
 
-          <small>
-            líneas para devolver
-          </small>
-        </div>
+              <small>
+                líneas para devolver
+              </small>
+            </div>
+          </>
+        )}
       </div>
 
 
@@ -1556,7 +1579,6 @@ export default function PurchaseReturnsModule() {
         </div>
       )}
 
-
       {error && (
         <div className="error-message">
           {error}
@@ -1566,339 +1588,331 @@ export default function PurchaseReturnsModule() {
 
       {/* ====================================================
           REGISTRAR DEVOLUCIÓN
+          SOLO RESPONSABLE DE COMPRAS
       ==================================================== */}
 
-      {compraSeleccionada && (
-        <div className="inventory-toolbar">
-          <div
-            style={{
-              width:
-                '100%',
-            }}
-          >
+      {puedeGestionarDevoluciones &&
+        compraSeleccionada && (
+          <div className="inventory-toolbar">
             <div
               style={{
-                display:
-                  'flex',
-                justifyContent:
-                  'space-between',
-                alignItems:
-                  'flex-start',
-                gap:
-                  '20px',
-                marginBottom:
-                  '22px',
+                width:
+                  '100%',
               }}
             >
-              <div>
-                <span className="panel-label">
-                  REGISTRAR DEVOLUCIÓN
-                </span>
+              <div
+                style={{
+                  display:
+                    'flex',
+                  justifyContent:
+                    'space-between',
+                  alignItems:
+                    'flex-start',
+                  gap:
+                    '20px',
+                  marginBottom:
+                    '22px',
+                }}
+              >
+                <div>
+                  <span className="panel-label">
+                    REGISTRAR DEVOLUCIÓN
+                  </span>
 
-                <h2>
-                  {
-                    compraSeleccionada.numero
-                  }
-                </h2>
+                  <h2>
+                    {
+                      compraSeleccionada.numero
+                    }
+                  </h2>
 
-                <p>
-                  {
-                    compraSeleccionada.proveedorNombre
+                  <p>
+                    {
+                      compraSeleccionada.proveedorNombre
+                    }
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={
+                    cerrarDevolucion
                   }
-                </p>
+                  disabled={
+                    guardando
+                  }
+                >
+                  ✕ Cerrar
+                </button>
               </div>
 
 
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={
-                  cerrarDevolucion
-                }
-                disabled={
-                  guardando
-                }
+              <div
+                style={{
+                  display:
+                    'grid',
+                  gridTemplateColumns:
+                    '1fr 2fr',
+                  gap:
+                    '16px',
+                  marginBottom:
+                    '18px',
+                }}
               >
-                ✕ Cerrar
-              </button>
-            </div>
+                <label>
+                  Fecha de devolución *
+
+                  <input
+                    type="date"
+                    value={
+                      fechaDevolucion
+                    }
+                    onChange={
+                      event =>
+                        setFechaDevolucion(
+                          event
+                            .target
+                            .value,
+                        )
+                    }
+                  />
+                </label>
 
 
-            <div
-              style={{
-                display:
-                  'grid',
-                gridTemplateColumns:
-                  '1fr 2fr',
-                gap:
-                  '16px',
-                marginBottom:
-                  '18px',
-              }}
-            >
+                <label>
+                  Motivo *
+
+                  <input
+                    type="text"
+                    value={
+                      motivo
+                    }
+                    onChange={
+                      event =>
+                        setMotivo(
+                          event
+                            .target
+                            .value,
+                        )
+                    }
+                    placeholder="Ej. Producto defectuoso"
+                  />
+                </label>
+              </div>
+
+
               <label>
-                Fecha de devolución *
+                Observaciones
 
-                <input
-                  type="date"
+                <textarea
                   value={
-                    fechaDevolucion
+                    observaciones
                   }
                   onChange={
                     event =>
-                      setFechaDevolucion(
+                      setObservaciones(
                         event
                           .target
                           .value,
                       )
                   }
+                  placeholder="Información adicional de la devolución..."
                 />
               </label>
 
 
-              <label>
-                Motivo *
-
-                <input
-                  type="text"
-                  value={
-                    motivo
-                  }
-                  onChange={
-                    event =>
-                      setMotivo(
-                        event
-                          .target
-                          .value,
-                      )
-                  }
-                  placeholder="Ej. Producto defectuoso"
-                />
-              </label>
-            </div>
-
-
-            <label>
-              Observaciones
-
-              <textarea
-                value={
-                  observaciones
-                }
-                onChange={
-                  event =>
-                    setObservaciones(
-                      event
-                        .target
-                        .value,
-                    )
-                }
-                placeholder="Información adicional de la devolución..."
-              />
-            </label>
-
-
-            <div
-              className="inventory-table-wrapper"
-              style={{
-                marginTop:
-                  '20px',
-              }}
-            >
-              <table className="inventory-table">
-                <thead>
-                  <tr>
-                    <th>
-                      CÓDIGO
-                    </th>
-
-                    <th>
-                      PRODUCTO
-                    </th>
-
-                    <th>
-                      UNIDAD
-                    </th>
-
-                    <th>
-                      RECIBIDA
-                    </th>
-
-                    <th>
-                      DEVUELTA ANTES
-                    </th>
-
-                    <th>
-                      DISPONIBLE
-                    </th>
-
-                    <th>
-                      DEVOLVER
-                    </th>
-                  </tr>
-                </thead>
-
-
-                <tbody>
-                  {cargandoDetalle && (
+              <div
+                className="inventory-table-wrapper"
+                style={{
+                  marginTop:
+                    '20px',
+                }}
+              >
+                <table className="inventory-table">
+                  <thead>
                     <tr>
-                      <td
-                        colSpan={
-                          7
-                        }
-                        style={{
-                          textAlign:
-                            'center',
-                          padding:
-                            '30px',
-                        }}
-                      >
-                        Cargando productos...
-                      </td>
+                      <th>
+                        CÓDIGO
+                      </th>
+
+                      <th>
+                        PRODUCTO
+                      </th>
+
+                      <th>
+                        UNIDAD
+                      </th>
+
+                      <th>
+                        RECIBIDA
+                      </th>
+
+                      <th>
+                        DEVUELTA ANTES
+                      </th>
+
+                      <th>
+                        DISPONIBLE
+                      </th>
+
+                      <th>
+                        DEVOLVER
+                      </th>
                     </tr>
-                  )}
+                  </thead>
 
-
-                  {!cargandoDetalle &&
-                    items.map(
-                      item => (
-                        <tr
-                          key={
-                            item.productoId
+                  <tbody>
+                    {cargandoDetalle && (
+                      <tr>
+                        <td
+                          colSpan={
+                            7
                           }
+                          style={{
+                            textAlign:
+                              'center',
+                            padding:
+                              '30px',
+                          }}
                         >
-                          <td>
-                            {
-                              item.codigo
-                            }
-                          </td>
-
-
-                          <td>
-                            <strong>
-                              {
-                                item.nombre
-                              }
-                            </strong>
-                          </td>
-
-
-                          <td>
-                            {
-                              item.unidad
-                            }
-                          </td>
-
-
-                          <td>
-                            {
-                              item.cantidadRecibida
-                            }
-                          </td>
-
-
-                          <td>
-                            {
-                              item.cantidadDevueltaAnterior
-                            }
-                          </td>
-
-
-                          <td>
-                            <strong>
-                              {
-                                item.cantidadDisponible
-                              }
-                            </strong>
-                          </td>
-
-
-                          <td>
-                            <input
-                              type="number"
-                              min="0"
-                              max={
-                                item.cantidadDisponible
-                              }
-                              step={
-                                item.unidad
-                                  .trim()
-                                  .toLowerCase() ===
-                                'unidad'
-                                  ? '1'
-                                  : '0.01'
-                              }
-                              value={
-                                item.cantidadDevolver
-                              }
-                              onChange={
-                                event =>
-                                  actualizarCantidad(
-                                    item.productoId,
-                                    event
-                                      .target
-                                      .value,
-                                  )
-                              }
-                              style={{
-                                width:
-                                  '100px',
-                              }}
-                            />
-                          </td>
-                        </tr>
-                      ),
+                          Cargando productos...
+                        </td>
+                      </tr>
                     )}
-                </tbody>
-              </table>
-            </div>
+
+                    {!cargandoDetalle &&
+                      items.map(
+                        item => (
+                          <tr
+                            key={
+                              item.productoId
+                            }
+                          >
+                            <td>
+                              {
+                                item.codigo
+                              }
+                            </td>
+
+                            <td>
+                              <strong>
+                                {
+                                  item.nombre
+                                }
+                              </strong>
+                            </td>
+
+                            <td>
+                              {
+                                item.unidad
+                              }
+                            </td>
+
+                            <td>
+                              {
+                                item.cantidadRecibida
+                              }
+                            </td>
+
+                            <td>
+                              {
+                                item.cantidadDevueltaAnterior
+                              }
+                            </td>
+
+                            <td>
+                              <strong>
+                                {
+                                  item.cantidadDisponible
+                                }
+                              </strong>
+                            </td>
+
+                            <td>
+                              <input
+                                type="number"
+                                min="0"
+                                max={
+                                  item.cantidadDisponible
+                                }
+                                step={
+                                  item.unidad
+                                    .trim()
+                                    .toLowerCase() ===
+                                  'unidad'
+                                    ? '1'
+                                    : '0.01'
+                                }
+                                value={
+                                  item.cantidadDevolver
+                                }
+                                onChange={
+                                  event =>
+                                    actualizarCantidad(
+                                      item.productoId,
+                                      event
+                                        .target
+                                        .value,
+                                    )
+                                }
+                                style={{
+                                  width:
+                                    '100px',
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                  </tbody>
+                </table>
+              </div>
 
 
-            <div
-              style={{
-                display:
-                  'flex',
-                justifyContent:
-                  'flex-end',
-                gap:
-                  '10px',
-                marginTop:
-                  '20px',
-              }}
-            >
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={
-                  cerrarDevolucion
-                }
-                disabled={
-                  guardando
-                }
+              <div
+                style={{
+                  display:
+                    'flex',
+                  justifyContent:
+                    'flex-end',
+                  gap:
+                    '10px',
+                  marginTop:
+                    '20px',
+                }}
               >
-                Cancelar
-              </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={
+                    cerrarDevolucion
+                  }
+                  disabled={
+                    guardando
+                  }
+                >
+                  Cancelar
+                </button>
 
-
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() =>
-                  void registrarDevolucion()
-                }
-                disabled={
-                  guardando ||
-                  cargandoDetalle
-                }
-              >
-                {guardando
-                  ? 'Registrando...'
-                  : 'Confirmar devolución'}
-              </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() =>
+                    void registrarDevolucion()
+                  }
+                  disabled={
+                    guardando ||
+                    cargandoDetalle
+                  }
+                >
+                  {guardando
+                    ? 'Registrando...'
+                    : 'Confirmar devolución'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
 
       {/* ====================================================
@@ -1950,7 +1964,6 @@ export default function PurchaseReturnsModule() {
                 </p>
               </div>
 
-
               <button
                 type="button"
                 className="secondary-button"
@@ -1987,7 +2000,6 @@ export default function PurchaseReturnsModule() {
                 </strong>
               </div>
 
-
               <div>
                 <span className="panel-label">
                   MOTIVO
@@ -2004,17 +2016,17 @@ export default function PurchaseReturnsModule() {
 
             {devolucionSeleccionada
               .observaciones && (
-              <p
-                style={{
-                  marginBottom:
-                    '18px',
-                }}
-              >
-                {
-                  devolucionSeleccionada.observaciones
-                }
-              </p>
-            )}
+                <p
+                  style={{
+                    marginBottom:
+                      '18px',
+                  }}
+                >
+                  {
+                    devolucionSeleccionada.observaciones
+                  }
+                </p>
+              )}
 
 
             <div className="inventory-table-wrapper">
@@ -2039,7 +2051,6 @@ export default function PurchaseReturnsModule() {
                   </tr>
                 </thead>
 
-
                 <tbody>
                   {cargandoHistorialDetalle && (
                     <tr>
@@ -2058,7 +2069,6 @@ export default function PurchaseReturnsModule() {
                       </td>
                     </tr>
                   )}
-
 
                   {!cargandoHistorialDetalle &&
                     detalleDevolucion.map(
@@ -2105,7 +2115,7 @@ export default function PurchaseReturnsModule() {
 
 
       {/* ====================================================
-          COMPRAS DISPONIBLES
+          COMPRAS RECIBIDAS
       ==================================================== */}
 
       <div
@@ -2139,7 +2149,9 @@ export default function PurchaseReturnsModule() {
                   '4px 0 0',
               }}
             >
-              Productos disponibles para devolución
+              {puedeGestionarDevoluciones
+                ? 'Productos disponibles para devolución'
+                : 'Compras recibidas'}
             </h2>
           </div>
         </div>
@@ -2185,6 +2197,7 @@ export default function PurchaseReturnsModule() {
             {
               comprasFiltradas.length
             }{' '}
+
             {comprasFiltradas.length ===
             1
               ? 'compra'
@@ -2217,12 +2230,13 @@ export default function PurchaseReturnsModule() {
                   ESTADO
                 </th>
 
-                <th>
-                  ACCIÓN
-                </th>
+                {puedeGestionarDevoluciones && (
+                  <th>
+                    ACCIÓN
+                  </th>
+                )}
               </tr>
             </thead>
-
 
             <tbody>
               {comprasFiltradas.length ===
@@ -2230,7 +2244,9 @@ export default function PurchaseReturnsModule() {
                 <tr>
                   <td
                     colSpan={
-                      6
+                      puedeGestionarDevoluciones
+                        ? 6
+                        : 5
                     }
                     style={{
                       textAlign:
@@ -2243,7 +2259,6 @@ export default function PurchaseReturnsModule() {
                   </td>
                 </tr>
               )}
-
 
               {comprasFiltradas.map(
                 compra => (
@@ -2260,13 +2275,11 @@ export default function PurchaseReturnsModule() {
                       </strong>
                     </td>
 
-
                     <td>
                       {
                         compra.fechaCompra
                       }
                     </td>
-
 
                     <td>
                       <strong>
@@ -2291,7 +2304,6 @@ export default function PurchaseReturnsModule() {
                       </div>
                     </td>
 
-
                     <td>
                       <strong>
                         {moneda(
@@ -2300,27 +2312,27 @@ export default function PurchaseReturnsModule() {
                       </strong>
                     </td>
 
-
                     <td>
                       <span className="status-badge status-success">
                         Recibida
                       </span>
                     </td>
 
-
-                    <td>
-                      <button
-                        type="button"
-                        className="primary-button"
-                        onClick={() =>
-                          void abrirDevolucion(
-                            compra,
-                          )
-                        }
-                      >
-                        Devolver
-                      </button>
-                    </td>
+                    {puedeGestionarDevoluciones && (
+                      <td>
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() =>
+                            void abrirDevolucion(
+                              compra,
+                            )
+                          }
+                        >
+                          Devolver
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ),
               )}
@@ -2396,6 +2408,7 @@ export default function PurchaseReturnsModule() {
             {
               historialFiltrado.length
             }{' '}
+
             {historialFiltrado.length ===
             1
               ? 'devolución'
@@ -2434,7 +2447,6 @@ export default function PurchaseReturnsModule() {
               </tr>
             </thead>
 
-
             <tbody>
               {historialFiltrado.length ===
                 0 && (
@@ -2455,7 +2467,6 @@ export default function PurchaseReturnsModule() {
                 </tr>
               )}
 
-
               {historialFiltrado.map(
                 devolucion => (
                   <tr
@@ -2471,20 +2482,17 @@ export default function PurchaseReturnsModule() {
                       </strong>
                     </td>
 
-
                     <td>
                       {
                         devolucion.fechaDevolucion
                       }
                     </td>
 
-
                     <td>
                       {
                         devolucion.compraNumero
                       }
                     </td>
-
 
                     <td>
                       <strong>
@@ -2509,13 +2517,11 @@ export default function PurchaseReturnsModule() {
                       </div>
                     </td>
 
-
                     <td>
                       {
                         devolucion.motivo
                       }
                     </td>
-
 
                     <td>
                       <button
