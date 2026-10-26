@@ -344,3 +344,18 @@ Algunas áreas pueden necesitar terminación, integración o pruebas. No asumir 
 ## 57. Objetivo final
 
 Internamente Casa Hogar controla compras, inventario, ventas, caja, clientes y reportes. Externamente el cliente consulta productos, prepara pedidos, usa su cuenta y consulta sus pedidos. Todo sobre la misma base central, con separación de roles, seguridad y trazabilidad.
+
+## 58. Base de datos y migraciones
+
+- `supabase/migrations/20261026120000_esquema_base.sql` es el punto de partida: volcado completo del esquema remoto (incluye trigger de auth, roles, bucket `productos` y privilegios). Verificado con `supabase db diff --linked` sin diferencias.
+- `supabase/migraciones_historicas/` (001–025) es solo referencia; no se ejecuta.
+- Todo cambio de estructura va en una migración nueva: `supabase migration new nombre` → `supabase db push --dry-run` → `supabase db push`. **No** ejecutar DDL en el SQL Editor (desincroniza el historial).
+- La base revoca los privilegios por defecto, incluso a `service_role`: cada tabla o función nueva necesita su `GRANT` explícito.
+- Migraciones re-ejecutables: `IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP ... IF EXISTS`, `ON CONFLICT`.
+
+## 59. Soporte TI y Edge Functions
+
+- Usuarios internos: módulo `SupportModule` (vistas usuarios, roles, auditoría, configuración).
+- Crear cuentas y asignar contraseñas temporales: Edge Function `gestionar-usuarios` (usa la service_role en el servidor y valida rol `soporte_ti`). Desplegar con `supabase functions deploy gestionar-usuarios --use-api`.
+- Nombre, rol y estado: RPC `actualizar_usuario_interno()`. Auditoría: `auditoria_usuarios` + `auditoria_sistema()`.
+- El personal cambia su contraseña desde "Cambiar contraseña" en la barra lateral.

@@ -145,7 +145,18 @@ function formatearFecha(
   )
 }
 
-export default function MovementsModule() {
+type MovementsModuleProps = {
+  /*
+   * Gerencia consulta el Kardex pero no registra movimientos
+   * (registrar_movimiento_inventario solo admite almacen y
+   * administracion).
+   */
+  soloConsulta?: boolean
+}
+
+export default function MovementsModule({
+  soloConsulta = false,
+}: MovementsModuleProps) {
   const [productos, setProductos] =
     useState<Producto[]>([])
 
@@ -567,9 +578,9 @@ export default function MovementsModule() {
           </h2>
 
           <p>
-            Registra entradas,
-            salidas y ajustes del
-            inventario.
+            {soloConsulta
+              ? 'Consulta el historial de entradas, salidas y ajustes del inventario (Kardex).'
+              : 'Registra entradas, salidas y ajustes del inventario.'}
           </p>
         </div>
 
@@ -648,6 +659,13 @@ export default function MovementsModule() {
           FORMULARIO
       ============================================== */}
 
+      {soloConsulta && error && (
+        <div className="inventory-error">
+          {error}
+        </div>
+      )}
+
+      {!soloConsulta && (
       <section className="movement-form-card">
         <div className="movement-form-heading">
           <div>
@@ -837,6 +855,7 @@ export default function MovementsModule() {
           </div>
         )}
       </section>
+      )}
 
       {/* ==============================================
           HISTORIAL

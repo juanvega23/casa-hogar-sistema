@@ -154,19 +154,25 @@ export const menusByRole: Record<
   //
   // Se conserva temporalmente mientras terminamos la migración.
   // La supervisión general se concentra en Gerencia.
+  //
+  // Solo se muestran pantallas que la base de datos le permite:
+  // antes tenía Dashboard (exclusivo del Propietario), Ventas y
+  // Caja, que fallaban por RLS. Puede registrar ajustes de
+  // inventario (registrar_movimiento_inventario) y anular
+  // compras (anular_compra).
   // =========================================================
   administracion: [
     {
-      id: 'dashboard',
-      nombre: 'Dashboard',
+      id: 'productos-consulta',
+      nombre: 'Productos',
     },
     {
-      id: 'ventas',
-      nombre: 'Ventas',
+      id: 'inventario-consulta',
+      nombre: 'Bodega / Inventario',
     },
     {
-      id: 'caja',
-      nombre: 'Caja',
+      id: 'movimientos',
+      nombre: 'Movimientos / Ajustes',
     },
     {
       id: 'reportes',

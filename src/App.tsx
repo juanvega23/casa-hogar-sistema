@@ -26,6 +26,8 @@ import CashModule from './modules/CashModule'
 import OwnerDashboardModule from './modules/OwnerDashboardModule'
 import OwnerReportsModule from './modules/OwnerReportsModule'
 import OwnerAlertsModule from './modules/OwnerAlertsModule'
+import SupportModule from './modules/SupportModule'
+import AccountPasswordModule from './modules/AccountPasswordModule'
 import Storefront from './modules/Storefront'
 import logoCasaHogar from './assets/casa-hogar-logo.png'
 import SuppliersModule from './modules/SuppliersModule'
@@ -208,6 +210,11 @@ function InternalSystemApp({
     gruposAbiertos,
     setGruposAbiertos,
   ] = useState<Record<string, boolean>>({})
+
+  const [
+    cambiandoClave,
+    setCambiandoClave,
+  ] = useState(false)
 
 
   // ===================================================
@@ -750,7 +757,9 @@ function InternalSystemApp({
 
     if (mostrarMovimientos) {
       return (
-        <MovementsModule />
+        <MovementsModule
+          soloConsulta={esConsulta}
+        />
       )
     }
 
@@ -1027,6 +1036,52 @@ function InternalSystemApp({
     ) {
       return (
         <OwnerReportsModule />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // REPORTES OPERATIVOS (GERENCIA / ADMINISTRACIÓN)
+    // Mismo análisis de solo consulta que el Propietario;
+    // reportes_propietario() admite ambos roles.
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'reportes'
+    ) {
+      return (
+        <OwnerReportsModule />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // SOPORTE TI
+    // -------------------------------------------------
+
+    const vistasSoporte = [
+      'usuarios',
+      'roles',
+      'auditoria',
+      'configuracion',
+    ]
+
+    if (
+      vistasSoporte.includes(
+        moduloSeleccionado.id,
+      )
+    ) {
+      return (
+        <SupportModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+          vista={
+            moduloSeleccionado.id
+          }
+        />
       )
     }
 
@@ -1357,6 +1412,8 @@ function InternalSystemApp({
                         item.id,
                       )
 
+                      setCambiandoClave(false)
+
                       setMenuAbierto(
                         false,
                       )
@@ -1466,6 +1523,8 @@ function InternalSystemApp({
                                   child.id,
                                 )
 
+                                setCambiandoClave(false)
+
                                 setMenuAbierto(
                                   false,
                                 )
@@ -1529,6 +1588,22 @@ function InternalSystemApp({
             className="nav-signout"
             onClick={() => {
               setMenuAbierto(false)
+              setCambiandoClave(true)
+            }}
+          >
+            <span aria-hidden="true">
+              ⚿
+            </span>{' '}
+
+            Cambiar contraseña
+          </button>
+
+          <button
+            type="button"
+            className="nav-signout"
+            onClick={() => {
+              setMenuAbierto(false)
+              setCambiandoClave(false)
               void cerrarSesion()
             }}
           >
@@ -1666,7 +1741,15 @@ function InternalSystemApp({
             </div>
           </div>
 
-          {renderModulo()}
+          {cambiandoClave ? (
+            <AccountPasswordModule
+              onClose={() =>
+                setCambiandoClave(false)
+              }
+            />
+          ) : (
+            renderModulo()
+          )}
         </main>
       </section>
     </div>

@@ -673,7 +673,14 @@ const puedeAutorizar =
   roleCode === 'responsable_compras' &&
   esAutorizacion
 
-const puedeAnular = false
+/*
+ * El Responsable de Compras, al revisar una orden, puede
+ * rechazarla (anularla) mientras no haya sido recibida.
+ * Validado también en anular_compra().
+ */
+const puedeAnular =
+  roleCode === 'responsable_compras' &&
+  esAutorizacion
 
 const tituloVista =
   esOrdenesCompra
