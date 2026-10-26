@@ -2,1363 +2,1600 @@ import {
   useEffect,
   useMemo,
   useState,
+  type FormEvent,
 } from 'react'
 
 import { supabase } from '../lib/supabase'
 
-type MetodoPago =
-  | 'efectivo'
-  | 'tarjeta'
-  | 'transferencia'
-
-type PagoRespuesta = {
-  metodo_pago: MetodoPago
-  monto: number
-  monto_recibido: number | null
-  cambio: number
-  referencia: string | null
+type CashModuleProps = {
+  roleCode: string
+  vista: string
 }
 
-type VentaRespuesta = {
+type SesionCaja = {
   id: number
   numero: string
-  cliente_nombre: string | null
-  total: number
-  estado: 'completada' | 'anulada'
-  created_at: string
-  motivo_anulacion: string | null
-
-  pagos_venta:
-    | PagoRespuesta
-    | PagoRespuesta[]
-    | null
+  abierta_por: string
+  fecha_apertura: string
+  monto_inicial: number
+  estado: string
+  fecha_cierre: string | null
+  observaciones_apertura: string | null
+  observaciones_cierre: string | null
 }
 
 type Venta = {
   id: number
   numero: string
-  cliente: string
+  cliente_nombre: string | null
   total: number
-  estado: 'completada' | 'anulada'
-  fecha: string
-  motivoAnulacion: string
-  metodoPago: MetodoPago | null
-  montoRecibido: number
-  cambio: number
+  estado: string
+  tipo_venta: string
+}
+
+type CuentaCobrar = {
+  id: number
+  venta_id: number
+  fecha_vencimiento: string
+  saldo_pendiente: number
+  estado: string
+  ventas:
+    | {
+        numero: string
+        cliente_nombre: string | null
+      }
+    | {
+        numero: string
+        cliente_nombre: string | null
+      }[]
+    | null
 }
 
 type MovimientoCaja = {
   id: number
+  sesion_caja_id: number | null
   venta_id: number | null
-  tipo: 'ingreso' | 'egreso' | 'ajuste'
+  tipo: string
   concepto: string
-  metodo_pago: MetodoPago | null
+  metodo_pago: string | null
   monto: number
   referencia: string | null
   created_at: string
 }
 
-type ProductoDetalleRelacion = {
-  codigo: string
-  nombre: string
+type ArqueoCaja = {
+  id: number
+  sesion_caja_id: number
+  efectivo_esperado: number
+  efectivo_contado: number
+  diferencia: number
+  observaciones: string | null
+  created_at: string
 }
 
-type DetalleRespuesta = {
+type DevolucionCaja = {
   id: number
-  cantidad: number
-  precio_unitario: number
-  subtotal: number
-
-  productos:
-    | ProductoDetalleRelacion
-    | ProductoDetalleRelacion[]
+  numero: string
+  venta_id: number
+  motivo: string
+  total: number
+  estado_financiero: string
+  monto_aplicado_cxc: number
+  monto_reembolso: number
+  confirmada_at: string | null
+  ventas:
+    | {
+        numero: string
+        cliente_nombre: string | null
+        tipo_venta: string
+      }
+    | {
+        numero: string
+        cliente_nombre: string | null
+        tipo_venta: string
+      }[]
     | null
 }
 
-type DetalleVenta = {
-  id: number
-  codigo: string
-  producto: string
-  cantidad: number
-  precio: number
-  subtotal: number
+function etiquetaEstadoFinanciero(valor: string) {
+  if (valor === 'pendiente') return 'Pendiente de procesar'
+  if (valor === 'pendiente_reembolso') return 'Pendiente de reembolso'
+  if (valor === 'aplicada_cxc') return 'Aplicada a crédito'
+  if (valor === 'reembolsada') return 'Reembolsada'
+  return valor
 }
 
-function obtenerPago(
-  pagos:
-    | PagoRespuesta
-    | PagoRespuesta[]
-    | null,
-) {
-  if (!pagos) {
-    return null
-  }
-
-  if (Array.isArray(pagos)) {
-    return pagos[0] ?? null
-  }
-
-  return pagos
+function relacion<T>(valor: T | T[] | null): T | null {
+  if (!valor) return null
+  return Array.isArray(valor) ? valor[0] ?? null : valor
 }
 
-function obtenerProducto(
-  relacion:
-    | ProductoDetalleRelacion
-    | ProductoDetalleRelacion[]
-    | null,
-) {
-  if (!relacion) {
-    return {
-      codigo: '',
-      nombre: 'Producto',
-    }
-  }
-
-  if (Array.isArray(relacion)) {
-    return (
-      relacion[0] ?? {
-        codigo: '',
-        nombre: 'Producto',
-      }
-    )
-  }
-
-  return relacion
+function dinero(valor: number) {
+  return new Intl.NumberFormat('es-NI', {
+    style: 'currency',
+    currency: 'NIO',
+    minimumFractionDigits: 2,
+  }).format(valor)
 }
 
-function formatearCordobas(
-  valor: number,
-) {
-  return new Intl.NumberFormat(
-    'es-NI',
-    {
-      style: 'currency',
-      currency: 'NIO',
-      minimumFractionDigits: 2,
-    },
-  ).format(valor)
+function fecha(valor: string | null) {
+  if (!valor) return '—'
+  return new Intl.DateTimeFormat('es-NI', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(valor))
 }
 
-function formatearFecha(
-  fecha: string,
-) {
-  return new Intl.DateTimeFormat(
-    'es-NI',
-    {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    },
-  ).format(
-    new Date(fecha),
+function etiquetaMetodo(valor: string | null) {
+  if (!valor) return '—'
+  if (valor === 'efectivo') return 'Efectivo'
+  if (valor === 'tarjeta') return 'Tarjeta'
+  if (valor === 'transferencia') return 'Transferencia'
+  return valor
+}
+
+export default function CashModule({
+  roleCode,
+  vista,
+}: CashModuleProps) {
+  const esCaja = roleCode === 'responsable_caja'
+  const esGerencia = roleCode === 'gerencia'
+  const puedeConsultar = esCaja || esGerencia
+
+  const [sesiones, setSesiones] = useState<SesionCaja[]>([])
+  const [sesionActual, setSesionActual] = useState<SesionCaja | null>(null)
+  const [ventas, setVentas] = useState<Venta[]>([])
+  const [cuentas, setCuentas] = useState<CuentaCobrar[]>([])
+  const [movimientos, setMovimientos] = useState<MovimientoCaja[]>([])
+  const [arqueos, setArqueos] = useState<ArqueoCaja[]>([])
+  const [sesionHistorial, setSesionHistorial] = useState<SesionCaja | null>(null)
+
+  const [montoInicial, setMontoInicial] = useState('')
+  const [obsApertura, setObsApertura] = useState('')
+
+  const [ventaId, setVentaId] = useState('')
+  const [metodoCobro, setMetodoCobro] = useState('efectivo')
+  const [montoRecibido, setMontoRecibido] = useState('')
+  const [referenciaCobro, setReferenciaCobro] = useState('')
+
+  // El formulario de abonos tiene su propio estado para no
+  // mezclarse con el cobro de ventas de contado.
+  const [cuentaId, setCuentaId] = useState('')
+  const [montoAbono, setMontoAbono] = useState('')
+  const [metodoAbono, setMetodoAbono] = useState('efectivo')
+  const [recibidoAbono, setRecibidoAbono] = useState('')
+  const [referenciaAbono, setReferenciaAbono] = useState('')
+
+  const [devoluciones, setDevoluciones] = useState<DevolucionCaja[]>([])
+  const [devolucionReembolso, setDevolucionReembolso] =
+    useState<DevolucionCaja | null>(null)
+  const [metodoReembolso, setMetodoReembolso] = useState('efectivo')
+  const [referenciaReembolso, setReferenciaReembolso] = useState('')
+
+  const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('ingreso')
+  const [conceptoMovimiento, setConceptoMovimiento] = useState('')
+  const [metodoMovimiento, setMetodoMovimiento] = useState('efectivo')
+  const [montoMovimiento, setMontoMovimiento] = useState('')
+  const [referenciaMovimiento, setReferenciaMovimiento] = useState('')
+
+  const [efectivoContado, setEfectivoContado] = useState('')
+  const [obsArqueo, setObsArqueo] = useState('')
+  const [obsCierre, setObsCierre] = useState('')
+
+  const [cargando, setCargando] = useState(true)
+  const [procesando, setProcesando] = useState(false)
+  const [error, setError] = useState('')
+  const [exito, setExito] = useState('')
+
+  const arqueoActual = useMemo(
+    () =>
+      sesionActual
+        ? arqueos.find(a => a.sesion_caja_id === sesionActual.id) ?? null
+        : null,
+    [arqueos, sesionActual],
   )
-}
 
-function obtenerRangoHoy() {
-  const ahora =
-    new Date()
+  const movimientosActuales = useMemo(
+    () =>
+      sesionActual
+        ? movimientos.filter(m => m.sesion_caja_id === sesionActual.id)
+        : [],
+    [movimientos, sesionActual],
+  )
 
-  const inicio =
-    new Date(
-      ahora.getFullYear(),
-      ahora.getMonth(),
-      ahora.getDate(),
-      0,
-      0,
-      0,
-      0,
-    )
+  const resumenActual = useMemo(() => {
+    const ingresos = movimientosActuales
+      .filter(m => m.tipo === 'ingreso')
+      .reduce((a, b) => a + b.monto, 0)
 
-  const fin =
-    new Date(
-      ahora.getFullYear(),
-      ahora.getMonth(),
-      ahora.getDate(),
-      23,
-      59,
-      59,
-      999,
-    )
+    const egresos = movimientosActuales
+      .filter(m => m.tipo === 'egreso')
+      .reduce((a, b) => a + b.monto, 0)
 
-  return {
-    inicio:
-      inicio.toISOString(),
+    const ingresosEfectivo = movimientosActuales
+      .filter(m => m.tipo === 'ingreso' && m.metodo_pago === 'efectivo')
+      .reduce((a, b) => a + b.monto, 0)
 
-    fin:
-      fin.toISOString(),
-  }
-}
+    const egresosEfectivo = movimientosActuales
+      .filter(m => m.tipo === 'egreso' && m.metodo_pago === 'efectivo')
+      .reduce((a, b) => a + b.monto, 0)
 
-export default function CashModule() {
-  const [
-    ventas,
-    setVentas,
-  ] = useState<Venta[]>([])
+    const esperadoEfectivo =
+      (sesionActual?.monto_inicial ?? 0) +
+      ingresosEfectivo -
+      egresosEfectivo
 
-  const [
-    movimientos,
-    setMovimientos,
-  ] = useState<MovimientoCaja[]>([])
+    return {
+      ingresos,
+      egresos,
+      saldo:
+        (sesionActual?.monto_inicial ?? 0) +
+        ingresos -
+        egresos,
+      esperadoEfectivo,
+    }
+  }, [movimientosActuales, sesionActual])
 
-  const [
-    busqueda,
-    setBusqueda,
-  ] = useState('')
+  async function cargarDatos() {
+    if (!puedeConsultar) {
+      setCargando(false)
+      return
+    }
 
-  const [
-    cargando,
-    setCargando,
-  ] = useState(true)
-
-  const [
-    procesando,
-    setProcesando,
-  ] = useState(false)
-
-  const [
-    error,
-    setError,
-  ] = useState('')
-
-  const [
-    exito,
-    setExito,
-  ] = useState('')
-
-  const [
-    ventaSeleccionada,
-    setVentaSeleccionada,
-  ] =
-    useState<Venta | null>(
-      null,
-    )
-
-  const [
-    detalleVenta,
-    setDetalleVenta,
-  ] =
-    useState<DetalleVenta[]>(
-      [],
-    )
-
-  const [
-    cargandoDetalle,
-    setCargandoDetalle,
-  ] =
-    useState(false)
-
-  async function cargarCaja() {
     setCargando(true)
     setError('')
 
-    const {
-      inicio,
-      fin,
-    } = obtenerRangoHoy()
-
     const [
-      ventasResultado,
-      movimientosResultado,
-    ] =
-      await Promise.all([
-        supabase
-          .from('ventas')
-          .select(`
-            id,
-            numero,
-            cliente_nombre,
-            total,
-            estado,
-            created_at,
-            motivo_anulacion,
-            pagos_venta (
-              metodo_pago,
-              monto,
-              monto_recibido,
-              cambio,
-              referencia
-            )
-          `)
-          .order(
-            'created_at',
-            {
-              ascending: false,
-            },
-          )
-          .limit(50),
+      sesionesResp,
+      movimientosResp,
+      arqueosResp,
+      ventasResp,
+      cxcResp,
+      devolucionesResp,
+    ] = await Promise.all([
+      supabase
+        .from('sesiones_caja')
+        .select(`
+          id,
+          numero,
+          abierta_por,
+          fecha_apertura,
+          monto_inicial,
+          estado,
+          fecha_cierre,
+          observaciones_apertura,
+          observaciones_cierre
+        `)
+        .order('fecha_apertura', { ascending: false }),
 
-        supabase
-          .from(
-            'movimientos_caja',
-          )
-          .select(`
-            id,
-            venta_id,
-            tipo,
-            concepto,
-            metodo_pago,
-            monto,
-            referencia,
-            created_at
-          `)
-          .gte(
-            'created_at',
-            inicio,
-          )
-          .lte(
-            'created_at',
-            fin,
-          )
-          .order(
-            'created_at',
-            {
-              ascending: false,
-            },
-          ),
-      ])
+      supabase
+        .from('movimientos_caja')
+        .select(`
+          id,
+          sesion_caja_id,
+          venta_id,
+          tipo,
+          concepto,
+          metodo_pago,
+          monto,
+          referencia,
+          created_at
+        `)
+        .order('created_at', { ascending: false }),
 
-    if (
-      ventasResultado.error
-    ) {
-      setError(
-        `No fue posible cargar las ventas: ${ventasResultado.error.message}`,
-      )
+      supabase
+        .from('arqueos_caja')
+        .select(`
+          id,
+          sesion_caja_id,
+          efectivo_esperado,
+          efectivo_contado,
+          diferencia,
+          observaciones,
+          created_at
+        `)
+        .order('created_at', { ascending: false }),
 
+      esCaja
+        ? supabase
+            .from('ventas')
+            .select(`
+              id,
+              numero,
+              cliente_nombre,
+              total,
+              estado,
+              tipo_venta
+            `)
+            .eq('estado', 'pendiente_cobro')
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+
+      esCaja
+        ? supabase
+            .from('cuentas_por_cobrar')
+            .select(`
+              id,
+              venta_id,
+              fecha_vencimiento,
+              saldo_pendiente,
+              estado,
+              ventas (
+                numero,
+                cliente_nombre
+              )
+            `)
+            .gt('saldo_pendiente', 0)
+            .order('fecha_vencimiento', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
+
+      esCaja && vista === 'caja-devoluciones'
+        ? supabase
+            .from('devoluciones_venta')
+            .select(`
+              id,
+              numero,
+              venta_id,
+              motivo,
+              total,
+              estado_financiero,
+              monto_aplicado_cxc,
+              monto_reembolso,
+              confirmada_at,
+              ventas (
+                numero,
+                cliente_nombre,
+                tipo_venta
+              )
+            `)
+            .eq('estado', 'confirmada')
+            .order('confirmada_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+    ])
+
+    const primeraError =
+      sesionesResp.error ||
+      movimientosResp.error ||
+      arqueosResp.error ||
+      ventasResp.error ||
+      cxcResp.error ||
+      devolucionesResp.error
+
+    if (primeraError) {
+      setError(primeraError.message)
       setCargando(false)
       return
     }
 
-    if (
-      movimientosResultado.error
-    ) {
-      setError(
-        `No fue posible cargar los movimientos de caja: ${movimientosResultado.error.message}`,
-      )
+    const listaSesiones = (sesionesResp.data ?? []).map(item => ({
+      ...item,
+      id: Number(item.id),
+      monto_inicial: Number(item.monto_inicial ?? 0),
+    })) as SesionCaja[]
 
-      setCargando(false)
-      return
+    setSesiones(listaSesiones)
+
+    if (esCaja) {
+      const { data: usuario } = await supabase.auth.getUser()
+      const uid = usuario.user?.id
+
+      setSesionActual(
+        listaSesiones.find(
+          s => s.estado === 'abierta' && (!uid || s.abierta_por === uid),
+        ) ?? null,
+      )
+    } else {
+      setSesionActual(null)
     }
-
-    const respuesta =
-      (ventasResultado.data ??
-        []) as unknown as VentaRespuesta[]
-
-    const ventasConvertidas =
-      respuesta.map(
-        (
-          venta,
-        ): Venta => {
-          const pago =
-            obtenerPago(
-              venta.pagos_venta,
-            )
-
-          return {
-            id:
-              venta.id,
-
-            numero:
-              venta.numero,
-
-            cliente:
-              venta.cliente_nombre ||
-              'Cliente general',
-
-            total:
-              Number(
-                venta.total ?? 0,
-              ),
-
-            estado:
-              venta.estado,
-
-            fecha:
-              venta.created_at,
-
-            motivoAnulacion:
-              venta.motivo_anulacion ??
-              '',
-
-            metodoPago:
-              pago?.metodo_pago ??
-              null,
-
-            montoRecibido:
-              Number(
-                pago?.monto_recibido ??
-                  pago?.monto ??
-                  0,
-              ),
-
-            cambio:
-              Number(
-                pago?.cambio ?? 0,
-              ),
-          }
-        },
-      )
-
-    setVentas(
-      ventasConvertidas,
-    )
 
     setMovimientos(
-      (
-        movimientosResultado.data ??
-        []
-      ).map(
-        (
-          movimiento,
-        ): MovimientoCaja => ({
-          id:
-            movimiento.id,
+      (movimientosResp.data ?? []).map(item => ({
+        ...item,
+        id: Number(item.id),
+        sesion_caja_id:
+          item.sesion_caja_id === null ? null : Number(item.sesion_caja_id),
+        venta_id:
+          item.venta_id === null ? null : Number(item.venta_id),
+        monto: Number(item.monto ?? 0),
+      })) as MovimientoCaja[],
+    )
 
-          venta_id:
-            movimiento.venta_id,
+    setArqueos(
+      (arqueosResp.data ?? []).map(item => ({
+        ...item,
+        id: Number(item.id),
+        sesion_caja_id: Number(item.sesion_caja_id),
+        efectivo_esperado: Number(item.efectivo_esperado ?? 0),
+        efectivo_contado: Number(item.efectivo_contado ?? 0),
+        diferencia: Number(item.diferencia ?? 0),
+      })) as ArqueoCaja[],
+    )
 
-          tipo:
-            movimiento.tipo,
+    setVentas(
+      (ventasResp.data ?? []).map(item => ({
+        ...item,
+        id: Number(item.id),
+        total: Number(item.total ?? 0),
+      })) as Venta[],
+    )
 
-          concepto:
-            movimiento.concepto,
+    setCuentas(
+      (cxcResp.data ?? []).map(item => ({
+        ...item,
+        id: Number(item.id),
+        venta_id: Number(item.venta_id),
+        saldo_pendiente: Number(item.saldo_pendiente ?? 0),
+      })) as unknown as CuentaCobrar[],
+    )
 
-          metodo_pago:
-            movimiento.metodo_pago,
-
-          monto:
-            Number(
-              movimiento.monto ??
-                0,
-            ),
-
-          referencia:
-            movimiento.referencia,
-
-          created_at:
-            movimiento.created_at,
-        }),
-      ),
+    setDevoluciones(
+      (devolucionesResp.data ?? []).map(item => ({
+        ...item,
+        id: Number(item.id),
+        venta_id: Number(item.venta_id),
+        total: Number(item.total ?? 0),
+        monto_aplicado_cxc: Number(item.monto_aplicado_cxc ?? 0),
+        monto_reembolso: Number(item.monto_reembolso ?? 0),
+      })) as unknown as DevolucionCaja[],
     )
 
     setCargando(false)
   }
 
   useEffect(() => {
-    cargarCaja()
-  }, [])
+    void cargarDatos()
+  }, [roleCode, vista])
 
-  const resumen =
-    useMemo(() => {
-      let ingresos = 0
-      let egresos = 0
-      let efectivo = 0
-      let tarjeta = 0
-      let transferencia = 0
-
-      movimientos.forEach(
-        (movimiento) => {
-          const signo =
-            movimiento.tipo ===
-            'egreso'
-              ? -1
-              : 1
-
-          if (
-            movimiento.tipo ===
-            'ingreso'
-          ) {
-            ingresos +=
-              movimiento.monto
-          }
-
-          if (
-            movimiento.tipo ===
-            'egreso'
-          ) {
-            egresos +=
-              movimiento.monto
-          }
-
-          if (
-            movimiento.metodo_pago ===
-            'efectivo'
-          ) {
-            efectivo +=
-              movimiento.monto *
-              signo
-          }
-
-          if (
-            movimiento.metodo_pago ===
-            'tarjeta'
-          ) {
-            tarjeta +=
-              movimiento.monto *
-              signo
-          }
-
-          if (
-            movimiento.metodo_pago ===
-            'transferencia'
-          ) {
-            transferencia +=
-              movimiento.monto *
-              signo
-          }
-        },
-      )
-
-      return {
-        ingresos,
-        egresos,
-        neto:
-          ingresos -
-          egresos,
-        efectivo,
-        tarjeta,
-        transferencia,
-      }
-    }, [movimientos])
-
-  const ventasFiltradas =
-    useMemo(() => {
-      const termino =
-        busqueda
-          .trim()
-          .toLowerCase()
-
-      if (!termino) {
-        return ventas
-      }
-
-      return ventas.filter(
-        (venta) =>
-          venta.numero
-            .toLowerCase()
-            .includes(termino) ||
-          venta.cliente
-            .toLowerCase()
-            .includes(termino) ||
-          venta.estado
-            .toLowerCase()
-            .includes(termino) ||
-          (
-            venta.metodoPago ??
-            ''
-          )
-            .toLowerCase()
-            .includes(termino),
-      )
-    }, [
-      ventas,
-      busqueda,
-    ])
-
-  const ventasHoy =
-    useMemo(() => {
-      const ahora =
-        new Date()
-
-      return ventas.filter(
-        (venta) => {
-          const fecha =
-            new Date(
-              venta.fecha,
-            )
-
-          return (
-            fecha.getFullYear() ===
-              ahora.getFullYear() &&
-            fecha.getMonth() ===
-              ahora.getMonth() &&
-            fecha.getDate() ===
-              ahora.getDate()
-          )
-        },
-      )
-    }, [ventas])
-
-  const completadasHoy =
-    ventasHoy.filter(
-      (venta) =>
-        venta.estado ===
-        'completada',
-    ).length
-
-  const anuladasHoy =
-    ventasHoy.filter(
-      (venta) =>
-        venta.estado ===
-        'anulada',
-    ).length
-
-  async function verDetalle(
-    venta: Venta,
-  ) {
-    setVentaSeleccionada(
-      venta,
-    )
-
-    setDetalleVenta([])
-    setCargandoDetalle(true)
+  function limpiarMensajes() {
     setError('')
-
-    const {
-      data,
-      error,
-    } =
-      await supabase
-        .from(
-          'detalle_ventas',
-        )
-        .select(`
-          id,
-          cantidad,
-          precio_unitario,
-          subtotal,
-          productos (
-            codigo,
-            nombre
-          )
-        `)
-        .eq(
-          'venta_id',
-          venta.id,
-        )
-        .order(
-          'id',
-          {
-            ascending: true,
-          },
-        )
-
-    if (error) {
-      setError(
-        `No fue posible cargar el detalle de la venta: ${error.message}`,
-      )
-
-      setCargandoDetalle(false)
-      return
-    }
-
-    const respuesta =
-      (data ??
-        []) as unknown as DetalleRespuesta[]
-
-    setDetalleVenta(
-      respuesta.map(
-        (
-          detalle,
-        ): DetalleVenta => {
-          const producto =
-            obtenerProducto(
-              detalle.productos,
-            )
-
-          return {
-            id:
-              detalle.id,
-
-            codigo:
-              producto.codigo,
-
-            producto:
-              producto.nombre,
-
-            cantidad:
-              Number(
-                detalle.cantidad ??
-                  0,
-              ),
-
-            precio:
-              Number(
-                detalle.precio_unitario ??
-                  0,
-              ),
-
-            subtotal:
-              Number(
-                detalle.subtotal ??
-                  0,
-              ),
-          }
-        },
-      ),
-    )
-
-    setCargandoDetalle(false)
+    setExito('')
   }
 
-  function cerrarDetalle() {
-    setVentaSeleccionada(
-      null,
-    )
+  async function abrirCaja(event: FormEvent) {
+    event.preventDefault()
+    limpiarMensajes()
+    setProcesando(true)
 
-    setDetalleVenta([])
+    const { data, error: rpcError } = await supabase.rpc('abrir_caja', {
+      p_monto_inicial: Number(montoInicial || 0),
+      p_observaciones: obsApertura.trim() || null,
+    })
+
+    if (rpcError) {
+      setError(rpcError.message)
+      setProcesando(false)
+      return
+    }
+
+    const fila = Array.isArray(data) ? data[0] : data
+    setExito(
+      fila?.numero
+        ? `Caja ${fila.numero} abierta correctamente.`
+        : 'Caja abierta correctamente.',
+    )
+    setMontoInicial('')
+    setObsApertura('')
+    await cargarDatos()
+    setProcesando(false)
   }
 
-  async function anularVenta(
-    venta: Venta,
-  ) {
-    if (
-      venta.estado ===
-      'anulada'
-    ) {
+  async function cobrarVenta(event: FormEvent) {
+    event.preventDefault()
+    limpiarMensajes()
+
+    if (!ventaId) {
+      setError('Selecciona una venta pendiente de cobro.')
       return
     }
 
-    const motivo =
-      window.prompt(
-        `Motivo de anulación para ${venta.numero}:`,
-        'Anulación solicitada desde Caja',
-      )
+    const venta = ventas.find(v => v.id === Number(ventaId))
+    if (!venta) return
 
-    if (motivo === null) {
+    setProcesando(true)
+
+    const recibido =
+      metodoCobro === 'efectivo'
+        ? Number(montoRecibido || venta.total)
+        : venta.total
+
+    const { data, error: rpcError } = await supabase.rpc('cobrar_venta', {
+      p_venta_id: venta.id,
+      p_metodo_pago: metodoCobro,
+      p_monto_recibido: recibido,
+      p_referencia: referenciaCobro.trim() || null,
+    })
+
+    if (rpcError) {
+      setError(rpcError.message)
+      setProcesando(false)
       return
     }
 
-    if (
-      motivo.trim().length <
-      3
-    ) {
-      setError(
-        'Debes indicar un motivo de anulación.',
-      )
+    const fila = Array.isArray(data) ? data[0] : data
+    const cambio = Number(fila?.cambio ?? 0)
 
+    setExito(
+      cambio > 0
+        ? `Venta ${venta.numero} cobrada correctamente. Cambio a entregar: ${dinero(cambio)}.`
+        : `Venta ${venta.numero} cobrada correctamente.`,
+    )
+    setVentaId('')
+    setMontoRecibido('')
+    setReferenciaCobro('')
+    await cargarDatos()
+    setProcesando(false)
+  }
+
+  async function registrarAbono(event: FormEvent) {
+    event.preventDefault()
+    limpiarMensajes()
+
+    const cuenta = cuentas.find(c => c.id === Number(cuentaId))
+    const monto = Number(montoAbono)
+
+    if (!cuenta) {
+      setError('Selecciona una cuenta por cobrar.')
       return
     }
 
-    const confirmar =
-      window.confirm(
-        `¿Confirmas la anulación de ${venta.numero} por ${formatearCordobas(venta.total)}?\n\nEl inventario será restaurado y se registrará un egreso de caja.`,
-      )
-
-    if (!confirmar) {
+    if (!monto || monto <= 0 || monto > cuenta.saldo_pendiente) {
+      setError('Indica un monto de abono válido.')
       return
     }
 
     setProcesando(true)
-    setError('')
-    setExito('')
 
-    const { error } =
-      await supabase.rpc(
-        'anular_venta',
-        {
-          p_venta_id:
-            venta.id,
+    const recibido =
+      metodoAbono === 'efectivo'
+        ? Number(recibidoAbono || monto)
+        : monto
 
-          p_motivo:
-            motivo.trim(),
-        },
-      )
+    const { data, error: rpcError } = await supabase.rpc('registrar_abono_venta', {
+      p_venta_id: cuenta.venta_id,
+      p_monto: monto,
+      p_metodo_pago: metodoAbono,
+      p_monto_recibido: recibido,
+      p_referencia: referenciaAbono.trim() || null,
+    })
 
-    if (error) {
-      setError(
-        error.message,
-      )
+    if (rpcError) {
+      setError(rpcError.message)
+      setProcesando(false)
+      return
+    }
 
+    const fila = Array.isArray(data) ? data[0] : data
+    const cambio = Number(fila?.cambio ?? 0)
+
+    setExito(
+      cambio > 0
+        ? `Abono registrado correctamente. Cambio a entregar: ${dinero(cambio)}.`
+        : 'Abono registrado correctamente.',
+    )
+    setCuentaId('')
+    setMontoAbono('')
+    setRecibidoAbono('')
+    setReferenciaAbono('')
+    await cargarDatos()
+    setProcesando(false)
+  }
+
+  async function procesarDevolucion(devolucion: DevolucionCaja) {
+    limpiarMensajes()
+    setProcesando(true)
+
+    const { data, error: rpcError } = await supabase.rpc(
+      'aplicar_devolucion_financiera',
+      { p_devolucion_id: devolucion.id },
+    )
+
+    if (rpcError) {
+      setError(rpcError.message)
+      setProcesando(false)
+      return
+    }
+
+    const fila = Array.isArray(data) ? data[0] : data
+    const aplicado = Number(fila?.monto_aplicado_cxc ?? 0)
+    const reembolso = Number(fila?.monto_reembolso ?? 0)
+
+    const partes = [`Devolución ${devolucion.numero} procesada.`]
+    if (aplicado > 0) {
+      partes.push(`${dinero(aplicado)} aplicados al saldo de crédito.`)
+    }
+    if (reembolso > 0) {
+      partes.push(`${dinero(reembolso)} pendientes de reembolso al cliente.`)
+    }
+
+    setExito(partes.join(' '))
+    await cargarDatos()
+    setProcesando(false)
+  }
+
+  async function reembolsarDevolucion(event: FormEvent) {
+    event.preventDefault()
+    limpiarMensajes()
+
+    if (!devolucionReembolso) return
+
+    setProcesando(true)
+
+    const { error: rpcError } = await supabase.rpc(
+      'reembolsar_devolucion_venta',
+      {
+        p_devolucion_id: devolucionReembolso.id,
+        p_metodo_pago: metodoReembolso,
+        p_referencia: referenciaReembolso.trim() || null,
+      },
+    )
+
+    if (rpcError) {
+      setError(rpcError.message)
       setProcesando(false)
       return
     }
 
     setExito(
-      `Venta ${venta.numero} anulada correctamente.`,
+      `Reembolso de ${dinero(devolucionReembolso.monto_reembolso)} registrado para la devolución ${devolucionReembolso.numero}.`,
+    )
+    setDevolucionReembolso(null)
+    setReferenciaReembolso('')
+    await cargarDatos()
+    setProcesando(false)
+  }
+
+  async function registrarMovimiento(event: FormEvent) {
+    event.preventDefault()
+    limpiarMensajes()
+
+    setProcesando(true)
+
+    const { error: rpcError } = await supabase.rpc(
+      'registrar_movimiento_caja',
+      {
+        p_tipo: tipoMovimiento,
+        p_concepto: conceptoMovimiento.trim(),
+        p_metodo_pago: metodoMovimiento,
+        p_monto: Number(montoMovimiento),
+        p_referencia: referenciaMovimiento.trim() || null,
+      },
     )
 
-    cerrarDetalle()
+    if (rpcError) {
+      setError(rpcError.message)
+      setProcesando(false)
+      return
+    }
 
-    await cargarCaja()
-
+    setExito('Movimiento registrado correctamente.')
+    setConceptoMovimiento('')
+    setMontoMovimiento('')
+    setReferenciaMovimiento('')
+    await cargarDatos()
     setProcesando(false)
+  }
+
+  async function registrarArqueo(event: FormEvent) {
+    event.preventDefault()
+    limpiarMensajes()
+    setProcesando(true)
+
+    const { error: rpcError } = await supabase.rpc(
+      'registrar_arqueo_caja',
+      {
+        p_efectivo_contado: Number(efectivoContado),
+        p_observaciones: obsArqueo.trim() || null,
+      },
+    )
+
+    if (rpcError) {
+      setError(rpcError.message)
+      setProcesando(false)
+      return
+    }
+
+    setExito('Arqueo registrado correctamente.')
+    setEfectivoContado('')
+    setObsArqueo('')
+    await cargarDatos()
+    setProcesando(false)
+  }
+
+  async function cerrarCaja(event: FormEvent) {
+    event.preventDefault()
+    limpiarMensajes()
+    setProcesando(true)
+
+    const { data, error: rpcError } = await supabase.rpc('cerrar_caja', {
+      p_observaciones: obsCierre.trim() || null,
+    })
+
+    if (rpcError) {
+      setError(rpcError.message)
+      setProcesando(false)
+      return
+    }
+
+    const fila = Array.isArray(data) ? data[0] : data
+    setExito(
+      fila?.numero
+        ? `Caja ${fila.numero} cerrada correctamente.`
+        : 'Caja cerrada correctamente.',
+    )
+    setObsCierre('')
+    await cargarDatos()
+    setProcesando(false)
+  }
+
+  if (!puedeConsultar) {
+    return (
+      <div className="inventory-error">
+        Este perfil no tiene acceso al módulo Caja.
+      </div>
+    )
   }
 
   if (cargando) {
     return (
       <div className="inventory-loading">
         <div className="inventory-spinner" />
-
-        <span>
-          Cargando caja...
-        </span>
+        <span>Cargando módulo Caja...</span>
       </div>
     )
   }
 
-  return (
-    <div className="cash-module">
-      <div className="cash-toolbar">
-        <div>
-          <span className="panel-label">
-            CONTROL DE CAJA
-          </span>
-
-          <h2>
-            Caja
-          </h2>
-
-          <p>
-            Resumen de ventas,
-            ingresos, anulaciones y
-            métodos de pago.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          className="inventory-refresh-button"
-          onClick={
-            cargarCaja
-          }
-        >
-          ↻ Actualizar
-        </button>
+  const cabecera = (
+    <section className="cash-status-card">
+      <div>
+        <span className="panel-label">MÓDULO CAJA</span>
+        <h2>
+          {sesionActual
+            ? `Sesión ${sesionActual.numero}`
+            : esGerencia
+              ? 'Supervisión de caja'
+              : 'Sin caja abierta'}
+        </h2>
+        <p>
+          {sesionActual
+            ? `Abierta ${fecha(sesionActual.fecha_apertura)} · Fondo inicial ${dinero(sesionActual.monto_inicial)}`
+            : esGerencia
+              ? 'Consulta las jornadas y movimientos registrados.'
+              : 'Debes abrir una caja para comenzar las operaciones de la jornada.'}
+        </p>
       </div>
 
-      <div className="cash-summary-grid">
-        <article className="cash-summary-card">
-          <span>
-            CAJA NETA HOY
-          </span>
-
-          <strong>
-            {formatearCordobas(
-              resumen.neto,
-            )}
-          </strong>
-
-          <p>
-            ingresos menos egresos
-          </p>
-        </article>
-
-        <article className="cash-summary-card">
-          <span>
-            EFECTIVO
-          </span>
-
-          <strong>
-            {formatearCordobas(
-              resumen.efectivo,
-            )}
-          </strong>
-
-          <p>
-            saldo neto
-          </p>
-        </article>
-
-        <article className="cash-summary-card">
-          <span>
-            TARJETA
-          </span>
-
-          <strong>
-            {formatearCordobas(
-              resumen.tarjeta,
-            )}
-          </strong>
-
-          <p>
-            saldo neto
-          </p>
-        </article>
-
-        <article className="cash-summary-card">
-          <span>
-            TRANSFERENCIA
-          </span>
-
-          <strong>
-            {formatearCordobas(
-              resumen.transferencia,
-            )}
-          </strong>
-
-          <p>
-            saldo neto
-          </p>
-        </article>
-      </div>
-
-      <div className="cash-operation-strip">
-        <div>
-          <span>
-            Ventas completadas hoy
-          </span>
-
-          <strong>
-            {completadasHoy}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            Ventas anuladas
-          </span>
-
-          <strong>
-            {anuladasHoy}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            Ingresos
-          </span>
-
-          <strong>
-            {formatearCordobas(
-              resumen.ingresos,
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            Egresos
-          </span>
-
-          <strong>
-            {formatearCordobas(
-              resumen.egresos,
-            )}
-          </strong>
-        </div>
-      </div>
-
-      {error && (
-        <div className="inventory-error">
-          {error}
-        </div>
+      {sesionActual && (
+        <span className="cash-open-badge">CAJA ABIERTA</span>
       )}
+    </section>
+  )
 
-      {exito && (
-        <div className="movement-success">
-          {exito}
-        </div>
-      )}
+  const mensajes = (
+    <>
+      {error && <div className="inventory-error">{error}</div>}
+      {exito && <div className="movement-success">{exito}</div>}
+    </>
+  )
 
-      <section className="cash-history-card">
-        <div className="cash-history-head">
-          <div>
-            <span className="panel-label">
-              HISTORIAL
-            </span>
+  if (vista === 'caja-apertura' || vista === 'caja') {
+    return (
+      <div className="cash-module">
+        {cabecera}
+        {mensajes}
 
-            <h3>
-              Ventas recientes
-            </h3>
+        <section className="cash-card">
+          <span className="panel-label">APERTURA</span>
+          <h3>Apertura de caja</h3>
+          <p className="cash-help">
+            Registra el fondo inicial con el que comienza la jornada.
+          </p>
 
-            <p>
-              Últimas operaciones
-              registradas en el sistema.
+          {sesionActual ? (
+            <div className="cash-info-box">
+              Ya existe una sesión abierta: <strong>{sesionActual.numero}</strong>.
+            </div>
+          ) : (
+            <form className="cash-form" onSubmit={abrirCaja}>
+              <label>
+                Monto inicial
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={montoInicial}
+                  onChange={e => setMontoInicial(e.target.value)}
+                  placeholder="0.00"
+                />
+              </label>
+
+              <label className="cash-field-full">
+                Observaciones
+                <textarea
+                  value={obsApertura}
+                  onChange={e => setObsApertura(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </label>
+
+              <div className="cash-actions cash-field-full">
+                <button
+                  className="product-primary-button"
+                  type="submit"
+                  disabled={procesando || !esCaja}
+                >
+                  {procesando ? 'Abriendo...' : 'Abrir caja'}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+      </div>
+    )
+  }
+
+  if (vista === 'caja-cobros') {
+    return (
+      <div className="cash-module">
+        {cabecera}
+        {mensajes}
+
+        {!sesionActual && (
+          <div className="cash-info-box">
+            Debes abrir la caja antes de registrar cobros.
+          </div>
+        )}
+
+        <div className="cash-two-columns">
+          <section className="cash-card">
+            <span className="panel-label">VENTAS</span>
+            <h3>Cobro de ventas</h3>
+            <p className="cash-help">
+              Ventas de contado pendientes de cobro.
             </p>
+
+            <form className="cash-form" onSubmit={cobrarVenta}>
+              <label className="cash-field-full">
+                Venta pendiente
+                <select
+                  value={ventaId}
+                  onChange={e => {
+                    setVentaId(e.target.value)
+                    const venta = ventas.find(v => v.id === Number(e.target.value))
+                    setMontoRecibido(venta ? String(venta.total) : '')
+                  }}
+                >
+                  <option value="">Seleccionar venta</option>
+                  {ventas.map(v => (
+                    <option key={v.id} value={v.id}>
+                      {v.numero} · {v.cliente_nombre ?? 'Cliente general'} · {dinero(v.total)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Método de pago
+                <select
+                  value={metodoCobro}
+                  onChange={e => setMetodoCobro(e.target.value)}
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="transferencia">Transferencia</option>
+                </select>
+              </label>
+
+              <label>
+                Monto recibido
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={montoRecibido}
+                  onChange={e => setMontoRecibido(e.target.value)}
+                  disabled={metodoCobro !== 'efectivo'}
+                />
+              </label>
+
+              <label className="cash-field-full">
+                Referencia
+                <input
+                  value={referenciaCobro}
+                  onChange={e => setReferenciaCobro(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </label>
+
+              <div className="cash-actions cash-field-full">
+                <button
+                  className="product-primary-button"
+                  type="submit"
+                  disabled={procesando || !sesionActual || !esCaja}
+                >
+                  Registrar cobro
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="cash-card">
+            <span className="panel-label">CRÉDITO</span>
+            <h3>Abonos a cuentas por cobrar</h3>
+            <p className="cash-help">
+              Registra pagos parciales o totales de ventas a crédito.
+            </p>
+
+            <form className="cash-form" onSubmit={registrarAbono}>
+              <label className="cash-field-full">
+                Cuenta pendiente
+                <select
+                  value={cuentaId}
+                  onChange={e => {
+                    setCuentaId(e.target.value)
+                    const cuenta = cuentas.find(c => c.id === Number(e.target.value))
+                    setMontoAbono(cuenta ? String(cuenta.saldo_pendiente) : '')
+                    setRecibidoAbono(cuenta ? String(cuenta.saldo_pendiente) : '')
+                  }}
+                >
+                  <option value="">Seleccionar cuenta</option>
+                  {cuentas.map(c => {
+                    const venta = relacion(c.ventas)
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {venta?.numero ?? `Venta ${c.venta_id}`} · {venta?.cliente_nombre ?? 'Cliente'} · saldo {dinero(c.saldo_pendiente)}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
+
+              <label>
+                Monto del abono
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={montoAbono}
+                  onChange={e => {
+                    setMontoAbono(e.target.value)
+                    if (metodoAbono === 'efectivo') {
+                      setRecibidoAbono(e.target.value)
+                    }
+                  }}
+                />
+              </label>
+
+              <label>
+                Método de pago
+                <select
+                  value={metodoAbono}
+                  onChange={e => setMetodoAbono(e.target.value)}
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="transferencia">Transferencia</option>
+                </select>
+              </label>
+
+              <label>
+                Monto recibido
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={recibidoAbono}
+                  onChange={e => setRecibidoAbono(e.target.value)}
+                  disabled={metodoAbono !== 'efectivo'}
+                />
+              </label>
+
+              <label>
+                Referencia
+                <input
+                  value={referenciaAbono}
+                  onChange={e => setReferenciaAbono(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </label>
+
+              <div className="cash-actions cash-field-full">
+                <button
+                  className="product-primary-button"
+                  type="submit"
+                  disabled={procesando || !sesionActual || !esCaja}
+                >
+                  Registrar abono
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </div>
+    )
+  }
+
+  if (vista === 'caja-movimientos') {
+    return (
+      <div className="cash-module">
+        {cabecera}
+        {mensajes}
+
+        {esCaja && (
+          <section className="cash-card">
+            <span className="panel-label">NUEVO MOVIMIENTO</span>
+            <h3>Otros ingresos y egresos</h3>
+
+            <form className="cash-form cash-form-3" onSubmit={registrarMovimiento}>
+              <label>
+                Tipo
+                <select
+                  value={tipoMovimiento}
+                  onChange={e =>
+                    setTipoMovimiento(e.target.value as 'ingreso' | 'egreso')
+                  }
+                >
+                  <option value="ingreso">Ingreso</option>
+                  <option value="egreso">Egreso</option>
+                </select>
+              </label>
+
+              <label>
+                Concepto
+                <input
+                  value={conceptoMovimiento}
+                  onChange={e => setConceptoMovimiento(e.target.value)}
+                  placeholder="Concepto del movimiento"
+                />
+              </label>
+
+              <label>
+                Método
+                <select
+                  value={metodoMovimiento}
+                  onChange={e => setMetodoMovimiento(e.target.value)}
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="transferencia">Transferencia</option>
+                </select>
+              </label>
+
+              <label>
+                Monto
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={montoMovimiento}
+                  onChange={e => setMontoMovimiento(e.target.value)}
+                />
+              </label>
+
+              <label>
+                Referencia
+                <input
+                  value={referenciaMovimiento}
+                  onChange={e => setReferenciaMovimiento(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </label>
+
+              <div className="cash-actions">
+                <button
+                  className="product-primary-button"
+                  type="submit"
+                  disabled={procesando || !sesionActual}
+                >
+                  Registrar movimiento
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
+        <section className="cash-card">
+          <div className="cash-section-head">
+            <div>
+              <span className="panel-label">JORNADA ACTUAL</span>
+              <h3>Movimientos de caja</h3>
+            </div>
+            <strong>{movimientosActuales.length} movimientos</strong>
           </div>
 
-          <span className="cash-result-count">
-            {
-              ventasFiltradas.length
-            }{' '}
-            venta
-            {ventasFiltradas.length ===
-            1
-              ? ''
-              : 's'}
-          </span>
-        </div>
+          <div className="cash-summary-grid">
+            <div><span>INGRESOS</span><strong>{dinero(resumenActual.ingresos)}</strong></div>
+            <div><span>EGRESOS</span><strong>{dinero(resumenActual.egresos)}</strong></div>
+            <div><span>SALDO</span><strong>{dinero(resumenActual.saldo)}</strong></div>
+          </div>
 
-        <div className="cash-search">
-          <span>
-            ⌕
-          </span>
-
-          <input
-            type="text"
-            value={
-              busqueda
-            }
-            onChange={(
-              event,
-            ) =>
-              setBusqueda(
-                event.target
-                  .value,
-              )
-            }
-            placeholder="Buscar por número, cliente, estado o método de pago..."
-          />
-        </div>
-
-        <div className="cash-table-container">
-          <table className="cash-table">
-            <thead>
-              <tr>
-                <th>
-                  Venta
-                </th>
-
-                <th>
-                  Fecha
-                </th>
-
-                <th>
-                  Cliente
-                </th>
-
-                <th>
-                  Método
-                </th>
-
-                <th>
-                  Total
-                </th>
-
-                <th>
-                  Estado
-                </th>
-
-                <th>
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {ventasFiltradas.length >
-              0 ? (
-                ventasFiltradas.map(
-                  (venta) => (
-                    <tr
-                      key={
-                        venta.id
-                      }
-                    >
-                      <td>
-                        <strong className="cash-sale-number">
-                          {
-                            venta.numero
-                          }
-                        </strong>
-                      </td>
-
-                      <td>
-                        {formatearFecha(
-                          venta.fecha,
-                        )}
-                      </td>
-
-                      <td>
-                        {
-                          venta.cliente
-                        }
-                      </td>
-
-                      <td>
-                        <span className="cash-payment-badge">
-                          {venta.metodoPago
-                            ? venta.metodoPago
-                            : '—'}
-                        </span>
-                      </td>
-
-                      <td>
-                        <strong>
-                          {formatearCordobas(
-                            venta.total,
-                          )}
-                        </strong>
-                      </td>
-
-                      <td>
-                        <span
-                          className={
-                            venta.estado ===
-                            'completada'
-                              ? 'cash-status cash-status--completed'
-                              : 'cash-status cash-status--cancelled'
-                          }
-                        >
-                          {
-                            venta.estado
-                          }
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="cash-actions">
-                          <button
-                            type="button"
-                            className="cash-detail-button"
-                            onClick={() =>
-                              verDetalle(
-                                venta,
-                              )
-                            }
-                          >
-                            Ver detalle
-                          </button>
-
-                          {venta.estado ===
-                            'completada' && (
-                            <button
-                              type="button"
-                              className="cash-cancel-button"
-                              disabled={
-                                procesando
-                              }
-                              onClick={() =>
-                                anularVenta(
-                                  venta,
-                                )
-                              }
-                            >
-                              Anular
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ),
-                )
-              ) : (
+          <div className="cash-table-wrap">
+            <table className="cash-table">
+              <thead>
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="inventory-empty"
-                  >
-                    No se encontraron
-                    ventas.
-                  </td>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Concepto</th>
+                  <th>Método</th>
+                  <th>Referencia</th>
+                  <th>Monto</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {ventaSeleccionada && (
-        <section className="cash-detail-card">
-          <div className="cash-detail-header">
-            <div>
-              <span className="panel-label">
-                DETALLE DE VENTA
-              </span>
-
-              <h3>
-                {
-                  ventaSeleccionada.numero
-                }
-              </h3>
-
-              <p>
-                {formatearFecha(
-                  ventaSeleccionada.fecha,
+              </thead>
+              <tbody>
+                {movimientosActuales.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="inventory-empty">
+                      No hay movimientos en la jornada actual.
+                    </td>
+                  </tr>
+                ) : (
+                  movimientosActuales.map(m => (
+                    <tr key={m.id}>
+                      <td>{fecha(m.created_at)}</td>
+                      <td>
+                        <span className={`cash-type cash-type--${m.tipo}`}>
+                          {m.tipo}
+                        </span>
+                      </td>
+                      <td>{m.concepto}</td>
+                      <td>{etiquetaMetodo(m.metodo_pago)}</td>
+                      <td>{m.referencia ?? '—'}</td>
+                      <td><strong>{dinero(m.monto)}</strong></td>
+                    </tr>
+                  ))
                 )}
-                {' · '}
-                {
-                  ventaSeleccionada.cliente
-                }
-              </p>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  if (vista === 'caja-arqueo') {
+    return (
+      <div className="cash-module">
+        {cabecera}
+        {mensajes}
+
+        <section className="cash-card">
+          <span className="panel-label">ARQUEO</span>
+          <h3>Arqueo de caja</h3>
+          <p className="cash-help">
+            El sistema calcula el efectivo esperado y lo compara con el efectivo contado.
+          </p>
+
+          <div className="cash-summary-grid">
+            <div>
+              <span>FONDO INICIAL</span>
+              <strong>{dinero(sesionActual?.monto_inicial ?? 0)}</strong>
+            </div>
+            <div>
+              <span>EFECTIVO ESPERADO</span>
+              <strong>{dinero(resumenActual.esperadoEfectivo)}</strong>
+            </div>
+            <div>
+              <span>ESTADO</span>
+              <strong>{arqueoActual ? 'Arqueado' : 'Pendiente'}</strong>
+            </div>
+          </div>
+
+          {arqueoActual ? (
+            <div className="cash-arqueo-result">
+              <div><span>Contado</span><strong>{dinero(arqueoActual.efectivo_contado)}</strong></div>
+              <div><span>Esperado</span><strong>{dinero(arqueoActual.efectivo_esperado)}</strong></div>
+              <div>
+                <span>Diferencia</span>
+                <strong className={arqueoActual.diferencia === 0 ? 'cash-ok' : 'cash-warning'}>
+                  {dinero(arqueoActual.diferencia)}
+                </strong>
+              </div>
+            </div>
+          ) : (
+            <form className="cash-form" onSubmit={registrarArqueo}>
+              <label>
+                Efectivo contado físicamente
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={efectivoContado}
+                  onChange={e => setEfectivoContado(e.target.value)}
+                  placeholder="0.00"
+                />
+              </label>
+
+              <label className="cash-field-full">
+                Observaciones
+                <textarea
+                  value={obsArqueo}
+                  onChange={e => setObsArqueo(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </label>
+
+              <div className="cash-actions cash-field-full">
+                <button
+                  className="product-primary-button"
+                  type="submit"
+                  disabled={procesando || !sesionActual || !esCaja}
+                >
+                  Registrar arqueo
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+      </div>
+    )
+  }
+
+  if (vista === 'caja-cierre') {
+    return (
+      <div className="cash-module">
+        {cabecera}
+        {mensajes}
+
+        <section className="cash-card">
+          <span className="panel-label">CIERRE</span>
+          <h3>Cierre de caja</h3>
+
+          <div className="cash-summary-grid cash-summary-grid--4">
+            <div><span>INGRESOS</span><strong>{dinero(resumenActual.ingresos)}</strong></div>
+            <div><span>EGRESOS</span><strong>{dinero(resumenActual.egresos)}</strong></div>
+            <div><span>SALDO JORNADA</span><strong>{dinero(resumenActual.saldo)}</strong></div>
+            <div>
+              <span>DIFERENCIA</span>
+              <strong>{arqueoActual ? dinero(arqueoActual.diferencia) : 'Sin arqueo'}</strong>
+            </div>
+          </div>
+
+          {!arqueoActual && (
+            <div className="cash-info-box">
+              Debes realizar el arqueo antes de cerrar la caja.
+            </div>
+          )}
+
+          <form className="cash-form" onSubmit={cerrarCaja}>
+            <label className="cash-field-full">
+              Observaciones de cierre
+              <textarea
+                value={obsCierre}
+                onChange={e => setObsCierre(e.target.value)}
+                placeholder="Opcional"
+              />
+            </label>
+
+            <div className="cash-actions cash-field-full">
+              <button
+                className="product-primary-button"
+                type="submit"
+                disabled={procesando || !sesionActual || !arqueoActual || !esCaja}
+              >
+                {procesando ? 'Cerrando...' : 'Cerrar caja'}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    )
+  }
+
+  if (vista === 'caja-devoluciones') {
+    const porProcesar = devoluciones.filter(
+      d => d.estado_financiero === 'pendiente',
+    )
+    const porReembolsar = devoluciones.filter(
+      d => d.estado_financiero === 'pendiente_reembolso',
+    )
+
+    return (
+      <div className="cash-module">
+        {cabecera}
+        {mensajes}
+
+        <div className="cash-summary-grid">
+          <div>
+            <span>POR PROCESAR</span>
+            <strong>{porProcesar.length}</strong>
+          </div>
+          <div>
+            <span>POR REEMBOLSAR</span>
+            <strong>
+              {dinero(porReembolsar.reduce((a, d) => a + d.monto_reembolso, 0))}
+            </strong>
+          </div>
+          <div>
+            <span>CONFIRMADAS</span>
+            <strong>{devoluciones.length}</strong>
+          </div>
+        </div>
+
+        {devolucionReembolso && (
+          <section className="cash-card">
+            <div className="cash-section-head">
+              <div>
+                <span className="panel-label">REEMBOLSO</span>
+                <h3>
+                  {devolucionReembolso.numero} · {dinero(devolucionReembolso.monto_reembolso)}
+                </h3>
+              </div>
+              <button
+                className="product-close-button"
+                type="button"
+                onClick={() => setDevolucionReembolso(null)}
+              >
+                ×
+              </button>
             </div>
 
+            {!sesionActual && (
+              <div className="cash-info-box">
+                Debes abrir la caja antes de registrar reembolsos.
+              </div>
+            )}
+
+            <form className="cash-form" onSubmit={reembolsarDevolucion}>
+              <label>
+                Método de reembolso
+                <select
+                  value={metodoReembolso}
+                  onChange={e => setMetodoReembolso(e.target.value)}
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="transferencia">Transferencia</option>
+                </select>
+              </label>
+
+              <label>
+                Referencia
+                <input
+                  value={referenciaReembolso}
+                  onChange={e => setReferenciaReembolso(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </label>
+
+              <div className="cash-actions cash-field-full">
+                <button
+                  className="product-primary-button"
+                  type="submit"
+                  disabled={procesando || !sesionActual || !esCaja}
+                >
+                  {procesando ? 'Registrando...' : 'Registrar reembolso'}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
+        <section className="cash-card">
+          <div className="cash-section-head">
+            <div>
+              <span className="panel-label">DEVOLUCIONES DE VENTA</span>
+              <h3>Efecto financiero de devoluciones confirmadas</h3>
+            </div>
+            <span className="sales-result-count">
+              {devoluciones.length} devoluciones
+            </span>
+          </div>
+
+          <p className="cash-help">
+            Procesar aplica primero el monto al saldo de crédito de la venta (si existe);
+            lo restante queda pendiente de reembolso y sale de la caja abierta.
+          </p>
+
+          <div className="cash-table-wrap">
+            <table className="cash-table">
+              <thead>
+                <tr>
+                  <th>Devolución</th>
+                  <th>Venta</th>
+                  <th>Total</th>
+                  <th>A crédito</th>
+                  <th>Reembolso</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {devoluciones.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="inventory-empty">
+                      No hay devoluciones confirmadas.
+                    </td>
+                  </tr>
+                ) : (
+                  devoluciones.map(d => {
+                    const venta = relacion(d.ventas)
+
+                    return (
+                      <tr key={d.id}>
+                        <td>
+                          <strong>{d.numero}</strong>
+                          <br />
+                          <small>{d.motivo}</small>
+                        </td>
+                        <td>
+                          {venta?.numero ?? `Venta ${d.venta_id}`}
+                          <br />
+                          <small>
+                            {venta?.cliente_nombre ?? 'Cliente general'} ·{' '}
+                            {venta?.tipo_venta === 'credito' ? 'Crédito' : 'Contado'}
+                          </small>
+                        </td>
+                        <td>{dinero(d.total)}</td>
+                        <td>{dinero(d.monto_aplicado_cxc)}</td>
+                        <td><strong>{dinero(d.monto_reembolso)}</strong></td>
+                        <td>{etiquetaEstadoFinanciero(d.estado_financiero)}</td>
+                        <td>
+                          {d.estado_financiero === 'pendiente' && (
+                            <button
+                              type="button"
+                              className="product-edit-button"
+                              disabled={procesando || !esCaja}
+                              onClick={() => void procesarDevolucion(d)}
+                            >
+                              Procesar
+                            </button>
+                          )}
+
+                          {d.estado_financiero === 'pendiente_reembolso' && (
+                            <button
+                              type="button"
+                              className="product-edit-button"
+                              disabled={procesando || !esCaja}
+                              onClick={() => {
+                                limpiarMensajes()
+                                setDevolucionReembolso(d)
+                              }}
+                            >
+                              Reembolsar
+                            </button>
+                          )}
+
+                          {['aplicada_cxc', 'reembolsada'].includes(d.estado_financiero) && '—'}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  // Historial
+  const sesionDetalle = sesionHistorial
+  const movimientosDetalle = sesionDetalle
+    ? movimientos.filter(m => m.sesion_caja_id === sesionDetalle.id)
+    : []
+  const arqueoDetalle = sesionDetalle
+    ? arqueos.find(a => a.sesion_caja_id === sesionDetalle.id) ?? null
+    : null
+
+  return (
+    <div className="cash-module">
+      {cabecera}
+      {mensajes}
+
+      {sesionDetalle && (
+        <section className="cash-card">
+          <div className="cash-section-head">
+            <div>
+              <span className="panel-label">DETALLE DE JORNADA</span>
+              <h3>{sesionDetalle.numero}</h3>
+            </div>
             <button
+              className="product-close-button"
               type="button"
-              className="cash-close-button"
-              onClick={
-                cerrarDetalle
-              }
+              onClick={() => setSesionHistorial(null)}
             >
               ×
             </button>
           </div>
 
-          <div className="cash-detail-summary">
-            <div>
-              <span>
-                Estado
-              </span>
-
-              <strong>
-                {
-                  ventaSeleccionada.estado
-                }
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Método de pago
-              </span>
-
-              <strong>
-                {
-                  ventaSeleccionada.metodoPago ??
-                  '—'
-                }
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Monto recibido
-              </span>
-
-              <strong>
-                {formatearCordobas(
-                  ventaSeleccionada.montoRecibido,
-                )}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Cambio
-              </span>
-
-              <strong>
-                {formatearCordobas(
-                  ventaSeleccionada.cambio,
-                )}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Total
-              </span>
-
-              <strong>
-                {formatearCordobas(
-                  ventaSeleccionada.total,
-                )}
-              </strong>
-            </div>
+          <div className="cash-summary-grid cash-summary-grid--4">
+            <div><span>APERTURA</span><strong>{fecha(sesionDetalle.fecha_apertura)}</strong></div>
+            <div><span>FONDO INICIAL</span><strong>{dinero(sesionDetalle.monto_inicial)}</strong></div>
+            <div><span>CIERRE</span><strong>{fecha(sesionDetalle.fecha_cierre)}</strong></div>
+            <div><span>DIFERENCIA</span><strong>{arqueoDetalle ? dinero(arqueoDetalle.diferencia) : '—'}</strong></div>
           </div>
 
-          {ventaSeleccionada.estado ===
-            'anulada' &&
-            ventaSeleccionada
-              .motivoAnulacion && (
-            <div className="cash-cancel-reason">
-              <strong>
-                Motivo de anulación:
-              </strong>{' '}
-              {
-                ventaSeleccionada
-                  .motivoAnulacion
-              }
-            </div>
-          )}
-
-          {cargandoDetalle ? (
-            <div className="cash-detail-loading">
-              Cargando detalle...
-            </div>
-          ) : (
-            <div className="cash-table-container">
-              <table className="cash-table">
-                <thead>
+          <div className="cash-table-wrap">
+            <table className="cash-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Concepto</th>
+                  <th>Método</th>
+                  <th>Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movimientosDetalle.length === 0 ? (
                   <tr>
-                    <th>
-                      Código
-                    </th>
-
-                    <th>
-                      Producto
-                    </th>
-
-                    <th>
-                      Cantidad
-                    </th>
-
-                    <th>
-                      Precio
-                    </th>
-
-                    <th>
-                      Subtotal
-                    </th>
+                    <td colSpan={5} className="inventory-empty">
+                      Esta jornada no tiene movimientos.
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody>
-                  {detalleVenta.map(
-                    (detalle) => (
-                      <tr
-                        key={
-                          detalle.id
-                        }
-                      >
-                        <td>
-                          {
-                            detalle.codigo
-                          }
-                        </td>
-
-                        <td>
-                          <strong>
-                            {
-                              detalle.producto
-                            }
-                          </strong>
-                        </td>
-
-                        <td>
-                          {
-                            detalle.cantidad
-                          }
-                        </td>
-
-                        <td>
-                          {formatearCordobas(
-                            detalle.precio,
-                          )}
-                        </td>
-
-                        <td>
-                          <strong>
-                            {formatearCordobas(
-                              detalle.subtotal,
-                            )}
-                          </strong>
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <div className="cash-detail-footer">
-            <strong>
-              Total:{' '}
-              {formatearCordobas(
-                ventaSeleccionada.total,
-              )}
-            </strong>
-
-            {ventaSeleccionada.estado ===
-              'completada' && (
-              <button
-                type="button"
-                className="cash-cancel-button"
-                disabled={
-                  procesando
-                }
-                onClick={() =>
-                  anularVenta(
-                    ventaSeleccionada,
-                  )
-                }
-              >
-                Anular venta
-              </button>
-            )}
+                ) : (
+                  movimientosDetalle.map(m => (
+                    <tr key={m.id}>
+                      <td>{fecha(m.created_at)}</td>
+                      <td>{m.tipo}</td>
+                      <td>{m.concepto}</td>
+                      <td>{etiquetaMetodo(m.metodo_pago)}</td>
+                      <td><strong>{dinero(m.monto)}</strong></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
+
+      <section className="cash-card">
+        <div className="cash-section-head">
+          <div>
+            <span className="panel-label">HISTORIAL</span>
+            <h3>Jornadas de caja</h3>
+          </div>
+          <span className="sales-result-count">{sesiones.length} jornadas</span>
+        </div>
+
+        <div className="cash-table-wrap">
+          <table className="cash-table">
+            <thead>
+              <tr>
+                <th>Jornada</th>
+                <th>Apertura</th>
+                <th>Fondo inicial</th>
+                <th>Estado</th>
+                <th>Cierre</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sesiones.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="inventory-empty">
+                    No existen jornadas de caja registradas.
+                  </td>
+                </tr>
+              ) : (
+                sesiones.map(s => (
+                  <tr key={s.id}>
+                    <td><strong>{s.numero}</strong></td>
+                    <td>{fecha(s.fecha_apertura)}</td>
+                    <td>{dinero(s.monto_inicial)}</td>
+                    <td>
+                      <span className={s.estado === 'abierta' ? 'cash-open-badge' : 'cash-closed-badge'}>
+                        {s.estado}
+                      </span>
+                    </td>
+                    <td>{fecha(s.fecha_cierre)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="product-edit-button"
+                        onClick={() => setSesionHistorial(s)}
+                      >
+                        Ver detalle
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   )
 }

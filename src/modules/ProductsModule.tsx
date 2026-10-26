@@ -63,8 +63,11 @@ type ProductoRespuesta = {
   precio_compra: number | string
   precio_venta: number | string
   stock_minimo: number | string
+  stock_maximo: number | string | null
 
   activo: boolean
+
+  imagen_url: string | null
 
   categorias:
     | CatalogoRelacion
@@ -136,6 +139,52 @@ type Producto = {
 
   stock: number
   stockMinimo: number
+  stockMaximo: number | null
+
+  imagenUrl: string | null
+}
+
+
+// ==========================================================
+// IMÁGENES (Supabase Storage · bucket 'productos')
+// ==========================================================
+
+const BUCKET_IMAGENES = 'productos'
+
+const TIPOS_IMAGEN = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]
+
+const TAMANO_MAXIMO_IMAGEN =
+  2 * 1024 * 1024
+
+
+/*
+ * Obtiene la ruta interna del archivo a partir de su URL
+ * pública, para poder eliminar la imagen anterior.
+ */
+function rutaDesdeUrlPublica(
+  url: string | null,
+) {
+  if (!url) {
+    return null
+  }
+
+  const marcador =
+    `/object/public/${BUCKET_IMAGENES}/`
+
+  const indice =
+    url.indexOf(marcador)
+
+  return indice === -1
+    ? null
+    : decodeURIComponent(
+        url.slice(
+          indice + marcador.length,
+        ),
+      )
 }
 
 
@@ -159,6 +208,7 @@ type FormProducto = {
   precioCompra: string
   precioVenta: string
   stockMinimo: string
+  stockMaximo: string
 }
 
 
@@ -178,6 +228,7 @@ const formularioInicial: FormProducto = {
   precioCompra: '',
   precioVenta: '',
   stockMinimo: '',
+  stockMaximo: '',
 }
 
 
@@ -425,6 +476,47 @@ export default function ProductsModule({
     )
 
 
+  // Imagen seleccionada en el formulario (se sube al guardar).
+  const [
+    archivoImagen,
+    setArchivoImagen,
+  ] =
+    useState<File | null>(null)
+
+
+  const [
+    imagenActual,
+    setImagenActual,
+  ] =
+    useState<string | null>(null)
+
+
+  const [
+    quitarImagen,
+    setQuitarImagen,
+  ] =
+    useState(false)
+
+
+  const vistaPreviaImagen =
+    useMemo(
+      () =>
+        archivoImagen
+          ? URL.createObjectURL(archivoImagen)
+          : null,
+      [archivoImagen],
+    )
+
+
+  useEffect(() => {
+    return () => {
+      if (vistaPreviaImagen) {
+        URL.revokeObjectURL(vistaPreviaImagen)
+      }
+    }
+  }, [vistaPreviaImagen])
+
+
   // ========================================================
   // CARGAR DATOS
   // ========================================================
@@ -474,7 +566,9 @@ export default function ProductsModule({
               precio_compra,
               precio_venta,
               stock_minimo,
+              stock_maximo,
               activo,
+              imagen_url,
 
               categorias (
                 nombre
@@ -846,6 +940,17 @@ export default function ProductsModule({
                 producto.stock_minimo ??
                   0,
               ),
+
+            stockMaximo:
+              producto.stock_maximo === null
+                ? null
+                : Number(
+                    producto.stock_maximo,
+                  ),
+
+            imagenUrl:
+              producto.imagen_url ??
+              null,
           }),
         )
 
@@ -1077,6 +1182,10 @@ export default function ProductsModule({
     })
 
 
+    setArchivoImagen(null)
+    setImagenActual(null)
+    setQuitarImagen(false)
+
     setError('')
     setExito('')
 
@@ -1197,8 +1306,19 @@ export default function ProductsModule({
         String(
           producto.stockMinimo,
         ),
+
+      stockMaximo:
+        producto.stockMaximo === null
+          ? ''
+          : String(
+              producto.stockMaximo,
+            ),
     })
 
+
+    setArchivoImagen(null)
+    setImagenActual(producto.imagenUrl)
+    setQuitarImagen(false)
 
     setError('')
     setExito('')
@@ -1232,7 +1352,139 @@ export default function ProductsModule({
       formularioInicial,
     )
 
+    setArchivoImagen(null)
+    setImagenActual(null)
+    setQuitarImagen(false)
+
     setError('')
+  }
+
+
+  // ========================================================
+  // SELECCIONAR IMAGEN
+  // ========================================================
+
+  function seleccionarImagen(
+    archivo: File | null,
+  ) {
+    setError('')
+
+    if (!archivo) {
+      setArchivoImagen(null)
+      return
+    }
+
+    if (
+      !TIPOS_IMAGEN.includes(
+        archivo.type,
+      )
+    ) {
+      setError(
+        'La imagen debe ser JPG, PNG o WEBP.',
+      )
+      return
+    }
+
+    if (
+      archivo.size >
+      TAMANO_MAXIMO_IMAGEN
+    ) {
+      setError(
+        'La imagen no puede superar 2 MB.',
+      )
+      return
+    }
+
+    setArchivoImagen(archivo)
+    setQuitarImagen(false)
+  }
+
+
+  // ========================================================
+  // GUARDAR IMAGEN EN STORAGE
+  //
+  // Se ejecuta después de guardar el producto. Si falla, el
+  // producto queda guardado y se informa el problema.
+  // ========================================================
+
+  async function sincronizarImagen(
+    productoId: number,
+  ) {
+    const rutaAnterior =
+      rutaDesdeUrlPublica(
+        imagenActual,
+      )
+
+    let nuevaUrl: string | null | undefined
+
+    if (archivoImagen) {
+      const extension =
+        archivoImagen.name
+          .split('.')
+          .pop()
+          ?.toLowerCase() ??
+        'jpg'
+
+      const ruta =
+        `${productoId}/${Date.now()}.${extension}`
+
+      const {
+        error: subirError,
+      } =
+        await supabase.storage
+          .from(BUCKET_IMAGENES)
+          .upload(
+            ruta,
+            archivoImagen,
+            {
+              contentType:
+                archivoImagen.type,
+              upsert: false,
+            },
+          )
+
+      if (subirError) {
+        throw new Error(
+          `El producto se guardó, pero no fue posible subir la imagen: ${subirError.message}`,
+        )
+      }
+
+      nuevaUrl =
+        supabase.storage
+          .from(BUCKET_IMAGENES)
+          .getPublicUrl(ruta)
+          .data.publicUrl
+    } else if (quitarImagen) {
+      nuevaUrl = null
+    }
+
+    // Sin cambios en la imagen.
+    if (nuevaUrl === undefined) {
+      return
+    }
+
+    const {
+      error: urlError,
+    } =
+      await supabase
+        .from('productos')
+        .update({
+          imagen_url: nuevaUrl,
+        })
+        .eq('id', productoId)
+
+    if (urlError) {
+      throw new Error(
+        `El producto se guardó, pero no fue posible asociar la imagen: ${urlError.message}`,
+      )
+    }
+
+    // Limpieza del archivo anterior (no bloquea si falla).
+    if (rutaAnterior) {
+      await supabase.storage
+        .from(BUCKET_IMAGENES)
+        .remove([rutaAnterior])
+    }
   }
 
 
@@ -1301,6 +1553,13 @@ export default function ProductsModule({
         formulario.stockMinimo,
       )
 
+    const stockMaximo =
+    formulario.stockMaximo.trim() === ''
+      ? null
+      : Number(
+          formulario.stockMaximo,
+      )
+
 
     // ======================================================
     // VALIDACIONES
@@ -1327,28 +1586,27 @@ export default function ProductsModule({
 
 
     if (
-      !Number.isFinite(
-        precioCompra,
-      ) ||
-      precioCompra <
-        0 ||
-      !Number.isFinite(
-        precioVenta,
-      ) ||
-      precioVenta <
-        0 ||
-      !Number.isFinite(
-        stockMinimo,
-      ) ||
-      stockMinimo <
-        0
-    ) {
-      setError(
-        'Los precios y el stock mínimo deben contener valores válidos y no negativos.',
-      )
+  !Number.isFinite(precioCompra) ||
+  precioCompra < 0 ||
+  !Number.isFinite(precioVenta) ||
+  precioVenta < 0 ||
+  !Number.isFinite(stockMinimo) ||
+  stockMinimo < 0 ||
+  (
+    stockMaximo !== null &&
+    (
+      !Number.isFinite(stockMaximo) ||
+      stockMaximo < 0 ||
+      stockMaximo < stockMinimo
+    )
+  )
+) {
+  setError(
+    'Los precios y niveles de stock deben ser válidos. El stock máximo no puede ser menor que el stock mínimo.',
+  )
 
-      return
-    }
+  return
+}
 
 
     const unidadSeleccionada =
@@ -1443,6 +1701,9 @@ export default function ProductsModule({
 
       stock_minimo:
         stockMinimo,
+      
+      stock_maximo:
+        stockMaximo,
     }
 
 
@@ -1450,6 +1711,9 @@ export default function ProductsModule({
       setGuardando(
         true,
       )
+
+      let productoGuardadoId: number | null =
+        productoEditando
 
 
       // ======================================================
@@ -1494,6 +1758,8 @@ export default function ProductsModule({
         // ====================================================
 
         const {
+          data:
+            productoCreado,
           error:
             insertarError,
         } =
@@ -1506,6 +1772,8 @@ export default function ProductsModule({
               activo:
                 true,
             })
+            .select('id')
+            .single()
 
 
         if (
@@ -1524,9 +1792,38 @@ export default function ProductsModule({
         }
 
 
+        productoGuardadoId =
+          Number(
+            productoCreado.id,
+          )
+
         setExito(
           'Producto creado correctamente.',
         )
+      }
+
+
+      // ======================================================
+      // IMAGEN
+      // ======================================================
+
+      let avisoImagen = ''
+
+      if (
+        productoGuardadoId !==
+        null
+      ) {
+        try {
+          await sincronizarImagen(
+            productoGuardadoId,
+          )
+        } catch (errImagen) {
+          avisoImagen =
+            obtenerMensajeError(
+              errImagen,
+              'El producto se guardó, pero no fue posible guardar la imagen.',
+            )
+        }
       }
 
 
@@ -1542,8 +1839,16 @@ export default function ProductsModule({
         formularioInicial,
       )
 
+      setArchivoImagen(null)
+      setImagenActual(null)
+      setQuitarImagen(false)
+
 
       await cargarDatos()
+
+      if (avisoImagen) {
+        setError(avisoImagen)
+      }
     } catch (err) {
       setError(
         obtenerMensajeError(
@@ -2180,7 +2485,32 @@ export default function ProductsModule({
                   placeholder="0"
                 />
               </div>
+              
+              {/* STOCK MÁXIMO */}
 
+              <div className="product-field">
+                <label htmlFor="prod-maximo">
+                  Stock máximo
+                </label>
+
+                <input
+                  id="prod-maximo"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    formulario.stockMaximo
+                  }
+                  onChange={
+                    event =>
+                      actualizarFormulario(
+                        'stockMaximo',
+                        event.target.value,
+                      )
+                  }
+                  placeholder="Sin definir"
+                />
+              </div>
 
               {/* DESCRIPCIÓN */}
 
@@ -2206,6 +2536,66 @@ export default function ProductsModule({
                   placeholder="Descripción breve del producto"
                   rows={3}
                 />
+              </div>
+
+
+              {/* IMAGEN (se muestra en la tienda en línea) */}
+
+              <div className="product-field product-field--full">
+                <label htmlFor="prod-imagen">
+                  Imagen para la tienda en línea
+                </label>
+
+                <div className="product-image-field">
+                  {(vistaPreviaImagen || (imagenActual && !quitarImagen)) && (
+                    <img
+                      className="product-image-preview"
+                      src={
+                        vistaPreviaImagen ??
+                        imagenActual ??
+                        ''
+                      }
+                      alt="Vista previa del producto"
+                    />
+                  )}
+
+                  <div className="product-image-controls">
+                    <input
+                      id="prod-imagen"
+                      type="file"
+                      accept={TIPOS_IMAGEN.join(',')}
+                      onChange={
+                        event =>
+                          seleccionarImagen(
+                            event.target.files?.[0] ?? null,
+                          )
+                      }
+                      disabled={guardando}
+                    />
+
+                    <small>
+                      JPG, PNG o WEBP · máximo 2 MB.
+                    </small>
+
+                    {imagenActual &&
+                      !archivoImagen && (
+                        <label className="product-image-remove">
+                          <input
+                            type="checkbox"
+                            checked={quitarImagen}
+                            onChange={
+                              event =>
+                                setQuitarImagen(
+                                  event.target.checked,
+                                )
+                            }
+                            disabled={guardando}
+                          />
+                          Quitar la imagen actual
+                        </label>
+                      )}
+                  </div>
+                </div>
               </div>
 
 
@@ -2314,42 +2704,19 @@ export default function ProductsModule({
           <table className="inventory-table">
             <thead>
               <tr>
-                <th>
-                  Código
-                </th>
-
-                <th>
-                  Producto
-                </th>
-
-                <th>
-                  Categoría
-                </th>
-
-                <th>
-                  Características
-                </th>
-
-                <th>
-                  Unidad
-                </th>
-
-                <th>
-                  Precio compra
-                </th>
-
-                <th>
-                  Precio venta
-                </th>
-
-                <th>
-                  Existencia
-                </th>
-
-                <th>
-                  Stock mínimo
-                </th>
-
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Marca</th>
+                <th>Modelo</th>
+                <th>Color</th>
+                <th>Material</th>
+                <th>Unidad</th>
+                <th>Precio compra</th>
+                <th>Precio venta</th>
+                <th>Existencia</th>
+                <th>Stock mínimo</th>
+                <th>Stock máximo</th>
                 {puedeAdministrar && (
                   <th>
                     Acciones
@@ -2395,34 +2762,20 @@ export default function ProductsModule({
 
 
                       <td>
-                        <div>
-                          Marca:{' '}
-                          {
-                            producto.marca
-                          }
-                        </div>
+                          {producto.marca}
+                        </td>
 
-                        <div>
-                          Modelo:{' '}
-                          {
-                            producto.modelo
-                          }
-                        </div>
+                        <td>
+                          {producto.modelo}
+                        </td>
 
-                        <div>
-                          Color:{' '}
-                          {
-                            producto.color
-                          }
-                        </div>
+                        <td>
+                          {producto.color}
+                        </td>
 
-                        <div>
-                          Material:{' '}
-                          {
-                            producto.material
-                          }
-                        </div>
-                      </td>
+                        <td>
+                          {producto.material}
+                        </td>
 
 
                       <td>
@@ -2460,7 +2813,10 @@ export default function ProductsModule({
                           producto.stockMinimo
                         }
                       </td>
-
+                      
+                      <td>
+                        {producto.stockMaximo ?? 'Sin definir'}
+                      </td>
 
                       {puedeAdministrar && (
                         <td>

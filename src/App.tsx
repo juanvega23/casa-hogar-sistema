@@ -16,7 +16,18 @@ import ProductsModule from './modules/ProductsModule'
 import MovementsModule from './modules/MovementsModule'
 import ReplenishmentModule from './modules/ReplenishmentModule'
 import SalesModule from './modules/SalesModule'
+import ClientsModule from './modules/ClientsModule'
+import QuotesModule from './modules/QuotesModule'
+import SalesReturnsModule from './modules/SalesReturnsModule'
+import SalesHistoryModule from './modules/SalesHistoryModule'
+import OnlineOrdersModule from './modules/OnlineOrdersModule'
+import AccountsReceivableModule from './modules/AccountsReceivableModule'
 import CashModule from './modules/CashModule'
+import OwnerDashboardModule from './modules/OwnerDashboardModule'
+import OwnerReportsModule from './modules/OwnerReportsModule'
+import OwnerAlertsModule from './modules/OwnerAlertsModule'
+import Storefront from './modules/Storefront'
+import logoCasaHogar from './assets/casa-hogar-logo.png'
 import SuppliersModule from './modules/SuppliersModule'
 import PurchasesModule from './modules/PurchasesModule'
 import PurchaseReceptionModule from './modules/PurchaseReceptionModule'
@@ -151,7 +162,11 @@ function getMenuIcon(id: string) {
 // APP
 // =====================================================
 
-function App() {
+function InternalSystemApp({
+  navigate,
+}: {
+  navigate: (path: string) => void
+}) {
   const [email, setEmail] =
     useState('')
 
@@ -236,11 +251,38 @@ function App() {
       ),
     ) ?? null
 
+  const moduloIdActual =
+    moduloSeleccionado?.id ?? ''
+
+  const esConsultaPorRol =
+    (
+      rolActual?.codigo === 'gerencia' &&
+      moduloIdActual !== 'dashboard'
+    ) ||
+    (
+      rolActual?.codigo === 'responsable_comercial' &&
+      [
+        'clientes',
+        'cotizaciones',
+        'ventas',
+        'pedidos-en-linea',
+        'cuentas-por-cobrar',
+        'historial-ventas',
+      ].includes(moduloIdActual)
+    ) ||
+    (
+      rolActual?.codigo === 'vendedor' &&
+      moduloIdActual === 'historial-ventas'
+    )
+
   const esConsulta =
-    moduloSeleccionado
-      ?.id
-      .endsWith('-consulta') ??
-    false
+    (
+      moduloSeleccionado
+        ?.id
+        .endsWith('-consulta') ??
+      false
+    ) ||
+    esConsultaPorRol
 
 
   // ===================================================
@@ -263,8 +305,11 @@ function App() {
   ]
 
   const modulosCompras = [
-    'compras',
-    'compras-consulta',
+  'compras',
+  'compras-consulta',
+  'ordenes-compra',
+  'autorizacion-compras',
+  'historial-compras',
   ]
 
   const modulosMovimientos = [
@@ -416,8 +461,40 @@ function App() {
           .single()
 
       if (error) {
+        const {
+          data: tipoCuenta,
+        } =
+          await supabase.rpc(
+            'tipo_cuenta_actual',
+          )
+
+        const tipo = String(
+          tipoCuenta ??
+          'sin_perfil',
+        )
+
+        if (
+          tipo ===
+          'cliente_web'
+        ) {
+          await supabase.auth
+            .signOut()
+
+          setPerfil(null)
+          setUserId(null)
+
+          setMensaje(
+            'Esta cuenta pertenece a la tienda en línea y no tiene acceso al sistema interno.',
+          )
+
+          navigate('/login')
+          setCargando(false)
+
+          return
+        }
+
         setMensaje(
-          `Error al leer el perfil: ${error.message}`,
+          `No fue posible validar el acceso interno: ${error.message}`,
         )
 
         setPerfil(null)
@@ -518,11 +595,63 @@ function App() {
       return
     }
 
+    const {
+      data: tipoCuenta,
+      error: tipoError,
+    } =
+      await supabase.rpc(
+        'tipo_cuenta_actual',
+      )
+
+    if (tipoError) {
+      await supabase.auth
+        .signOut()
+
+      setMensaje(
+        'No fue posible validar el tipo de cuenta.',
+      )
+
+      setCargando(false)
+
+      return
+    }
+
+    const tipo = String(
+      tipoCuenta ??
+      'sin_perfil',
+    )
+
+    if (
+      tipo !== 'personal'
+    ) {
+      await supabase.auth
+        .signOut()
+
+      setUserId(null)
+
+      if (
+        tipo === 'cliente_web'
+      ) {
+        setMensaje(
+          'Esta cuenta pertenece a la tienda en línea. El sistema interno es exclusivo para el personal.',
+        )
+      } else {
+        setMensaje(
+          'Esta cuenta no está habilitada para ingresar al sistema interno.',
+        )
+      }
+
+      setCargando(false)
+
+      return
+    }
+
     setUserId(
       data.user.id,
     )
 
     setPassword('')
+    navigate('/app')
   }
 
 
@@ -551,6 +680,7 @@ function App() {
     setModuloActivo('')
     setGruposAbiertos({})
     setMensaje('')
+    navigate('/login')
   }
 
 
@@ -641,6 +771,120 @@ function App() {
 
 
     // -------------------------------------------------
+    // CLIENTES
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'clientes'
+    ) {
+      return (
+        <ClientsModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // COTIZACIONES
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'cotizaciones'
+    ) {
+      return (
+        <QuotesModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // HISTORIAL DE VENTAS
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'historial-ventas'
+    ) {
+      return (
+        <SalesHistoryModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // PEDIDOS EN LÍNEA
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'pedidos-en-linea'
+    ) {
+      return (
+        <OnlineOrdersModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // CUENTAS POR COBRAR
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'cuentas-por-cobrar'
+    ) {
+      return (
+        <AccountsReceivableModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // DEVOLUCIONES DE VENTA
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'devoluciones-venta'
+    ) {
+      return (
+        <SalesReturnsModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
+      )
+    }
+
+
+    // -------------------------------------------------
     // VENTAS
     // -------------------------------------------------
 
@@ -649,7 +893,12 @@ function App() {
       'ventas'
     ) {
       return (
-        <SalesModule />
+        <SalesModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+        />
       )
     }
 
@@ -658,12 +907,32 @@ function App() {
     // CAJA
     // -------------------------------------------------
 
+    const vistasCaja = [
+      'caja',
+      'caja-apertura',
+      'caja-cobros',
+      'caja-movimientos',
+      'caja-arqueo',
+      'caja-cierre',
+      'caja-devoluciones',
+      'caja-historial',
+    ]
+
     if (
-      moduloSeleccionado.id ===
-      'caja'
+      vistasCaja.includes(
+        moduloSeleccionado.id
+      )
     ) {
       return (
-        <CashModule />
+        <CashModule
+          roleCode={
+            rolActual?.codigo ??
+            ''
+          }
+          vista={
+            moduloSeleccionado.id
+          }
+        />
       )
     }
 
@@ -673,15 +942,17 @@ function App() {
     // -------------------------------------------------
 
     if (mostrarCompras) {
-      return (
-        <PurchasesModule
-          roleCode={
-            rolActual?.codigo ??
-            ''
-          }
-        />
-      )
-    }
+  return (
+    <PurchasesModule
+      roleCode={
+        rolActual?.codigo ?? ''
+      }
+      vista={
+        moduloSeleccionado.id
+      }
+    />
+  )
+}
 
 
     // -------------------------------------------------
@@ -733,211 +1004,43 @@ function App() {
 
 
     // -------------------------------------------------
-    // DASHBOARD
+    // DASHBOARD DEL PROPIETARIO
     // -------------------------------------------------
 
     if (
       moduloSeleccionado.id ===
       'dashboard'
     ) {
-      const accesos =
-        itemsNavegables
-          .filter(
-            item =>
-              item.id !==
-              'dashboard',
-          )
-          .slice(0, 6)
-
-      const principal =
-        accesos.find(
-          item =>
-            item.id ===
-            'ventas',
-        ) ??
-        accesos[0]
-
       return (
-        <div className="dashboard">
-          <section className="dashboard-hero">
-            <div className="dashboard-hero-content">
-              <span className="dashboard-kicker">
-                <span />{' '}
-                CASA HOGAR · PANEL DE CONTROL
-              </span>
+        <OwnerDashboardModule />
+      )
+    }
 
-              <h2>
-                Todo tu trabajo,
-                <br />
 
-                <em>
-                  en un solo lugar.
-                </em>
-              </h2>
+    // -------------------------------------------------
+    // REPORTES Y ANÁLISIS DEL PROPIETARIO
+    // -------------------------------------------------
 
-              <p>
-                Accede a las áreas disponibles para tu perfil y continúa con las tareas del día.
-              </p>
+    if (
+      moduloSeleccionado.id ===
+      'reportes-analisis'
+    ) {
+      return (
+        <OwnerReportsModule />
+      )
+    }
 
-              {principal && (
-                <button
-                  type="button"
-                  className="dashboard-action"
-                  onClick={() =>
-                    setModuloActivo(
-                      principal.id,
-                    )
-                  }
-                >
-                  Abrir{' '}
-                  {principal.nombre}{' '}
 
-                  <span aria-hidden="true">
-                    ↗
-                  </span>
-                </button>
-              )}
-            </div>
+    // -------------------------------------------------
+    // ALERTAS / RECOMENDACIONES DEL PROPIETARIO
+    // -------------------------------------------------
 
-            <div
-              className="hero-graphic"
-              aria-hidden="true"
-            >
-              <div className="hero-graphic-orbit hero-graphic-orbit--outer" />
-
-              <div className="hero-graphic-orbit hero-graphic-orbit--inner" />
-
-              <div className="hero-graphic-center">
-                CH
-
-                <span>
-                  ◆
-                </span>
-              </div>
-
-              <span className="hero-graphic-point hero-graphic-point--one" />
-
-              <span className="hero-graphic-point hero-graphic-point--two" />
-            </div>
-          </section>
-
-          <div className="dashboard-heading">
-            <div>
-              <span className="section-kicker">
-                TU ESPACIO DE TRABAJO
-              </span>
-
-              <h2>
-                Accesos rápidos
-              </h2>
-
-              <p>
-                Selecciona el área que necesitas para continuar.
-              </p>
-            </div>
-
-            <span className="dashboard-count">
-              {accesos.length}{' '}
-              áreas disponibles
-            </span>
-          </div>
-
-          <div className="dashboard-layout">
-            <div className="dashboard-links">
-              {accesos.map(
-                (
-                  item,
-                  index,
-                ) => (
-                  <button
-                    className="dashboard-link"
-                    type="button"
-                    key={
-                      item.id
-                    }
-                    onClick={() =>
-                      setModuloActivo(
-                        item.id,
-                      )
-                    }
-                  >
-                    <span
-                      className={`dashboard-link-icon dashboard-link-icon--${index % 4}`}
-                    >
-                      {getMenuIcon(
-                        item.id,
-                      )}
-                    </span>
-
-                    <span className="dashboard-link-copy">
-                      <strong>
-                        {item.nombre}
-                      </strong>
-
-                      <small>
-                        Ir al módulo
-                      </small>
-                    </span>
-
-                    <span
-                      className="dashboard-link-arrow"
-                      aria-hidden="true"
-                    >
-                      ↗
-                    </span>
-                  </button>
-                ),
-              )}
-            </div>
-
-            <aside className="dashboard-profile">
-              <span className="section-kicker">
-                SESIÓN ACTIVA
-              </span>
-
-              <div className="dashboard-profile-avatar">
-                {perfil
-                  ?.nombre_completo
-                  ?.charAt(0)
-                  .toUpperCase() ??
-                  'U'}
-              </div>
-
-              <h3>
-                {perfil
-                  ?.nombre_completo ??
-                  'Usuario'}
-              </h3>
-
-              <p>
-                {rolActual?.nombre}
-              </p>
-
-              <div className="dashboard-profile-rule" />
-
-              <div className="dashboard-profile-detail">
-                <span>
-                  Perfil
-                </span>
-
-                <strong>
-                  {rolActual?.nombre}
-                </strong>
-              </div>
-
-              <div className="dashboard-profile-detail">
-                <span>
-                  Estado
-                </span>
-
-                <strong className="dashboard-profile-active">
-                  <i />{' '}
-                  Activo
-                </strong>
-              </div>
-            </aside>
-          </div>
-        </div>
+    if (
+      moduloSeleccionado.id ===
+      'alertas-recomendaciones'
+    ) {
+      return (
+        <OwnerAlertsModule />
       )
     }
 
@@ -1087,11 +1190,7 @@ function App() {
 
   if (cargando) {
     return (
-      <div className="splash">
-        <div className="splash-mark">
-          CH
-        </div>
-
+      <div className="splash splash--brand">
         <div className="splash-ring" />
 
         <p className="splash-text">
@@ -1103,7 +1202,7 @@ function App() {
 
 
   // ===================================================
-  // LOGIN
+  // LOGIN INTERNO
   // ===================================================
 
   if (
@@ -1111,168 +1210,72 @@ function App() {
     !rolActual
   ) {
     return (
-      <div className="auth-page">
-        <div className="auth-showcase">
-          <div className="auth-showcase-brand">
-            <span className="showcase-mark">
-              CH
+      <div className="auth-page auth-page--internal">
+        <main className="auth-card auth-card--brand">
+          <img
+            className="auth-logo"
+            src={logoCasaHogar}
+            alt="Ferretería Casa Hogar"
+          />
 
-              <span>
-                ◆
-              </span>
-            </span>
-
-            <strong>
-              CASA HOGAR
-            </strong>
+          <div className="auth-heading">
+            <span className="auth-badge"><i /> Sistema interno</span>
+            <h1>Ingreso del personal</h1>
           </div>
 
-          <div className="auth-showcase-copy">
-            <span className="auth-showcase-eyebrow">
-              SISTEMA DE GESTIÓN
-            </span>
-
-            <h1>
-              Un espacio para
-              <br />
-
-              hacer que todo{' '}
-
-              <em>
-                funcione mejor.
-              </em>
-            </h1>
-
-            <p>
-              Ventas, inventario y operaciones conectadas en una experiencia clara para cada equipo.
-            </p>
-          </div>
-
-          <span className="auth-showcase-bottom">
-            Organiza · Gestiona · Crece
-          </span>
-
-          <div className="auth-showcase-shape auth-showcase-shape--one" />
-
-          <div className="auth-showcase-shape auth-showcase-shape--two" />
-        </div>
-
-        <div className="auth-form-side">
-          <div className="auth-card">
-            <div className="auth-header">
-              <div className="auth-mark">
-                CH
-              </div>
-
-              <div>
-                <div className="auth-system">
-                  Casa Hogar
-                </div>
-
-                <h2 className="auth-title">
-                  Bienvenido de nuevo
-                </h2>
-              </div>
+          <form
+            className="auth-form"
+            onSubmit={iniciarSesion}
+          >
+            <div className="field">
+              <label htmlFor="email">Correo electrónico</label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={event => setEmail(event.target.value)}
+                placeholder="usuario@casahogar.test"
+                required
+              />
             </div>
 
-            <p className="auth-subtitle">
-              Ingresa con tus credenciales para continuar con tu trabajo.
-            </p>
-
-            <form
-              className="auth-form"
-              onSubmit={
-                iniciarSesion
-              }
-            >
-              <div className="field">
-                <label htmlFor="email">
-                  Correo electrónico
-                </label>
-
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="username"
-                  value={email}
-                  onChange={
-                    event =>
-                      setEmail(
-                        event.target.value,
-                      )
-                  }
-                  placeholder="tu@correo.com"
-                  required
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="password">
-                  Contraseña
-                </label>
-
+            <div className="field">
+              <label htmlFor="password">Contraseña</label>
+              <div className="password-field">
                 <input
                   id="password"
-                  type={
-                    mostrarClave
-                      ? 'text'
-                      : 'password'
-                  }
+                  type={mostrarClave ? 'text' : 'password'}
                   autoComplete="current-password"
                   value={password}
-                  onChange={
-                    event =>
-                      setPassword(
-                        event.target.value,
-                      )
-                  }
+                  onChange={event => setPassword(event.target.value)}
                   placeholder="••••••••"
                   required
                 />
-
                 <button
                   className="password-toggle"
                   type="button"
-                  onClick={() =>
-                    setMostrarClave(
-                      !mostrarClave,
-                    )
-                  }
-                  aria-label={
-                    mostrarClave
-                      ? 'Ocultar contraseña'
-                      : 'Mostrar contraseña'
-                  }
+                  onClick={() => setMostrarClave(!mostrarClave)}
+                  aria-label={mostrarClave ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
-                  {mostrarClave
-                    ? 'Ocultar'
-                    : 'Mostrar'}
+                  {mostrarClave ? 'Ocultar' : 'Mostrar'}
                 </button>
               </div>
+            </div>
 
-              {mensaje && (
-                <div className="auth-error">
-                  {mensaje}
-                </div>
-              )}
+            {mensaje && (
+              <div className="auth-error">{mensaje}</div>
+            )}
 
-              <button
-                type="submit"
-                className="auth-btn"
-              >
-                Ingresar al sistema{' '}
+            <button type="submit" className="auth-btn">
+              Ingresar al sistema
+            </button>
+          </form>
 
-                <span aria-hidden="true">
-                  →
-                </span>
-              </button>
-            </form>
-
-            <p className="auth-note">
-              Acceso exclusivo para personal autorizado
-            </p>
-          </div>
-        </div>
+          <p className="auth-note">
+            Acceso exclusivo para personal autorizado
+          </p>
+        </main>
       </div>
     )
   }
@@ -1302,23 +1305,17 @@ function App() {
             : ''
         }`}
       >
-        <div className="nav-brand">
-          <div className="nav-mark">
-            CH
-
-            <span>
-              ◆
-            </span>
+        <div className="nav-brand nav-brand--logo">
+          <div className="nav-brand-mark">
+            <img
+              src={logoCasaHogar}
+              alt="Ferretería Casa Hogar"
+            />
           </div>
 
-          <div>
-            <span className="nav-name">
-              Casa Hogar
-            </span>
-
-            <span className="nav-sub">
-              Sistema de Gestión
-            </span>
+          <div className="nav-brand-copy">
+            <strong>Casa Hogar</strong>
+            <span>Sistema de Gestión</span>
           </div>
         </div>
 
@@ -1673,6 +1670,57 @@ function App() {
         </main>
       </section>
     </div>
+  )
+}
+
+
+// =====================================================
+// ROUTER SIMPLE DE PORTALES
+// =====================================================
+
+function App() {
+  const [path, setPath] =
+    useState(window.location.pathname)
+
+  function navigate(nextPath: string) {
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath)
+    }
+
+    setPath(nextPath)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    function handlePopState() {
+      setPath(window.location.pathname)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    if (window.location.pathname === '/') {
+      window.history.replaceState({}, '', '/login')
+      setPath('/login')
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  if (path.startsWith('/tienda')) {
+    return (
+      <Storefront
+        path={path}
+        navigate={navigate}
+      />
+    )
+  }
+
+  return (
+    <InternalSystemApp
+      navigate={navigate}
+    />
   )
 }
 

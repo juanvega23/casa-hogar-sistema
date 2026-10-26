@@ -1,11 +1,16 @@
 export type RoleCode =
+  | 'propietario'
   | 'gerencia'
   | 'administracion'
-  | 'ventas'
+  | 'ventas' // TEMPORAL: rol antiguo mientras hacemos la migración
   | 'almacen'
   | 'soporte_ti'
   | 'encargado_compras'
   | 'responsable_compras'
+  | 'vendedor'
+  | 'responsable_comercial'
+  | 'marketing_digital'
+  | 'responsable_caja'
 
 export type MenuItem = {
   id: string
@@ -13,18 +18,41 @@ export type MenuItem = {
   children?: MenuItem[]
 }
 
-export const menusByRole: Record<RoleCode, MenuItem[]> = {
+export const menusByRole: Record<
+  RoleCode,
+  MenuItem[]
+> = {
   // =========================================================
-  // GERENCIA
-  // Consulta, supervisión y análisis.
-  // No ejecuta operaciones del proceso de compra.
+  // PROPIETARIO
+  //
+  // Visión estratégica del negocio.
+  // Solo consulta.
   // =========================================================
-  gerencia: [
+  propietario: [
     {
       id: 'dashboard',
       nombre: 'Dashboard',
     },
+    {
+      id: 'reportes-analisis',
+      nombre: 'Reportes y análisis',
+    },
+    {
+      id: 'alertas-recomendaciones',
+      nombre: 'Alertas / recomendaciones',
+    },
+  ],
 
+  // =========================================================
+  // GERENCIA / ADMINISTRACIÓN
+  //
+  // Consulta, supervisión y análisis.
+  // No ejecuta operaciones.
+  // =========================================================
+  gerencia: [
+    // ---------------------------------------------------------
+    // COMPRAS
+    // ---------------------------------------------------------
     {
       id: 'compras-modulo',
       nombre: 'Compras',
@@ -60,20 +88,72 @@ export const menusByRole: Record<RoleCode, MenuItem[]> = {
       ],
     },
 
+    // ---------------------------------------------------------
+    // VENTAS
+    // Solo consulta.
+    // ---------------------------------------------------------
     {
-      id: 'reportes',
-      nombre: 'Reportes y análisis',
+      id: 'ventas-modulo',
+      nombre: 'Ventas',
+      children: [
+        {
+          id: 'clientes',
+          nombre: 'Clientes',
+        },
+        {
+          id: 'cotizaciones',
+          nombre: 'Cotizaciones',
+        },
+        {
+          id: 'ventas',
+          nombre: 'Ventas',
+        },
+        {
+          id: 'pedidos-en-linea',
+          nombre: 'Pedidos en línea',
+        },
+        {
+          id: 'cuentas-por-cobrar',
+          nombre: 'Cuentas por cobrar',
+        },
+        {
+          id: 'devoluciones-venta',
+          nombre: 'Devoluciones de venta',
+        },
+        {
+          id: 'historial-ventas',
+          nombre: 'Historial de ventas',
+        },
+      ],
+    },
+
+    // ---------------------------------------------------------
+    // CAJA
+    // Solo consulta / supervisión.
+    // ---------------------------------------------------------
+    {
+      id: 'caja-modulo',
+      nombre: 'Caja',
+      children: [
+        {
+          id: 'caja-historial',
+          nombre: 'Historial de caja',
+        },
+      ],
     },
 
     {
-      id: 'alertas',
-      nombre: 'Alertas y recomendaciones',
+      id: 'reportes',
+      nombre: 'Reportes operativos',
     },
+
   ],
 
   // =========================================================
-  // ADMINISTRACIÓN
-  // Ya no realiza operaciones propias del Módulo Compras.
+  // ADMINISTRACIÓN - ROL ANTIGUO / TEMPORAL
+  //
+  // Se conserva temporalmente mientras terminamos la migración.
+  // La supervisión general se concentra en Gerencia.
   // =========================================================
   administracion: [
     {
@@ -95,8 +175,11 @@ export const menusByRole: Record<RoleCode, MenuItem[]> = {
   ],
 
   // =========================================================
-  // VENTAS
-  // Conserva consulta de productos para realizar ventas.
+  // VENTAS - ROL ANTIGUO
+  //
+  // TEMPORAL.
+  // Se conserva hasta terminar la migración del usuario actual.
+  // Luego será eliminado o desactivado.
   // =========================================================
   ventas: [
     {
@@ -114,43 +197,237 @@ export const menusByRole: Record<RoleCode, MenuItem[]> = {
   ],
 
   // =========================================================
+  // VENDEDOR / ASESOR DE VENTAS
+  //
+  // Actor operativo principal del Módulo Ventas.
+  //
+  // Puede:
+  // - gestionar clientes
+  // - elaborar cotizaciones
+  // - registrar ventas
+  // - gestionar pedidos
+  // - registrar devoluciones
+  // - consultar historial
+  //
+  // NO maneja Caja.
+  // NO confirma devoluciones.
+  // =========================================================
+  vendedor: [
+    {
+      id: 'ventas-modulo',
+      nombre: 'Ventas',
+      children: [
+        {
+          id: 'clientes',
+          nombre: 'Clientes',
+        },
+        {
+          id: 'cotizaciones',
+          nombre: 'Cotizaciones',
+        },
+        {
+          id: 'ventas',
+          nombre: 'Registrar venta',
+        },
+        {
+          id: 'pedidos-en-linea',
+          nombre: 'Pedidos en línea',
+        },
+        
+        {
+          id: 'devoluciones-venta',
+          nombre: 'Devoluciones de venta',
+        },
+        {
+          id: 'historial-ventas',
+          nombre: 'Historial de ventas',
+        },
+      ],
+    },
+
+    {
+      id: 'productos-consulta',
+      nombre: 'Consultar productos',
+    },
+  ],
+
+  // =========================================================
+  // RESPONSABLE COMERCIAL Y ATENCIÓN AL CLIENTE
+  //
+  // Supervisa el Módulo Ventas.
+  //
+  // Puede:
+  // - consultar clientes
+  // - supervisar cotizaciones
+  // - supervisar ventas
+  // - supervisar pedidos
+  // - consultar cuentas por cobrar
+  // - confirmar o anular devoluciones
+  // - consultar historial
+  //
+  // NO maneja Caja.
+  // =========================================================
+  responsable_comercial: [
+    {
+      id: 'ventas-modulo',
+      nombre: 'Ventas',
+      children: [
+        {
+          id: 'clientes',
+          nombre: 'Clientes',
+        },
+        {
+          id: 'cotizaciones',
+          nombre: 'Cotizaciones',
+        },
+        {
+          id: 'ventas',
+          nombre: 'Ventas registradas',
+        },
+        {
+          id: 'pedidos-en-linea',
+          nombre: 'Pedidos en línea',
+        },
+        {
+          id: 'cuentas-por-cobrar',
+          nombre: 'Cuentas por cobrar',
+        },
+        {
+          id: 'devoluciones-venta',
+          nombre: 'Devoluciones de venta',
+        },
+        {
+          id: 'historial-ventas',
+          nombre: 'Historial de ventas',
+        },
+      ],
+    },
+
+    {
+      id: 'productos-consulta',
+      nombre: 'Consultar productos',
+    },
+  ],
+
+  // =========================================================
+  // MARKETING Y CANALES DIGITALES
+  //
+  // Participa solamente en funciones relacionadas con
+  // el canal digital.
+  //
+  // NO registra ventas presenciales.
+  // NO maneja Caja.
+  // NO maneja devoluciones.
+  // NO gestiona cuentas por cobrar.
+  // =========================================================
+  marketing_digital: [
+    {
+      id: 'ventas-modulo',
+      nombre: 'Ventas',
+      children: [
+        {
+          id: 'pedidos-en-linea',
+          nombre: 'Pedidos en línea',
+        },
+      ],
+    },
+
+    {
+      id: 'productos-consulta',
+      nombre: 'Consultar productos',
+    },
+  ],
+
+  // =========================================================
+  // RESPONSABLE DE CAJA Y FACTURACIÓN
+  //
+  // Pertenece exclusivamente al Módulo Caja.
+  //
+  // Ventas genera la operación.
+  // Caja registra el movimiento real del dinero.
+  // =========================================================
+  responsable_caja: [
+    {
+      id: 'caja-modulo',
+      nombre: 'Caja',
+      children: [
+        {
+          id: 'caja-apertura',
+          nombre: 'Apertura de caja',
+        },
+        {
+          id: 'caja-cobros',
+          nombre: 'Cobros',
+        },
+        {
+          id: 'caja-movimientos',
+          nombre: 'Movimientos de caja',
+        },
+        {
+          id: 'caja-arqueo',
+          nombre: 'Arqueo de caja',
+        },
+        {
+          id: 'caja-cierre',
+          nombre: 'Cierre de caja',
+        },
+        {
+          id: 'caja-devoluciones',
+          nombre: 'Reembolsos de devoluciones',
+        },
+        {
+          id: 'caja-historial',
+          nombre: 'Historial de caja',
+        },
+      ],
+    },
+  ],
+
+  // =========================================================
   // ENCARGADO DE COMPRAS
   //
   // Registra compras.
   // Gestiona productos.
   // Gestiona proveedores.
-  // Puede consultar recepción e inventario.
+  // Puede consultar inventario.
   //
   // NO autoriza compras.
   // NO registra devoluciones.
   // =========================================================
   encargado_compras: [
-  {
-    id: 'compras-modulo',
-    nombre: 'Compras',
-    children: [
-      {
-        id: 'productos',
-        nombre: 'Productos',
-      },
-      {
-        id: 'proveedores',
-        nombre: 'Proveedores',
-      },
-      {
-        id: 'compras',
-        nombre: 'Compras',
-      },
-    ],
-  },
-],
+    {
+      id: 'compras-modulo',
+      nombre: 'Compras',
+      children: [
+        {
+          id: 'productos',
+          nombre: 'Productos',
+        },
+        {
+          id: 'proveedores',
+          nombre: 'Proveedores',
+        },
+        {
+          id: 'ordenes-compra',
+          nombre: 'Compras',
+        },
+        {
+          id: 'historial-compras',
+          nombre: 'Historial de compras',
+        },
+        {
+          id: 'inventario-consulta',
+          nombre: 'Bodega / Inventario',
+        },
+      ],
+    },
+  ],
 
   // =========================================================
   // RESPONSABLE DE COMPRAS
   //
   // Revisa y autoriza compras.
   // Gestiona devoluciones.
-  // El resto es principalmente consulta.
   //
   // NO registra nuevas compras.
   // NO recibe físicamente mercancía.
@@ -165,20 +442,20 @@ export const menusByRole: Record<RoleCode, MenuItem[]> = {
           nombre: 'Productos',
         },
         {
-          id: 'compras',
-          nombre: 'Compras',
+          id: 'autorizacion-compras',
+          nombre: 'Autorización de compras',
         },
         {
-          id: 'recepciones-consulta',
-          nombre: 'Recepción de productos',
-        },
-        {
-          id: 'inventario-consulta',
-          nombre: 'Bodega / Inventario',
+          id: 'historial-compras',
+          nombre: 'Historial de compras',
         },
         {
           id: 'devoluciones',
           nombre: 'Devoluciones de compra',
+        },
+        {
+          id: 'inventario-consulta',
+          nombre: 'Bodega / Inventario',
         },
       ],
     },
@@ -188,39 +465,37 @@ export const menusByRole: Record<RoleCode, MenuItem[]> = {
   // ALMACÉN / BODEGUERO
   //
   // Consulta productos.
-  // Consulta compras autorizadas.
   // Recibe productos.
   // Gestiona inventario y Kardex.
-  // Consulta devoluciones.
   //
   // NO registra compras.
   // NO autoriza compras.
   // NO origina devoluciones.
   // =========================================================
   almacen: [
-  {
-    id: 'compras-modulo',
-    nombre: 'Compras',
-    children: [
-      {
-        id: 'productos-consulta',
-        nombre: 'Productos',
-      },
-      {
-        id: 'recepciones',
-        nombre: 'Recepción de productos',
-      },
-      {
-        id: 'inventario',
-        nombre: 'Bodega / Inventario',
-      },
-      {
-        id: 'movimientos',
-        nombre: 'Movimientos / Kardex',
-      },
-    ],
-  },
-],
+    {
+      id: 'compras-modulo',
+      nombre: 'Compras',
+      children: [
+        {
+          id: 'productos-consulta',
+          nombre: 'Productos',
+        },
+        {
+          id: 'recepciones',
+          nombre: 'Recepción de productos',
+        },
+        {
+          id: 'inventario',
+          nombre: 'Bodega / Inventario',
+        },
+        {
+          id: 'movimientos',
+          nombre: 'Movimientos / Kardex',
+        },
+      ],
+    },
+  ],
 
   // =========================================================
   // SOPORTE TI

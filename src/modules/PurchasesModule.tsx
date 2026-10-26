@@ -163,7 +163,7 @@ type ItemCompra = {
 type PurchasesModuleProps = {
 
   roleCode: string
-
+  vista: string
 }
 
 
@@ -428,9 +428,8 @@ function obtenerMensajeError(
 
 
 function PurchasesModule({
-
   roleCode,
-
+  vista,
 }: PurchasesModuleProps) {
 
   const [
@@ -654,31 +653,45 @@ function PurchasesModule({
     useState('')
 
 
-  const [
+  const [items, setItems] =
+  useState<ItemCompra[]>([])
 
-    items,
+const esOrdenesCompra =
+  vista === 'ordenes-compra'
 
-    setItems,
+const esAutorizacion =
+  vista === 'autorizacion-compras'
 
-  ] =
+const esHistorial =
+  vista === 'historial-compras'
 
-    useState<ItemCompra[]>([])
+const puedeRegistrar =
+  roleCode === 'encargado_compras' &&
+  esOrdenesCompra
 
+const puedeAutorizar =
+  roleCode === 'responsable_compras' &&
+  esAutorizacion
 
-  const puedeRegistrar =
-    roleCode === 'encargado_compras'
+const puedeAnular = false
 
-  const puedeAutorizar =
-    roleCode === 'responsable_compras'
+const tituloVista =
+  esOrdenesCompra
+    ? 'Compras'
+    : esAutorizacion
+      ? 'Autorización de compras'
+      : esHistorial
+        ? 'Historial de compras'
+        : 'Compras'
 
-  /*
-   * La responsabilidad de anular compras todavía no ha sido
-   * asignada definitivamente dentro de la nueva matriz de roles.
-   * Por ahora no se expone esta acción en la interfaz.
-   */
-  const puedeAnular = false
-
-
+const descripcionVista =
+  esOrdenesCompra
+    ? 'Registra y da seguimiento a las compras pendientes.'
+    : esAutorizacion
+      ? 'Revisa y autoriza las órdenes de compra pendientes.'
+      : esHistorial
+        ? 'Consulta las compras que ya fueron recibidas y completadas.'
+        : 'Gestión de compras.'
   // ==========================================================
 
   // CARGAR DATOS
@@ -1055,107 +1068,92 @@ function PurchasesModule({
 
     )
 
+    // ==========================================================
+// FILTRAR COMPRAS SEGÚN LA VISTA
+// ==========================================================
 
-  // ==========================================================
-
-  // BUSCADOR
-
-  // ==========================================================
-
-
-  const comprasFiltradas =
-
-    useMemo(() => {
-
-      const termino =
-
-        busqueda
-
-          .trim()
-
-          .toLowerCase()
-
-
-      if (!termino) {
-
-        return compras
-
-      }
-
-
+const comprasPorVista =
+  useMemo(() => {
+    if (esOrdenesCompra) {
       return compras.filter(
+        compra =>
+          compra.estado === 'registrada' ||
+          compra.estado === 'autorizada',
+      )
+    }
 
-        compra => {
+    if (esAutorizacion) {
+      return compras.filter(
+        compra =>
+          compra.estado === 'registrada',
+      )
+    }
 
-          const proveedor =
+    if (esHistorial) {
+      return compras.filter(
+        compra =>
+          compra.estado === 'recibida',
+      )
+    }
 
-            obtenerProveedor(
+    return compras
+  }, [
+    compras,
+    esOrdenesCompra,
+    esAutorizacion,
+    esHistorial,
+  ])
 
-              compra.proveedores,
+// ==========================================================
+// BUSCADOR
+// ==========================================================
 
-            )
+const comprasFiltradas =
+  useMemo(() => {
+    const termino =
+      busqueda
+        .trim()
+        .toLowerCase()
 
+    if (!termino) {
+      return comprasPorVista
+    }
 
-          const texto = [
-
-            compra.numero,
-
-            compra.tipo_compra,
-
-            etiquetaTipoCompra(
-
-              compra.tipo_compra,
-
-            ),
-
-            compra.estado,
-
-            etiquetaEstadoCompra(
-
-              compra.estado,
-
-            ),
-
-            compra.fecha_compra,
-
-            compra.referencia_documento ??
-
-              '',
-
-            proveedor?.codigo ??
-
-              '',
-
-            proveedor?.nombre ??
-
-              '',
-
-          ]
-
-            .join(' ')
-
-            .toLowerCase()
-
-
-          return texto.includes(
-
-            termino,
-
+    return comprasPorVista.filter(
+      compra => {
+        const proveedor =
+          obtenerProveedor(
+            compra.proveedores,
           )
 
-        },
+        const texto = [
+          compra.numero,
+          compra.tipo_compra,
+          etiquetaTipoCompra(
+            compra.tipo_compra,
+          ),
+          compra.estado,
+          etiquetaEstadoCompra(
+            compra.estado,
+          ),
+          compra.fecha_compra,
+          compra.referencia_documento ?? '',
+          proveedor?.codigo ?? '',
+          proveedor?.nombre ?? '',
+        ]
+          .join(' ')
+          .toLowerCase()
 
-      )
-
-    }, [
-
-      compras,
-
-      busqueda,
-
-    ])
-
-
+        return texto.includes(
+          termino,
+        )
+      },
+    )
+  }, [
+    comprasPorVista,
+    busqueda,
+  ])
+  
   // ==========================================================
 
   // NUEVA COMPRA
@@ -2473,21 +2471,12 @@ function PurchasesModule({
 
 
           <h2>
+  {tituloVista}
+</h2>
 
-            Compras
-
-          </h2>
-
-
-          <p>
-
-            {roleCode === 'encargado_compras'
-              ? 'Registra y da seguimiento a las compras pendientes de autorización.'
-              : roleCode === 'responsable_compras'
-                ? 'Revisa y autoriza las compras registradas antes de su recepción en Almacén.'
-                : 'Consulta y da seguimiento al historial de compras.'}
-
-          </p>
+<p>
+  {descripcionVista}
+</p>
 
         </div>
 
@@ -2532,16 +2521,16 @@ function PurchasesModule({
 
 
           {puedeRegistrar && (
-            <button
-              type="button"
-              className="primary-button"
-              onClick={
-                abrirNuevaCompra
-              }
-            >
-              + Nueva compra
-            </button>
-          )}
+  <button
+    type="button"
+    className="primary-button"
+    onClick={
+      abrirNuevaCompra
+    }
+  >
+    + Nueva compra
+  </button>
+)}
 
         </div>
 

@@ -2,9 +2,11 @@ import {
   useEffect,
   useMemo,
   useState,
+  type FormEvent,
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+
 
 type CategoriaRelacion = {
   nombre: string
@@ -19,6 +21,7 @@ type ProductoRespuesta = {
   codigo: string
   nombre: string
   precio_venta: number
+  descuento_porcentaje: number
   activo: boolean
 
   categorias:
@@ -38,6 +41,7 @@ type ProductoVenta = {
   nombre: string
   categoria: string
   precio: number
+  descuento: number
   existencia: number
 }
 
@@ -46,17 +50,49 @@ type ItemCarrito = {
   cantidad: number
 }
 
+type Cliente = {
+  id: number
+  codigo: string
+  nombre: string
+  tipo_cliente: 'natural' | 'juridica'
+  identificacion: string | null
+  telefono: string | null
+  permite_credito: boolean
+  limite_credito: number | null
+  activo: boolean
+}
+
 type ResultadoVenta = {
   venta_id: number
   numero: string
   total: number
-  cambio: number
+  estado:
+    | 'pendiente_cobro'
+    | 'con_saldo'
+    | string
 }
 
-type MetodoPago =
-  | 'efectivo'
-  | 'tarjeta'
-  | 'transferencia'
+type TipoVenta =
+  | 'contado'
+  | 'credito'
+
+type SalesModuleProps = {
+  roleCode: string
+}
+
+type VentaConsulta = {
+  id: number
+  numero: string
+  cliente_nombre: string | null
+  tipo_venta: 'contado' | 'credito'
+  subtotal: number
+  descuento: number
+  total: number
+  estado: string
+  referencia: string | null
+  created_at: string
+}
+
 
 function obtenerCategoria(
   relacion:
@@ -77,6 +113,7 @@ function obtenerCategoria(
 
   return relacion.nombre
 }
+
 
 function obtenerExistencia(
   relacion:
@@ -99,6 +136,7 @@ function obtenerExistencia(
   )
 }
 
+
 function formatearCordobas(
   valor: number,
 ) {
@@ -112,11 +150,135 @@ function formatearCordobas(
   ).format(valor)
 }
 
-export default function SalesModule() {
+
+function fechaLocalActual() {
+  const fecha = new Date()
+
+  const year =
+    fecha.getFullYear()
+
+  const month =
+    String(
+      fecha.getMonth() + 1,
+    ).padStart(2, '0')
+
+  const day =
+    String(
+      fecha.getDate(),
+    ).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+
+function calcularSubtotalItem(
+  item: ItemCarrito,
+) {
+  const bruto =
+    Math.round(
+      (
+        item.producto.precio *
+        item.cantidad
+      ) *
+      100,
+    ) / 100
+
+  const descuento =
+    Math.round(
+      (
+        bruto *
+        (
+          item.producto.descuento /
+          100
+        )
+      ) *
+      100,
+    ) / 100
+
+  return bruto - descuento
+}
+
+
+function etiquetaEstado(
+  estado: string,
+) {
+  if (
+    estado ===
+    'pendiente_cobro'
+  ) {
+    return 'Pendiente de cobro'
+  }
+
+  if (
+    estado ===
+    'con_saldo'
+  ) {
+    return 'Con saldo'
+  }
+
+  if (estado === 'pagada') {
+    return 'Pagada'
+  }
+
+  if (estado === 'anulada') {
+    return 'Anulada'
+  }
+
+  return estado
+}
+
+
+export default function SalesModule({
+  roleCode,
+}: SalesModuleProps) {
+  const esVendedor =
+    roleCode === 'vendedor'
+
+  const esConsultaVentas =
+    roleCode === 'responsable_comercial' ||
+    roleCode === 'gerencia'
+
+  const [
+    ventasConsulta,
+    setVentasConsulta,
+  ] = useState<VentaConsulta[]>([])
+
+  const [
+    busquedaVentas,
+    setBusquedaVentas,
+  ] = useState('')
+
+  /*
+   * Anulación: solo Responsable Comercial y solo ventas de
+   * contado pendientes de cobro (regla de anular_venta()).
+   */
+  const puedeAnular =
+    roleCode === 'responsable_comercial'
+
+  const [
+    ventaAnular,
+    setVentaAnular,
+  ] = useState<VentaConsulta | null>(null)
+
+  const [
+    motivoAnulacion,
+    setMotivoAnulacion,
+  ] = useState('')
+
+  const [
+    exitoConsulta,
+    setExitoConsulta,
+  ] = useState('')
+
   const [
     productos,
     setProductos,
   ] = useState<ProductoVenta[]>([])
+
+  const [
+    clientes,
+    setClientes,
+  ] = useState<Cliente[]>([])
 
   const [
     carrito,
@@ -129,8 +291,16 @@ export default function SalesModule() {
   ] = useState('')
 
   const [
-    cliente,
-    setCliente,
+    tipoVenta,
+    setTipoVenta,
+  ] =
+    useState<TipoVenta>(
+      'contado',
+    )
+
+  const [
+    clienteId,
+    setClienteId,
   ] = useState('')
 
   const [
@@ -139,16 +309,8 @@ export default function SalesModule() {
   ] = useState('')
 
   const [
-    metodoPago,
-    setMetodoPago,
-  ] =
-    useState<MetodoPago>(
-      'efectivo',
-    )
-
-  const [
-    montoRecibido,
-    setMontoRecibido,
+    fechaVencimiento,
+    setFechaVencimiento,
   ] = useState('')
 
   const [
@@ -179,10 +341,12 @@ export default function SalesModule() {
       null,
     )
 
-  async function cargarProductos() {
-    setCargando(true)
-    setError('')
 
+  // ==========================================================
+  // CARGAR PRODUCTOS
+  // ==========================================================
+
+  async function cargarProductos() {
     const { data, error } =
       await supabase
         .from('productos')
@@ -191,6 +355,7 @@ export default function SalesModule() {
           codigo,
           nombre,
           precio_venta,
+          descuento_porcentaje,
           activo,
           categorias (
             nombre
@@ -200,19 +365,19 @@ export default function SalesModule() {
           )
         `)
         .eq('activo', true)
-        .order('nombre', {
-          ascending: true,
-        })
+        .order(
+          'nombre',
+          {
+            ascending: true,
+          },
+        )
 
     if (error) {
       setProductos([])
 
-      setError(
+      throw new Error(
         `No fue posible cargar los productos: ${error.message}`,
       )
-
-      setCargando(false)
-      return
     }
 
     const respuesta =
@@ -244,6 +409,13 @@ export default function SalesModule() {
                 0,
             ),
 
+          descuento:
+            Number(
+              producto
+                .descuento_porcentaje ??
+                0,
+            ),
+
           existencia:
             obtenerExistencia(
               producto.existencias,
@@ -252,12 +424,261 @@ export default function SalesModule() {
       )
 
     setProductos(lista)
-    setCargando(false)
   }
 
+
+  // ==========================================================
+  // CARGAR CLIENTES
+  // ==========================================================
+
+  async function cargarClientes() {
+    const { data, error } =
+      await supabase
+        .from('clientes')
+        .select(`
+          id,
+          codigo,
+          nombre,
+          tipo_cliente,
+          identificacion,
+          telefono,
+          permite_credito,
+          limite_credito,
+          activo
+        `)
+        .eq('activo', true)
+        .order(
+          'nombre',
+          {
+            ascending: true,
+          },
+        )
+
+    if (error) {
+      setClientes([])
+
+      throw new Error(
+        `No fue posible cargar los clientes: ${error.message}`,
+      )
+    }
+
+    setClientes(
+      (data ?? []).map(
+        (cliente) => ({
+          id:
+            Number(
+              cliente.id,
+            ),
+
+          codigo:
+            String(
+              cliente.codigo,
+            ),
+
+          nombre:
+            String(
+              cliente.nombre,
+            ),
+
+          tipo_cliente:
+            cliente.tipo_cliente as
+              | 'natural'
+              | 'juridica',
+
+          identificacion:
+            cliente.identificacion,
+
+          telefono:
+            cliente.telefono,
+
+          permite_credito:
+            Boolean(
+              cliente.permite_credito,
+            ),
+
+          limite_credito:
+            cliente.limite_credito ===
+            null
+              ? null
+              : Number(
+                  cliente.limite_credito,
+                ),
+
+          activo:
+            Boolean(
+              cliente.activo,
+            ),
+        }),
+      ),
+    )
+  }
+
+
+  // ==========================================================
+  // CARGAR VENTAS PARA CONSULTA / SUPERVISIÓN
+  // ==========================================================
+
+  async function cargarVentasConsulta() {
+    const { data, error } =
+      await supabase
+        .from('ventas')
+        .select(`
+          id,
+          numero,
+          cliente_nombre,
+          tipo_venta,
+          subtotal,
+          descuento,
+          total,
+          estado,
+          referencia,
+          created_at
+        `)
+        .order(
+          'created_at',
+          {
+            ascending: false,
+          },
+        )
+
+    if (error) {
+      setVentasConsulta([])
+
+      throw new Error(
+        `No fue posible cargar las ventas: ${error.message}`,
+      )
+    }
+
+    setVentasConsulta(
+      (data ?? []).map(
+        (venta) => ({
+          id:
+            Number(venta.id),
+
+          numero:
+            String(venta.numero),
+
+          cliente_nombre:
+            venta.cliente_nombre,
+
+          tipo_venta:
+            venta.tipo_venta as
+              | 'contado'
+              | 'credito',
+
+          subtotal:
+            Number(
+              venta.subtotal ?? 0,
+            ),
+
+          descuento:
+            Number(
+              venta.descuento ?? 0,
+            ),
+
+          total:
+            Number(
+              venta.total ?? 0,
+            ),
+
+          estado:
+            String(venta.estado),
+
+          referencia:
+            venta.referencia,
+
+          created_at:
+            String(venta.created_at),
+        }),
+      ),
+    )
+  }
+
+
+  async function cargarDatos() {
+    setCargando(true)
+    setError('')
+
+    try {
+      if (esVendedor) {
+        await Promise.all([
+          cargarProductos(),
+          cargarClientes(),
+        ])
+      } else if (esConsultaVentas) {
+        await cargarVentasConsulta()
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No fue posible cargar la información.',
+      )
+    } finally {
+      setCargando(false)
+    }
+  }
+
+
   useEffect(() => {
-    cargarProductos()
-  }, [])
+    void cargarDatos()
+  }, [roleCode])
+
+
+  // ==========================================================
+  // ANULAR VENTA (RESPONSABLE COMERCIAL)
+  // La reversión de inventario y el Kardex los realiza
+  // anular_venta() dentro de una sola transacción.
+  // ==========================================================
+
+  async function anularVenta(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault()
+
+    if (!ventaAnular || !puedeAnular) {
+      return
+    }
+
+    if (motivoAnulacion.trim().length < 3) {
+      setError(
+        'Indica un motivo de anulación de al menos 3 caracteres.',
+      )
+      return
+    }
+
+    setProcesando(true)
+    setError('')
+    setExitoConsulta('')
+
+    const { error: rpcError } =
+      await supabase.rpc(
+        'anular_venta',
+        {
+          p_venta_id: ventaAnular.id,
+          p_motivo: motivoAnulacion.trim(),
+        },
+      )
+
+    if (rpcError) {
+      setError(rpcError.message)
+      setProcesando(false)
+      return
+    }
+
+    setExitoConsulta(
+      `Venta ${ventaAnular.numero} anulada. El inventario fue restituido.`,
+    )
+    setVentaAnular(null)
+    setMotivoAnulacion('')
+    await cargarDatos()
+    setProcesando(false)
+  }
+
+
+  // ==========================================================
+  // PRODUCTOS FILTRADOS
+  // ==========================================================
 
   const productosFiltrados =
     useMemo(() => {
@@ -287,6 +708,75 @@ export default function SalesModule() {
       busqueda,
     ])
 
+
+  // ==========================================================
+  // VENTAS FILTRADAS PARA CONSULTA
+  // ==========================================================
+
+  const ventasFiltradas =
+    useMemo(() => {
+      const termino =
+        busquedaVentas
+          .trim()
+          .toLowerCase()
+
+      if (!termino) {
+        return ventasConsulta
+      }
+
+      return ventasConsulta.filter(
+        (venta) =>
+          venta.numero
+            .toLowerCase()
+            .includes(termino) ||
+          (
+            venta.cliente_nombre ??
+            'cliente general'
+          )
+            .toLowerCase()
+            .includes(termino) ||
+          venta.tipo_venta
+            .toLowerCase()
+            .includes(termino) ||
+          venta.estado
+            .toLowerCase()
+            .includes(termino) ||
+          (
+            venta.referencia ??
+            ''
+          )
+            .toLowerCase()
+            .includes(termino),
+      )
+    }, [
+      ventasConsulta,
+      busquedaVentas,
+    ])
+
+
+  // ==========================================================
+  // CLIENTE SELECCIONADO
+  // ==========================================================
+
+  const clienteSeleccionado =
+    useMemo(
+      () =>
+        clientes.find(
+          (cliente) =>
+            cliente.id ===
+            Number(clienteId),
+        ) ?? null,
+      [
+        clientes,
+        clienteId,
+      ],
+    )
+
+
+  // ==========================================================
+  // TOTAL
+  // ==========================================================
+
   const total =
     useMemo(() => {
       return carrito.reduce(
@@ -295,24 +785,13 @@ export default function SalesModule() {
           item,
         ) =>
           acumulado +
-          item.producto.precio *
-            item.cantidad,
+          calcularSubtotalItem(
+            item,
+          ),
         0,
       )
     }, [carrito])
 
-  const recibido =
-    Number(
-      montoRecibido || 0,
-    )
-
-  const cambio =
-    metodoPago === 'efectivo'
-      ? Math.max(
-          recibido - total,
-          0,
-        )
-      : 0
 
   const cantidadItems =
     carrito.reduce(
@@ -324,6 +803,11 @@ export default function SalesModule() {
         item.cantidad,
       0,
     )
+
+
+  // ==========================================================
+  // AGREGAR PRODUCTO
+  // ==========================================================
 
   function agregarProducto(
     producto: ProductoVenta,
@@ -388,6 +872,11 @@ export default function SalesModule() {
     )
   }
 
+
+  // ==========================================================
+  // CAMBIAR CANTIDAD
+  // ==========================================================
+
   function cambiarCantidad(
     productoId: number,
     nuevaCantidad: number,
@@ -395,7 +884,9 @@ export default function SalesModule() {
     setError('')
     setExito('')
 
-    if (nuevaCantidad <= 0) {
+    if (
+      nuevaCantidad <= 0
+    ) {
       setCarrito(
         (actual) =>
           actual.filter(
@@ -441,6 +932,7 @@ export default function SalesModule() {
     )
   }
 
+
   function quitarProducto(
     productoId: number,
   ) {
@@ -454,16 +946,26 @@ export default function SalesModule() {
     )
   }
 
+
+  // ==========================================================
+  // LIMPIAR
+  // ==========================================================
+
   function limpiarVenta() {
     setCarrito([])
-    setCliente('')
+    setTipoVenta('contado')
+    setClienteId('')
     setReferencia('')
-    setMetodoPago('efectivo')
-    setMontoRecibido('')
+    setFechaVencimiento('')
     setError('')
     setExito('')
     setUltimaVenta(null)
   }
+
+
+  // ==========================================================
+  // REGISTRAR VENTA
+  // ==========================================================
 
   async function registrarVenta() {
     setError('')
@@ -489,12 +991,37 @@ export default function SalesModule() {
     }
 
     if (
-      metodoPago ===
-        'efectivo' &&
-      recibido < total
+      tipoVenta ===
+        'credito' &&
+      !clienteId
     ) {
       setError(
-        `El monto recibido es insuficiente. Total: ${formatearCordobas(total)}.`,
+        'Las ventas a crédito deben estar asociadas a un cliente registrado.',
+      )
+
+      return
+    }
+
+    if (
+      tipoVenta ===
+        'credito' &&
+      !clienteSeleccionado
+        ?.permite_credito
+    ) {
+      setError(
+        'El cliente seleccionado no está autorizado para comprar a crédito.',
+      )
+
+      return
+    }
+
+    if (
+      tipoVenta ===
+        'credito' &&
+      !fechaVencimiento
+    ) {
+      setError(
+        'Debes indicar la fecha de vencimiento de la venta a crédito.',
       )
 
       return
@@ -522,18 +1049,29 @@ export default function SalesModule() {
         p_items:
           items,
 
-        p_metodo_pago:
-          metodoPago,
+        p_tipo_venta:
+          tipoVenta,
 
-        p_monto_recibido:
-          metodoPago ===
-          'efectivo'
-            ? recibido
+        p_cliente_id:
+          clienteId
+            ? Number(
+                clienteId,
+              )
             : null,
 
         p_cliente_nombre:
-          cliente.trim() ||
+          clienteSeleccionado
+            ?.nombre ??
           null,
+
+        p_cotizacion_id:
+          null,
+
+        p_fecha_vencimiento:
+          tipoVenta ===
+          'credito'
+            ? fechaVencimiento
+            : null,
 
         p_referencia:
           referencia.trim() ||
@@ -558,7 +1096,7 @@ export default function SalesModule() {
 
     if (!resultado) {
       setError(
-        'La venta fue procesada, pero no se recibió la respuesta esperada.',
+        'La venta fue registrada, pero no se recibió la respuesta esperada.',
       )
 
       setProcesando(false)
@@ -583,9 +1121,9 @@ export default function SalesModule() {
           resultado.total,
         ),
 
-      cambio:
-        Number(
-          resultado.cambio,
+      estado:
+        String(
+          resultado.estado,
         ),
     }
 
@@ -598,17 +1136,20 @@ export default function SalesModule() {
     )
 
     setCarrito([])
-    setCliente('')
+    setTipoVenta('contado')
+    setClienteId('')
     setReferencia('')
-    setMontoRecibido('')
-    setMetodoPago(
-      'efectivo',
-    )
+    setFechaVencimiento('')
 
     await cargarProductos()
 
     setProcesando(false)
   }
+
+
+  // ==========================================================
+  // CARGANDO
+  // ==========================================================
 
   if (cargando) {
     return (
@@ -616,14 +1157,385 @@ export default function SalesModule() {
         <div className="inventory-spinner" />
 
         <span>
-          Cargando punto de venta...
+          Cargando ventas...
         </span>
       </div>
     )
   }
 
+
+  // ==========================================================
+  // CONSULTA / SUPERVISIÓN DE VENTAS
+  // Responsable Comercial y Gerencia
+  // ==========================================================
+
+  if (esConsultaVentas) {
+    const ventasPagadas =
+      ventasConsulta.filter(
+        (venta) =>
+          venta.estado === 'pagada',
+      ).length
+
+    const ventasPendientes =
+      ventasConsulta.filter(
+        (venta) =>
+          venta.estado ===
+            'pendiente_cobro' ||
+          venta.estado ===
+            'con_saldo',
+      ).length
+
+    const ventasAnuladas =
+      ventasConsulta.filter(
+        (venta) =>
+          venta.estado === 'anulada',
+      ).length
+
+    return (
+      <div className="sales-module">
+
+        <div className="sales-toolbar">
+          <div>
+            <span className="panel-label">
+              VENTAS
+            </span>
+
+            <h2>
+              Ventas registradas
+            </h2>
+
+            <p>
+              Consulta y supervisa las
+              ventas registradas.
+              Esta vista no permite
+              registrar nuevas ventas.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="inventory-refresh-button"
+            onClick={
+              cargarDatos
+            }
+          >
+            ↻ Actualizar
+          </button>
+        </div>
+
+
+        <div className="sales-summary-grid">
+
+          <article className="sales-summary-card">
+            <span>
+              TOTAL
+            </span>
+
+            <strong>
+              {ventasConsulta.length}
+            </strong>
+
+            <p>
+              ventas registradas
+            </p>
+          </article>
+
+
+          <article className="sales-summary-card">
+            <span>
+              PAGADAS
+            </span>
+
+            <strong>
+              {ventasPagadas}
+            </strong>
+
+            <p>
+              ventas pagadas
+            </p>
+          </article>
+
+
+          <article className="sales-summary-card">
+            <span>
+              PENDIENTES
+            </span>
+
+            <strong>
+              {ventasPendientes}
+            </strong>
+
+            <p>
+              pendientes o con saldo
+            </p>
+          </article>
+
+
+          <article className="sales-summary-card">
+            <span>
+              ANULADAS
+            </span>
+
+            <strong>
+              {ventasAnuladas}
+            </strong>
+
+            <p>
+              ventas anuladas
+            </p>
+          </article>
+
+        </div>
+
+
+        {error && (
+          <div className="inventory-error">
+            {error}
+          </div>
+        )}
+
+        {exitoConsulta && (
+          <div className="movement-success">
+            {exitoConsulta}
+          </div>
+        )}
+
+
+        {ventaAnular && (
+          <section className="cash-card">
+            <div className="cash-section-head">
+              <div>
+                <span className="panel-label">
+                  ANULACIÓN
+                </span>
+
+                <h3>
+                  Anular venta {ventaAnular.numero} ·{' '}
+                  {formatearCordobas(
+                    ventaAnular.total,
+                  )}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                className="product-close-button"
+                onClick={() => {
+                  setVentaAnular(null)
+                  setMotivoAnulacion('')
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <p className="cash-help">
+              Los productos regresarán al inventario y la venta dejará de estar pendiente de cobro en Caja.
+            </p>
+
+            <form
+              className="cash-form"
+              onSubmit={anularVenta}
+            >
+              <label className="cash-field-full">
+                Motivo de anulación
+                <textarea
+                  value={motivoAnulacion}
+                  onChange={(event) =>
+                    setMotivoAnulacion(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Ej.: el cliente desistió de la compra"
+                />
+              </label>
+
+              <div className="cash-actions cash-field-full">
+                <button
+                  type="submit"
+                  className="product-primary-button"
+                  disabled={procesando}
+                >
+                  {procesando
+                    ? 'Anulando...'
+                    : 'Confirmar anulación'}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
+
+        <section className="sales-products-panel">
+
+          <div className="sales-panel-head">
+            <div>
+              <span className="panel-label">
+                CONSULTA
+              </span>
+
+              <h3>
+                Ventas
+              </h3>
+            </div>
+
+            <span className="sales-result-count">
+              {ventasFiltradas.length}{' '}
+              resultado
+              {ventasFiltradas.length ===
+              1
+                ? ''
+                : 's'}
+            </span>
+          </div>
+
+
+          <div className="sales-search">
+            <span>
+              ⌕
+            </span>
+
+            <input
+              type="text"
+              value={
+                busquedaVentas
+              }
+              onChange={(
+                event,
+              ) =>
+                setBusquedaVentas(
+                  event.target.value,
+                )
+              }
+              placeholder="Buscar por número, cliente, tipo, estado o referencia..."
+            />
+          </div>
+
+
+          <div className="sales-product-list">
+
+            {ventasFiltradas.length >
+            0 ? (
+              ventasFiltradas.map(
+                (venta) => (
+                  <article
+                    className="sales-product-row"
+                    key={
+                      venta.id
+                    }
+                  >
+
+                    <div className="sales-product-main">
+                      <span className="product-code">
+                        {venta.numero}
+                      </span>
+
+                      <strong>
+                        {venta.cliente_nombre ??
+                          'Cliente general'}
+                      </strong>
+
+                      <small>
+                        {new Date(
+                          venta.created_at,
+                        ).toLocaleString(
+                          'es-NI',
+                        )}
+                      </small>
+                    </div>
+
+
+                    <div className="sales-product-stock">
+                      <span>
+                        Tipo
+                      </span>
+
+                      <strong>
+                        {venta.tipo_venta ===
+                        'credito'
+                          ? 'Crédito'
+                          : 'Contado'}
+                      </strong>
+                    </div>
+
+
+                    <div className="sales-product-price">
+                      <span>
+                        Total
+                      </span>
+
+                      <strong>
+                        {formatearCordobas(
+                          venta.total,
+                        )}
+                      </strong>
+                    </div>
+
+
+                    <div className="sales-product-price">
+                      <span>
+                        Estado
+                      </span>
+
+                      <strong>
+                        {etiquetaEstado(
+                          venta.estado,
+                        )}
+                      </strong>
+                    </div>
+
+
+                    {puedeAnular &&
+                      venta.tipo_venta ===
+                        'contado' &&
+                      venta.estado ===
+                        'pendiente_cobro' && (
+                        <button
+                          type="button"
+                          className="product-edit-button"
+                          disabled={procesando}
+                          onClick={() => {
+                            setError('')
+                            setExitoConsulta('')
+                            setMotivoAnulacion('')
+                            setVentaAnular(venta)
+                          }}
+                        >
+                          Anular
+                        </button>
+                      )}
+
+                  </article>
+                ),
+              )
+            ) : (
+              <div className="inventory-empty">
+                No se encontraron ventas.
+              </div>
+            )}
+
+          </div>
+
+        </section>
+
+      </div>
+    )
+  }
+
+
+  if (!esVendedor) {
+    return (
+      <div className="inventory-error">
+        Este perfil no tiene acceso
+        a la operación de ventas.
+      </div>
+    )
+  }
+
+
   return (
     <div className="sales-module">
+
       {/* =============================================
           ENCABEZADO
       ============================================= */}
@@ -631,7 +1543,7 @@ export default function SalesModule() {
       <div className="sales-toolbar">
         <div>
           <span className="panel-label">
-            PUNTO DE VENTA
+            VENTAS
           </span>
 
           <h2>
@@ -639,9 +1551,10 @@ export default function SalesModule() {
           </h2>
 
           <p>
-            Selecciona productos,
-            confirma el pago y registra
-            la operación.
+            Selecciona los productos y
+            registra la operación.
+            El cobro se realizará
+            posteriormente desde Caja.
           </p>
         </div>
 
@@ -649,27 +1562,27 @@ export default function SalesModule() {
           type="button"
           className="inventory-refresh-button"
           onClick={
-            cargarProductos
+            cargarDatos
           }
         >
-          ↻ Actualizar productos
+          ↻ Actualizar
         </button>
       </div>
 
+
       {/* =============================================
-          RESUMEN SUPERIOR
+          RESUMEN
       ============================================= */}
 
       <div className="sales-summary-grid">
+
         <article className="sales-summary-card">
           <span>
             PRODUCTOS
           </span>
 
           <strong>
-            {
-              productos.length
-            }
+            {productos.length}
           </strong>
 
           <p>
@@ -677,21 +1590,21 @@ export default function SalesModule() {
           </p>
         </article>
 
+
         <article className="sales-summary-card">
           <span>
             EN CARRITO
           </span>
 
           <strong>
-            {
-              cantidadItems
-            }
+            {cantidadItems}
           </strong>
 
           <p>
             unidades
           </p>
         </article>
+
 
         <article className="sales-summary-card">
           <span>
@@ -709,22 +1622,26 @@ export default function SalesModule() {
           </p>
         </article>
 
+
         <article className="sales-summary-card">
           <span>
-            CAMBIO
+            TIPO
           </span>
 
           <strong>
-            {formatearCordobas(
-              cambio,
-            )}
+            {tipoVenta ===
+            'credito'
+              ? 'Crédito'
+              : 'Contado'}
           </strong>
 
           <p>
-            devolución al cliente
+            modalidad de venta
           </p>
         </article>
+
       </div>
+
 
       {/* =============================================
           MENSAJES
@@ -744,19 +1661,18 @@ export default function SalesModule() {
 
       {ultimaVenta && (
         <section className="sales-success-card">
+
           <div className="sales-success-icon">
             ✓
           </div>
 
           <div>
             <span>
-              VENTA COMPLETADA
+              VENTA REGISTRADA
             </span>
 
             <h3>
-              {
-                ultimaVenta.numero
-              }
+              {ultimaVenta.numero}
             </h3>
 
             <p>
@@ -767,32 +1683,30 @@ export default function SalesModule() {
                 )}
               </strong>
 
-              {ultimaVenta.cambio >
-                0 && (
-                <>
-                  {' · '}Cambio{' '}
-                  <strong>
-                    {formatearCordobas(
-                      ultimaVenta.cambio,
-                    )}
-                  </strong>
-                </>
-              )}
+              {' · '}
+
+              Estado{' '}
+
+              <strong>
+                {etiquetaEstado(
+                  ultimaVenta.estado,
+                )}
+              </strong>
             </p>
           </div>
+
         </section>
       )}
 
+
       {/* =============================================
-          CONTENIDO PRINCIPAL
+          PRODUCTOS Y CARRITO
       ============================================= */}
 
       <div className="sales-workspace">
-        {/* ===========================================
-            PRODUCTOS
-        =========================================== */}
 
         <section className="sales-products-panel">
+
           <div className="sales-panel-head">
             <div>
               <span className="panel-label">
@@ -816,6 +1730,7 @@ export default function SalesModule() {
             </span>
           </div>
 
+
           <div className="sales-search">
             <span>
               ⌕
@@ -838,7 +1753,9 @@ export default function SalesModule() {
             />
           </div>
 
+
           <div className="sales-product-list">
+
             {productosFiltrados.length >
             0 ? (
               productosFiltrados.map(
@@ -847,6 +1764,14 @@ export default function SalesModule() {
                     producto.existencia <=
                     0
 
+                  const precioFinal =
+                    producto.precio *
+                    (
+                      1 -
+                      producto.descuento /
+                        100
+                    )
+
                   return (
                     <article
                       className="sales-product-row"
@@ -854,7 +1779,9 @@ export default function SalesModule() {
                         producto.id
                       }
                     >
+
                       <div className="sales-product-main">
+
                         <span className="product-code">
                           {
                             producto.codigo
@@ -872,7 +1799,20 @@ export default function SalesModule() {
                             producto.categoria
                           }
                         </small>
+
+                        {producto.descuento >
+                          0 && (
+                          <small>
+                            Descuento:{' '}
+                            {
+                              producto.descuento
+                            }
+                            %
+                          </small>
+                        )}
+
                       </div>
+
 
                       <div className="sales-product-stock">
                         <span>
@@ -892,6 +1832,7 @@ export default function SalesModule() {
                         </strong>
                       </div>
 
+
                       <div className="sales-product-price">
                         <span>
                           Precio
@@ -899,10 +1840,11 @@ export default function SalesModule() {
 
                         <strong>
                           {formatearCordobas(
-                            producto.precio,
+                            precioFinal,
                           )}
                         </strong>
                       </div>
+
 
                       <button
                         type="button"
@@ -920,6 +1862,7 @@ export default function SalesModule() {
                           ? 'Sin stock'
                           : '+ Agregar'}
                       </button>
+
                     </article>
                   )
                 },
@@ -930,15 +1873,20 @@ export default function SalesModule() {
                 productos.
               </div>
             )}
+
           </div>
+
         </section>
+
 
         {/* ===========================================
             CARRITO
         =========================================== */}
 
         <section className="sales-cart-panel">
+
           <div className="sales-panel-head">
+
             <div>
               <span className="panel-label">
                 VENTA ACTUAL
@@ -961,12 +1909,17 @@ export default function SalesModule() {
                 Limpiar
               </button>
             )}
+
           </div>
 
+
           <div className="sales-cart-items">
+
             {carrito.length ===
             0 ? (
+
               <div className="sales-cart-empty">
+
                 <div>
                   🛒
                 </div>
@@ -979,8 +1932,11 @@ export default function SalesModule() {
                   Agrega productos
                   desde el catálogo.
                 </p>
+
               </div>
+
             ) : (
+
               carrito.map(
                 (item) => (
                   <article
@@ -989,7 +1945,9 @@ export default function SalesModule() {
                       item.producto.id
                     }
                   >
+
                     <div className="sales-cart-product">
+
                       <strong>
                         {
                           item.producto
@@ -1007,13 +1965,22 @@ export default function SalesModule() {
                       <small>
                         {formatearCordobas(
                           item.producto
-                            .precio,
+                            .precio *
+                          (
+                            1 -
+                            item.producto
+                              .descuento /
+                              100
+                          ),
                         )}{' '}
                         c/u
                       </small>
+
                     </div>
 
+
                     <div className="sales-qty">
+
                       <button
                         type="button"
                         onClick={() =>
@@ -1027,6 +1994,7 @@ export default function SalesModule() {
                       >
                         −
                       </button>
+
 
                       <input
                         type="number"
@@ -1053,6 +2021,7 @@ export default function SalesModule() {
                         }
                       />
 
+
                       <button
                         type="button"
                         onClick={() =>
@@ -1066,21 +2035,26 @@ export default function SalesModule() {
                       >
                         +
                       </button>
+
                     </div>
 
+
                     <div className="sales-cart-subtotal">
+
                       <span>
                         Subtotal
                       </span>
 
                       <strong>
                         {formatearCordobas(
-                          item.producto
-                            .precio *
-                            item.cantidad,
+                          calcularSubtotalItem(
+                            item,
+                          ),
                         )}
                       </strong>
+
                     </div>
+
 
                     <button
                       type="button"
@@ -1094,13 +2068,18 @@ export default function SalesModule() {
                     >
                       ×
                     </button>
+
                   </article>
                 ),
               )
+
             )}
+
           </div>
 
+
           <div className="sales-cart-total">
+
             <span>
               Total de venta
             </span>
@@ -1110,19 +2089,25 @@ export default function SalesModule() {
                 total,
               )}
             </strong>
+
           </div>
+
         </section>
+
       </div>
 
+
       {/* =============================================
-          DATOS DE PAGO
+          DATOS DE LA VENTA
       ============================================= */}
 
       <section className="sales-payment-card">
+
         <div className="sales-payment-head">
+
           <div>
             <span className="panel-label">
-              PAGO
+              OPERACIÓN
             </span>
 
             <h3>
@@ -1130,8 +2115,9 @@ export default function SalesModule() {
             </h3>
 
             <p>
-              Completa los datos y
-              registra la operación.
+              Define el tipo de venta,
+              el cliente y registra
+              la operación.
             </p>
           </div>
 
@@ -1140,33 +2126,118 @@ export default function SalesModule() {
               total,
             )}
           </strong>
+
         </div>
 
+
         <div className="sales-payment-grid">
+
+
+          {/* TIPO DE VENTA */}
+
           <div className="sales-field">
+
+            <label htmlFor="venta-tipo">
+              Tipo de venta
+            </label>
+
+            <select
+              id="venta-tipo"
+              value={
+                tipoVenta
+              }
+              onChange={(
+                event,
+              ) => {
+                const valor =
+                  event.target
+                    .value as TipoVenta
+
+                setTipoVenta(
+                  valor,
+                )
+
+                if (
+                  valor ===
+                  'contado'
+                ) {
+                  setFechaVencimiento(
+                    '',
+                  )
+                }
+              }}
+            >
+
+              <option value="contado">
+                Contado
+              </option>
+
+              <option value="credito">
+                Crédito
+              </option>
+
+            </select>
+
+          </div>
+
+
+          {/* CLIENTE */}
+
+          <div className="sales-field">
+
             <label htmlFor="venta-cliente">
               Cliente
             </label>
 
-            <input
+            <select
               id="venta-cliente"
-              type="text"
               value={
-                cliente
+                clienteId
               }
               onChange={(
                 event,
               ) =>
-                setCliente(
+                setClienteId(
                   event.target
                     .value,
                 )
               }
-              placeholder="Cliente general"
-            />
+            >
+
+              <option value="">
+                Cliente general
+              </option>
+
+              {clientes.map(
+                (cliente) => (
+                  <option
+                    key={
+                      cliente.id
+                    }
+                    value={
+                      cliente.id
+                    }
+                  >
+                    {
+                      cliente.codigo
+                    }
+                    {' - '}
+                    {
+                      cliente.nombre
+                    }
+                  </option>
+                ),
+              )}
+
+            </select>
+
           </div>
 
+
+          {/* REFERENCIA */}
+
           <div className="sales-field">
+
             <label htmlFor="venta-referencia">
               Referencia
             </label>
@@ -1187,89 +2258,108 @@ export default function SalesModule() {
               }
               placeholder="Opcional"
             />
+
           </div>
 
-          <div className="sales-field">
-            <label htmlFor="venta-metodo">
-              Método de pago
-            </label>
 
-            <select
-              id="venta-metodo"
-              value={
-                metodoPago
-              }
-              onChange={(
-                event,
-              ) => {
-                const valor =
-                  event.target
-                    .value as MetodoPago
-
-                setMetodoPago(
-                  valor,
-                )
-
-                if (
-                  valor !==
-                  'efectivo'
-                ) {
-                  setMontoRecibido(
-                    '',
-                  )
-                }
-              }}
-            >
-              <option value="efectivo">
-                Efectivo
-              </option>
-
-              <option value="tarjeta">
-                Tarjeta
-              </option>
-
-              <option value="transferencia">
-                Transferencia
-              </option>
-            </select>
-          </div>
+          {/* VENCIMIENTO */}
 
           <div className="sales-field">
-            <label htmlFor="venta-recibido">
-              Monto recibido
+
+            <label htmlFor="venta-vencimiento">
+              Fecha de vencimiento
             </label>
 
             <input
-              id="venta-recibido"
-              type="number"
-              min="0"
-              step="0.01"
+              id="venta-vencimiento"
+              type="date"
+              min={
+                fechaLocalActual()
+              }
               value={
-                montoRecibido
+                fechaVencimiento
               }
               disabled={
-                metodoPago !==
-                'efectivo'
+                tipoVenta !==
+                'credito'
               }
               onChange={(
                 event,
               ) =>
-                setMontoRecibido(
+                setFechaVencimiento(
                   event.target
                     .value,
                 )
               }
-              placeholder={
-                metodoPago ===
-                'efectivo'
-                  ? '0.00'
-                  : 'No aplica'
-              }
             />
+
           </div>
+
         </div>
 
+
+        {/* INFORMACIÓN DE CRÉDITO */}
+
+        {tipoVenta ===
+          'credito' &&
+          clienteSeleccionado && (
+
+          <div className="sales-payment-summary">
+
+            <div>
+              <span>
+                Cliente
+              </span>
+
+              <strong>
+                {
+                  clienteSeleccionado
+                    .nombre
+                }
+              </strong>
+            </div>
+
+
+            <div>
+              <span>
+                Crédito autorizado
+              </span>
+
+              <strong>
+                {clienteSeleccionado
+                  .permite_credito
+                  ? 'Sí'
+                  : 'No'}
+              </strong>
+            </div>
+
+
+            <div>
+              <span>
+                Límite
+              </span>
+
+              <strong>
+                {clienteSeleccionado
+                  .limite_credito !==
+                null
+                  ? formatearCordobas(
+                      clienteSeleccionado
+                        .limite_credito,
+                    )
+                  : 'Sin límite definido'}
+              </strong>
+            </div>
+
+          </div>
+
+        )}
+
+
+        {/* RESUMEN */}
+
         <div className="sales-payment-summary">
+
           <div>
             <span>
               Total
@@ -1282,37 +2372,39 @@ export default function SalesModule() {
             </strong>
           </div>
 
-          <div>
-            <span>
-              Recibido
-            </span>
-
-            <strong>
-              {metodoPago ===
-              'efectivo'
-                ? formatearCordobas(
-                    recibido,
-                  )
-                : formatearCordobas(
-                    total,
-                  )}
-            </strong>
-          </div>
 
           <div>
             <span>
-              Cambio
+              Modalidad
             </span>
 
             <strong>
-              {formatearCordobas(
-                cambio,
-              )}
+              {tipoVenta ===
+              'credito'
+                ? 'Crédito'
+                : 'Contado'}
             </strong>
           </div>
+
+
+          <div>
+            <span>
+              Estado inicial
+            </span>
+
+            <strong>
+              {tipoVenta ===
+              'credito'
+                ? 'Con saldo'
+                : 'Pendiente de cobro'}
+            </strong>
+          </div>
+
         </div>
 
+
         <div className="sales-payment-actions">
+
           <button
             type="button"
             className="product-secondary-button"
@@ -1325,6 +2417,7 @@ export default function SalesModule() {
           >
             Cancelar venta
           </button>
+
 
           <button
             type="button"
@@ -1339,11 +2432,14 @@ export default function SalesModule() {
             }
           >
             {procesando
-              ? 'Procesando...'
-              : `Confirmar venta · ${formatearCordobas(total)}`}
+              ? 'Registrando...'
+              : `Registrar venta · ${formatearCordobas(total)}`}
           </button>
+
         </div>
+
       </section>
+
     </div>
   )
 }
