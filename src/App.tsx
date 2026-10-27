@@ -481,18 +481,22 @@ function InternalSystemApp({
           'sin_perfil',
         )
 
+        /*
+         * Sesión de un cliente de la tienda (por ejemplo, abierta en
+         * otra pestaña: Supabase comparte la sesión en todo el sitio).
+         * No se cierra con signOut(): eso sacaría al cliente también de
+         * la tienda. Solo se le niega el sistema interno; el formulario
+         * de login ya rechaza a los clientes en iniciarSesion().
+         */
         if (
           tipo ===
           'cliente_web'
         ) {
-          await supabase.auth
-            .signOut()
-
           setPerfil(null)
           setUserId(null)
 
           setMensaje(
-            'Esta cuenta pertenece a la tienda en línea y no tiene acceso al sistema interno.',
+            'La sesión abierta en este navegador es de un cliente de la tienda en línea. Ingresá con una cuenta del personal para usar el sistema interno.',
           )
 
           navigate('/login')

@@ -371,6 +371,13 @@ export default function Storefront({ path, navigate }: Props) {
           navigate('/tienda/restablecer')
         }
 
+        // La sesión se comparte entre pestañas: si en otra se ingresó
+        // con otra cuenta (p. ej. del personal), se vuelve a validar.
+        // setTimeout: supabase-js no admite llamadas dentro del callback.
+        if (event === 'SIGNED_IN' && user) {
+          setTimeout(() => void cargarCliente(user), 0)
+        }
+
         if (!user) {
           setTipoSesion('sin_sesion')
           setCliente(null)
