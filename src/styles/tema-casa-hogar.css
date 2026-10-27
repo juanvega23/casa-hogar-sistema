@@ -1059,6 +1059,8 @@ html .auth-link:hover { text-decoration: underline; }
 .t-pieza > svg { width: 44%; max-width: 92px; height: auto; fill: none; stroke: var(--ch-texto-suave); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .t-pieza--grande .t-foto,
 .t-pieza--grande .t-foto-vacia { width: 78%; height: 70%; }
+.t-pieza:not(.t-pieza--grande) .t-foto,
+.t-pieza:not(.t-pieza--grande) .t-foto-vacia { width: 70%; height: 64px; }
 .t-pieza-nombre { position: absolute; left: 14px; right: 14px; bottom: 11px; font-size: 13px; font-weight: 700; text-align: left; }
 
 /* Etiqueta de precio colgante, como las de ferretería */

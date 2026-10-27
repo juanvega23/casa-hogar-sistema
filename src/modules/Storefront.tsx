@@ -424,6 +424,31 @@ export default function Storefront({ path, navigate }: Props) {
     [productos],
   )
 
+  /*
+   * Las dos piezas chicas de la portada muestran departamentos; si
+   * el catálogo tiene menos de dos, se completan con productos
+   * disponibles para que la portada no quede con huecos.
+   */
+  const piezasSecundarias = useMemo(() => {
+    const piezas: (
+      | { tipo: 'departamento'; nombre: string }
+      | { tipo: 'producto'; producto: Producto }
+    )[] = departamentos
+      .slice(0, 2)
+      .map(d => ({ tipo: 'departamento' as const, nombre: d.nombre }))
+
+    if (departamentos.length < 2) {
+      for (const producto of productos) {
+        if (piezas.length >= 2) break
+        if (producto.disponible && producto.id !== destacado?.id) {
+          piezas.push({ tipo: 'producto', producto })
+        }
+      }
+    }
+
+    return piezas
+  }, [departamentos, productos, destacado])
+
   function elegirDepartamento(nombre: string) {
     setCategoria(nombre)
     if (vista !== 'catalogo') navigate('/tienda')
@@ -965,21 +990,35 @@ export default function Storefront({ path, navigate }: Props) {
                 </button>
               )}
 
-              {departamentos.slice(0, 2).map(d => (
-                <button
-                  type="button"
-                  key={d.nombre}
-                  className="t-pieza"
-                  onClick={() => elegirDepartamento(d.nombre)}
-                >
-                  <IconoDepartamento nombre={d.nombre} />
-                  <small className="t-pieza-nombre">{d.nombre}</small>
-                </button>
-              ))}
+              {piezasSecundarias.map(pieza =>
+                pieza.tipo === 'departamento' ? (
+                  <button
+                    type="button"
+                    key={`d-${pieza.nombre}`}
+                    className="t-pieza"
+                    onClick={() => elegirDepartamento(pieza.nombre)}
+                  >
+                    <IconoDepartamento nombre={pieza.nombre} />
+                    <small className="t-pieza-nombre">{pieza.nombre}</small>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    key={`p-${pieza.producto.id}`}
+                    className="t-pieza"
+                    onClick={() => agregar(pieza.producto)}
+                    aria-label={`Agregar ${pieza.producto.nombre} al carrito`}
+                  >
+                    <ProductImage producto={pieza.producto} />
+                    <small className="t-pieza-nombre">{pieza.producto.nombre}</small>
+                  </button>
+                ),
+              )}
             </div>
           </section>
 
-          {departamentos.length > 0 && (
+          {/* Con un solo departamento la barra superior ya alcanza */}
+          {departamentos.length > 1 && (
             <section className="t-bloque" aria-labelledby="t-titulo-departamentos">
               <div className="t-bloque-cabeza">
                 <div>
