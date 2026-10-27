@@ -188,7 +188,7 @@ Detecta stock bajo, agotados, necesidad de reposición y situaciones relevantes 
 
 ## 28. Tienda en línea
 
-`/tienda`: catálogo público (no requiere login). Buscar, filtrar, ver disponibilidad, agregar al carrito. Diseño basado en Google Stitch adaptado al React existente. Identidad: navy profundo, blanco, fondos muy claros, acento ámbar. **No rediseñar arbitrariamente.**
+`/tienda`: catálogo público (no requiere login). Buscar, filtrar por departamento u ofertas, ordenar, ver disponibilidad, elegir cantidad y agregar al carrito. Rediseñada el 26/10/2026 con la identidad de la §35 (clases `t-*` en `Storefront.tsx`). **No rediseñar arbitrariamente.**
 
 ## 29. Catálogo público
 
@@ -216,13 +216,21 @@ Hoy: placeholder "Imagen de producto". Plan: bucket `productos` en Supabase Stor
 
 ## 35. Diseño actual
 
-Referencia: Google Stitch — navy profundo, blanco, gris muy claro, ámbar de acento, tipografía legible, tarjetas limpias, diseño comercial.
+Identidad aprobada el 26/10/2026 ("Casa Hogar Cálido"), aplicada a tienda y sistema interno desde `src/styles/tema-casa-hogar.css` (se carga después de `App.css`; sus variables `--ch-*` reemplazan las paletas anteriores):
 
-No queremos: apariencia de hotel, verde, café, interfaces recargadas, texto diminuto, emojis como imágenes de productos, logos gigantes, gradientes exagerados.
+- Fondo gris muy claro con tinte del azul del logo; superficies blancas.
+- Naranja ferretero **solo para botones de acción**.
+- Amarillo del logo para estados en proceso, la franja de avisos de la tienda y el avatar.
+- Azul suave para lo seleccionado (menú activo, filtros, estado "Recibido").
+- Gris acero del logo para la portada de ofertas y el panel del login de clientes.
+- Texto marino del logo (solo en letras). Tipografías: Bricolage Grotesque (títulos y precios), Figtree (texto), IBM Plex Mono (SKU y números de documento).
+- Logo real recortado: `src/assets/casa-hogar-logo-horizontal.png`.
+
+No queremos: fondos oscuros (barra lateral, encabezados, pie), crema, durazno, líneas decorativas, apariencia de hotel, verde (salvo estados "ok"), café, interfaces recargadas, texto diminuto, emojis como imágenes de productos, logos gigantes, gradientes exagerados.
 
 ## 36. Header de la tienda
 
-Logo/Casa Hogar, Buscador, Ingresar, Carrito. El botón Carrito muestra ícono + texto "Carrito" + contador. No ocultar el texto por problemas de contraste.
+Franja amarilla de avisos; logo; buscador con selector de departamento; Mi cuenta; Carrito. El botón Carrito muestra ícono + texto "Carrito" + contador (en celular solo ícono + contador). Debajo, barra de departamentos con "Ofertas de la semana".
 
 ## 37. Footer
 
@@ -232,11 +240,15 @@ Pegado al final cuando hay poco contenido: página con `display:flex; flex-direc
 
 ## 38. Estado visual de la tienda
 
-Ya estabilizada: header, carrito visible, buscador, ancho máximo, tarjetas, filtros, footer, responsive, placeholder. No hacer otro rediseño completo sin solicitud expresa.
+Rediseñada y estabilizada (26/10/2026): portada de ofertas, mosaico de departamentos, tarjetas con descuento tachado y cantidad, banda "cómo comprar", pie claro, carrito con pasos, login con pestañas; dos productos por fila en celular. "Mi cuenta" y "Nueva contraseña" conservan clases `store-*` restiladas desde el tema. No hacer otro rediseño completo sin solicitud expresa.
+
+El precio tachado y "Últimas unidades" requieren la migración `20261026202644_catalogo_publico_precios.sql` (agrega `precio_regular`, `descuento_porcentaje`, `unidad_medida`, `pocas_unidades` sin exponer la existencia exacta). Sin ella, la tienda funciona sin esos dos detalles.
 
 ## 39. Login interno
 
-Centrado, sencillo, profesional, con logo Casa Hogar. Sin logo gigante durante la carga: solo spinner + "Cargando sistema...".
+Centrado, sencillo, profesional, con logo Casa Hogar, siempre sobre fondo claro. Incluye "¿Olvidaste tu contraseña? Pide una temporal a Soporte TI" y enlace a la tienda. Sin logo gigante durante la carga: solo spinner + "Cargando sistema...".
+
+La barra lateral del sistema interno es blanca, con el logo completo y el módulo activo en azul suave.
 
 ## 40. Sidebar del sistema
 
