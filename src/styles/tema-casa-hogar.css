@@ -1173,16 +1173,21 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-producto:hover { border-color: var(--ch-azul-borde); box-shadow: var(--ch-sombra); }
 
+/* Zona de foto blanca (las fotos de producto suelen tener fondo
+   blanco) con margen interno y espacio arriba para las etiquetas. */
 .t-producto-foto {
   position: relative;
   aspect-ratio: 1 / 1;
   max-width: 100%;
   display: grid;
   place-items: center;
-  background: var(--ch-fondo);
+  padding: 40px 18px 14px;
+  background: var(--ch-superficie);
+  border-bottom: 1px solid var(--ch-linea);
 }
 
-.t-foto { width: 100%; height: 100%; object-fit: contain; background: var(--ch-superficie); }
+.t-foto { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+.t-producto-foto .t-foto-vacia { background: var(--ch-fondo); border-radius: 12px; }
 .t-foto-vacia { display: grid; place-items: center; width: 100%; height: 100%; }
 .t-foto-vacia svg { width: 34%; max-width: 84px; height: auto; fill: none; stroke: var(--ch-texto-suave); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -1424,7 +1429,7 @@ html .auth-link:hover { text-decoration: underline; }
   background: var(--ch-superficie);
 }
 
-.t-miniatura { width: 84px; height: 84px; overflow: hidden; border-radius: 10px; background: var(--ch-fondo); }
+.t-miniatura { width: 84px; height: 84px; overflow: hidden; padding: 6px; border-radius: 10px; border: 1px solid var(--ch-linea); background: var(--ch-superficie); }
 .t-linea-info { display: grid; gap: 3px; min-width: 0; }
 .t-linea-info h2 { margin: 0; font-family: var(--ch-cuerpo); font-size: 15.5px; font-weight: 700; color: var(--ch-texto); }
 .t-linea-info small { font-size: 12.5px; color: var(--ch-texto-suave); }
@@ -1699,6 +1704,7 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   /* Dos columnas de productos en celular */
   .t-productos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .t-producto-info { padding: 10px; }
+  .t-producto-foto { padding: 32px 10px 8px; }
   .t-producto-meta > span:first-child { display: none; }
   .t-producto-info h3 { font-size: 14px; }
   .t-precio { font-size: 18px; }
