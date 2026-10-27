@@ -784,6 +784,14 @@ export default function Storefront({ path, navigate }: Props) {
     navigate('/tienda')
   }
 
+  // Cierra la sesión del personal y deja el formulario de clientes a la vista.
+  async function cerrarSesionPersonal() {
+    await supabase.auth.signOut()
+    setUsuario(null)
+    setCliente(null)
+    setTipoSesion('sin_sesion')
+  }
+
   async function confirmarPedido(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
@@ -1298,10 +1306,19 @@ export default function Storefront({ path, navigate }: Props) {
 
           <section className="t-acceso-tarjeta">
             {tipoSesion.startsWith('personal') ? (
-              <div className="t-acceso-titulo">
-                <h2>Acceso no disponible</h2>
-                <p>La sesión actual pertenece al sistema interno de Casa Hogar. Las cuentas del personal no pueden usar el acceso de clientes.</p>
-              </div>
+              <>
+                <div className="t-acceso-titulo">
+                  <h2>Acceso no disponible</h2>
+                  <p>La sesión actual pertenece al sistema interno de Casa Hogar. Las cuentas del personal no pueden usar el acceso de clientes.</p>
+                </div>
+
+                <button className="t-confirmar" type="button" onClick={cerrarSesionPersonal}>
+                  Cerrar sesión e ingresar como cliente
+                </button>
+                <button className="t-enlace" type="button" onClick={() => navigate('/app')}>
+                  Volver al sistema interno
+                </button>
+              </>
             ) : (
               <>
                 {modoAuth !== 'recuperar' && (
