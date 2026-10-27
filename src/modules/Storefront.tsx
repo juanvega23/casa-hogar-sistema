@@ -48,6 +48,40 @@ type Pedido = {
   direccion_entrega: string | null
   observaciones: string | null
   motivo_estado: string | null
+  metodo_pago: string | null
+}
+
+type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia'
+
+const METODOS_PAGO: { valor: MetodoPago; titulo: string; detalle: string }[] = [
+  { valor: 'efectivo', titulo: 'Efectivo', detalle: 'Al recibir o al retirar tu pedido' },
+  { valor: 'tarjeta', titulo: 'Tarjeta', detalle: 'Con POS al recibir o al retirar' },
+  { valor: 'transferencia', titulo: 'Transferencia', detalle: 'Antes de la entrega o del retiro' },
+]
+
+/*
+ * Cuenta FICTICIA para la demostración del proyecto.
+ * Reemplazar por la cuenta real de la ferretería antes de usarla.
+ */
+const CUENTA_TRANSFERENCIA = {
+  banco: 'Banco Ejemplo de Nicaragua',
+  titular: 'Ferretería Casa Hogar, S.A.',
+  cuenta: '1002-0034-5678 (córdobas)',
+}
+
+function DatosTransferencia({ referencia }: { referencia?: string }) {
+  return (
+    <div className="t-banco">
+      <strong>Datos para transferir</strong>
+      <dl>
+        <dt>Banco</dt><dd>{CUENTA_TRANSFERENCIA.banco}</dd>
+        <dt>Titular</dt><dd>{CUENTA_TRANSFERENCIA.titular}</dd>
+        <dt>Cuenta</dt><dd className="t-sku">{CUENTA_TRANSFERENCIA.cuenta}</dd>
+        <dt>Referencia</dt><dd>{referencia ?? 'El número de tu pedido'}</dd>
+      </dl>
+      <small>Cuenta de demostración. Caja confirma el pago antes de entregar el pedido.</small>
+    </div>
+  )
 }
 
 type DetallePedido = {
@@ -202,6 +236,7 @@ export default function Storefront({ path, navigate }: Props) {
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
 
   const [modalidad, setModalidad] = useState<'retiro' | 'domicilio'>('retiro')
+  const [metodoPago, setMetodoPago] = useState<MetodoPago>('efectivo')
   const [direccionEntrega, setDireccionEntrega] = useState('')
   const [observaciones, setObservaciones] = useState('')
 
@@ -302,6 +337,7 @@ export default function Storefront({ path, navigate }: Props) {
         direccion_entrega: item.direccion_entrega ?? null,
         observaciones: item.observaciones ?? null,
         motivo_estado: item.motivo_estado ?? null,
+        metodo_pago: item.metodo_pago ?? null,
       })),
     )
   }
@@ -817,6 +853,7 @@ export default function Storefront({ path, navigate }: Props) {
       p_modalidad_entrega: modalidad,
       p_direccion_entrega: modalidad === 'domicilio' ? direccionEntrega : null,
       p_observaciones: observaciones.trim() || null,
+      p_metodo_pago: metodoPago,
     })
 
     if (rpcError) {
@@ -1273,6 +1310,19 @@ export default function Storefront({ path, navigate }: Props) {
                       </label>
                     )}
 
+                    <fieldset className="t-entrega">
+                      <legend>Forma de pago</legend>
+
+                      {METODOS_PAGO.map(metodo => (
+                        <label key={metodo.valor} className={metodoPago === metodo.valor ? 't-opcion is-activa' : 't-opcion'}>
+                          <input type="radio" name="metodo_pago" value={metodo.valor} checked={metodoPago === metodo.valor} onChange={() => setMetodoPago(metodo.valor)} />
+                          <span><strong>{metodo.titulo}</strong><small>{metodo.detalle}</small></span>
+                        </label>
+                      ))}
+                    </fieldset>
+
+                    {metodoPago === 'transferencia' && <DatosTransferencia />}
+
                     <label>
                       Observaciones
                       <textarea value={observaciones} onChange={event => setObservaciones(event.target.value)} placeholder="Opcional" />
@@ -1286,7 +1336,11 @@ export default function Storefront({ path, navigate }: Props) {
                   </form>
                 )}
 
-                <p className="t-nota">El pago se hace en caja al retirar o al recibir tu pedido.</p>
+                <p className="t-nota">
+                  {esCliente && metodoPago === 'transferencia'
+                    ? 'Usá el número de tu pedido como referencia de la transferencia.'
+                    : 'Pagás al recibir o al retirar tu pedido, con la forma de pago que elijas.'}
+                </p>
               </aside>
             </div>
           )}
@@ -1565,6 +1619,15 @@ export default function Storefront({ path, navigate }: Props) {
 
                       {pedido.modalidad_entrega === 'domicilio' && pedido.direccion_entrega && (
                         <p><strong>Entrega en:</strong> {pedido.direccion_entrega}</p>
+                      )}
+
+                      {pedido.metodo_pago && (
+                        <p><strong>Forma de pago:</strong> {legible(pedido.metodo_pago)}</p>
+                      )}
+
+                      {pedido.metodo_pago === 'transferencia'
+                        && ['recibido', 'confirmado', 'preparado'].includes(pedido.estado) && (
+                        <DatosTransferencia referencia={pedido.numero} />
                       )}
 
                       {pedido.observaciones && (

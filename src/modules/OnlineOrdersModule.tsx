@@ -18,6 +18,7 @@ type Pedido = {
   correo: string | null
   modalidad_entrega: string
   direccion_entrega: string | null
+  metodo_pago: string | null
   total: number
   estado: string
   observaciones: string | null
@@ -76,6 +77,15 @@ function etiquetaEstado(estado: string) {
     cancelado: 'Cancelado',
   }
   return mapa[estado] ?? estado
+}
+
+function etiquetaMetodoPago(metodo: string | null) {
+  const mapa: Record<string, string> = {
+    efectivo: 'Efectivo',
+    tarjeta: 'Tarjeta',
+    transferencia: 'Transferencia',
+  }
+  return metodo ? mapa[metodo] ?? metodo : 'No indicada'
 }
 
 function claseEstado(estado: string) {
@@ -193,6 +203,7 @@ export default function OnlineOrdersModule({
           correo,
           modalidad_entrega,
           direccion_entrega,
+          metodo_pago,
           total,
           estado,
           observaciones,
@@ -448,7 +459,7 @@ export default function OnlineOrdersModule({
             </button>
           </div>
 
-          <div className="history-detail-summary">
+          <div className="history-detail-summary history-detail-summary--seis">
             <div>
               <span>ESTADO</span>
               <strong>{etiquetaEstado(pedidoSeleccionado.estado)}</strong>
@@ -461,6 +472,11 @@ export default function OnlineOrdersModule({
                   ? 'A domicilio'
                   : 'Retiro en tienda'}
               </strong>
+            </div>
+
+            <div>
+              <span>FORMA DE PAGO</span>
+              <strong>{etiquetaMetodoPago(pedidoSeleccionado.metodo_pago)}</strong>
             </div>
 
             <div>

@@ -1519,6 +1519,23 @@ html .auth-link:hover { text-decoration: underline; }
 .t-opcion em { font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--ch-ok); }
 .t-form .t-opcion.is-activa { border-color: var(--ch-azul); background: var(--ch-azul-suave); }
 
+/* Datos de la cuenta para pagar por transferencia */
+.t-banco {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--ch-r-md);
+  border: 1px solid var(--ch-linea);
+  background: var(--ch-fondo);
+  font-size: 13.5px;
+  color: var(--ch-texto);
+}
+
+.t-banco dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; }
+.t-banco dt { color: var(--ch-texto-suave); }
+.t-banco dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.t-banco small { font-size: 12px; color: var(--ch-texto-suave); }
+
 .t-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px dashed var(--ch-linea); }
 .t-total span { font-weight: 700; }
 .t-total b { font-family: var(--ch-display); font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -1719,6 +1736,12 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .t-miniatura { width: 64px; height: 64px; }
   .t-linea .t-cantidad,
   .t-subtotal { grid-column: 2; justify-self: start; text-align: left; }
+}
+
+/* Detalle de pedido web: seis datos (incluye forma de pago) en una fila;
+   por debajo de 1050px se mantienen las reglas de App.css (3 y 1 columnas). */
+@media (min-width: 1051px) {
+  .history-detail-summary--seis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

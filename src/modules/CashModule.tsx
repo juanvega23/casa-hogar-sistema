@@ -31,6 +31,8 @@ type Venta = {
   total: number
   estado: string
   tipo_venta: string
+  // Forma de pago que el cliente eligió en su pedido web (solo orienta).
+  metodo_pago_preferido: string | null
 }
 
 type CuentaCobrar = {
@@ -203,6 +205,8 @@ export default function CashModule({
     [movimientos, sesionActual],
   )
 
+  const ventaPreferida = ventas.find(v => v.id === Number(ventaId))
+
   const resumenActual = useMemo(() => {
     const ingresos = movimientosActuales
       .filter(m => m.tipo === 'ingreso')
@@ -305,7 +309,8 @@ export default function CashModule({
               cliente_nombre,
               total,
               estado,
-              tipo_venta
+              tipo_venta,
+              metodo_pago_preferido
             `)
             .eq('estado', 'pendiente_cobro')
             .order('created_at', { ascending: false })
@@ -522,6 +527,7 @@ export default function CashModule({
     setVentaId('')
     setMontoRecibido('')
     setReferenciaCobro('')
+    setMetodoCobro('efectivo')
     await cargarDatos()
     setProcesando(false)
   }
@@ -862,6 +868,7 @@ export default function CashModule({
                     setVentaId(e.target.value)
                     const venta = ventas.find(v => v.id === Number(e.target.value))
                     setMontoRecibido(venta ? String(venta.total) : '')
+                    setMetodoCobro(venta?.metodo_pago_preferido ?? 'efectivo')
                   }}
                 >
                   <option value="">Seleccionar venta</option>
@@ -872,6 +879,14 @@ export default function CashModule({
                   ))}
                 </select>
               </label>
+
+              {ventaPreferida?.metodo_pago_preferido && (
+                <div className="cash-info-box cash-field-full">
+                  El cliente eligió{' '}
+                  <strong>{etiquetaMetodo(ventaPreferida.metodo_pago_preferido)}</strong>{' '}
+                  en la tienda en línea. Puedes cambiarlo si paga de otra forma.
+                </div>
+              )}
 
               <label>
                 Método de pago

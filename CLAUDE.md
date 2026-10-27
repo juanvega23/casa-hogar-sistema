@@ -202,6 +202,8 @@ Detecta stock bajo, agotados, necesidad de reposición y situaciones relevantes 
 
 `pedidos_en_linea` (con `cliente_web_id`), secuencia `pedido_web_numero_seq`. Funciones: `registrar_pedido_web(...)`, `mis_pedidos_web()`.
 
+El cliente elige la forma de pago en el carrito (`pedidos_en_linea.metodo_pago`: efectivo, tarjeta o transferencia; la cuenta bancaria mostrada es ficticia, constante `CUENTA_TRANSFERENCIA` en `Storefront.tsx`). `convertir_pedido_web_en_venta()` la copia a `ventas.metodo_pago_preferido`, porque caja no puede leer `pedidos_en_linea`; Caja → Cobros la preselecciona, pero `cobrar_venta()` registra el método real.
+
 ## 32. Login de clientes
 
 `/tienda/login`, independiente de `/login`. Iniciar sesión y registrarse. Las cuentas internas son rechazadas como clientes.
