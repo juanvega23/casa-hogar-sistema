@@ -113,6 +113,7 @@ DECLARE
   v_cat record;
   v_prod record;
   v_unidad_id bigint;
+  v_unidad_nombre text;
   v_producto_id bigint;
   v_numero int;
   v_codigo text;
@@ -160,12 +161,17 @@ BEGIN
       CONTINUE;
     END IF;
 
-    SELECT um.id
-    INTO v_unidad_id
+    -- Igual que el módulo de productos: id de la unidad y su nombre tal cual.
+    SELECT um.id, um.nombre
+    INTO v_unidad_id, v_unidad_nombre
     FROM public.unidades_medida um
     WHERE lower(um.nombre) = v_prod.unidad
     ORDER BY um.activo DESC
     LIMIT 1;
+
+    IF NOT FOUND THEN
+      v_unidad_nombre := v_prod.unidad;
+    END IF;
 
     v_numero := v_numero + 1;
     v_codigo := 'PROD-' || lpad(v_numero::text, 3, '0');
@@ -178,7 +184,7 @@ BEGIN
     )
     VALUES (
       v_codigo, v_prod.nombre, v_prod.descripcion, v_cat.id,
-      v_prod.unidad, v_unidad_id,
+      v_unidad_nombre, v_unidad_id,
       v_prod.precio_compra, v_prod.precio_venta, v_prod.descuento,
       v_prod.stock_minimo, v_prod.stock_maximo
     )
