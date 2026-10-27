@@ -1,0 +1,752 @@
+/* =====================================================================
+   TEMA CASA HOGAR
+   Identidad visual aprobada (propuesta "Casa Hogar Cálido"):
+   fondo gris muy claro con tinte del azul del logo, superficies
+   blancas, naranja ferretero solo para acciones, amarillo del logo
+   para estados en proceso, azul suave para lo seleccionado y texto
+   marino. Sin crema, sin durazno y sin fondos oscuros.
+
+   Se carga después de App.css: redefine las variables de las tres
+   paletas anteriores y unifica los componentes compartidos.
+   ===================================================================== */
+
+:root {
+  /* Paleta */
+  --ch-fondo: #f3f5f8;
+  --ch-fondo-2: #e8ebf1;
+  --ch-superficie: #ffffff;
+  --ch-acero: #e6e9ee;
+  --ch-acero-borde: #d9dde4;
+  --ch-texto: #27264d;
+  --ch-texto-suave: #626879;
+  --ch-linea: #dfe3ea;
+  --ch-naranja: #e2620f;
+  --ch-naranja-hover: #c45307;
+  --ch-amarillo: #f8c70f;
+  --ch-amarillo-suave: #fdf1d6;
+  --ch-azul: #2f3b9c;
+  --ch-azul-suave: #e9edfb;
+  --ch-azul-borde: #d3dbf6;
+  --ch-ok: #2c7a4b;
+  --ch-ok-suave: #e3f2e8;
+  --ch-alerta: #8f5d00;
+  --ch-alerta-suave: #fcf0d2;
+  --ch-peligro: #b42318;
+  --ch-peligro-suave: #fbe6e3;
+  --ch-sombra: 0 1px 2px rgba(39, 38, 77, .05), 0 10px 28px rgba(39, 38, 77, .08);
+  --ch-sombra-baja: 0 1px 2px rgba(39, 38, 77, .06);
+
+  /* Tipografía */
+  --ch-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --ch-cuerpo: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  --ch-datos: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
+
+  /* Radios */
+  --ch-r-sm: 6px;
+  --ch-r-md: 10px;
+  --ch-r-lg: 14px;
+
+  /* Variables de las paletas anteriores, redirigidas a la nueva */
+  --font: var(--ch-cuerpo);
+  --ink: var(--ch-texto);
+  --ink-2: var(--ch-texto);
+  --ink-3: var(--ch-texto-suave);
+  --bg: var(--ch-fondo);
+  --surface: var(--ch-superficie);
+  --line: var(--ch-linea);
+  --accent: var(--ch-naranja);
+  --accent-dim: var(--ch-azul-suave);
+  --ok: var(--ch-ok);
+  --ok-dim: var(--ch-ok-suave);
+  --err-bg: var(--ch-peligro-suave);
+  --err-ink: var(--ch-peligro);
+  --nav-bg: var(--ch-superficie);
+  --nav-ink: var(--ch-texto);
+  --nav-ink-on: var(--ch-azul);
+  --nav-active: var(--ch-azul-suave);
+  --brand-navy: var(--ch-texto);
+  --brand-yellow: var(--ch-amarillo);
+  --brand-graphite: var(--ch-texto);
+  --font-display: var(--ch-display);
+  --accent-hover: var(--ch-naranja-hover);
+  --surface-soft: var(--ch-fondo);
+  --surface-blue: var(--ch-azul-suave);
+  --line-strong: var(--ch-acero-borde);
+  --warn: var(--ch-alerta);
+  --warn-dim: var(--ch-alerta-suave);
+  --danger: var(--ch-peligro);
+  --danger-dim: var(--ch-peligro-suave);
+  --amber: var(--ch-amarillo);
+  --amber-soft: var(--ch-amarillo-suave);
+  --amber-line: var(--ch-amarillo);
+
+  color-scheme: light;
+}
+
+
+/* =====================================================================
+   BASE
+   ===================================================================== */
+
+html body {
+  background: var(--ch-fondo);
+  color: var(--ch-texto);
+  font-family: var(--ch-cuerpo);
+}
+
+html .shell h1,
+html .shell h2,
+html .shell h3 {
+  font-family: var(--ch-display);
+  letter-spacing: -.01em;
+  color: var(--ch-texto);
+}
+
+
+/* =====================================================================
+   SISTEMA INTERNO · ESTRUCTURA
+   Barra lateral blanca; el módulo activo se marca en azul suave.
+   ===================================================================== */
+
+html .shell,
+html .content,
+html .body { background: var(--ch-fondo) !important; }
+
+html .nav {
+  background: var(--ch-superficie) !important;
+  color: var(--ch-texto) !important;
+  border-right: 1px solid var(--ch-linea) !important;
+}
+
+html .nav-brand--logo {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 6px !important;
+  min-height: 0 !important;
+  padding: 18px 18px 16px !important;
+  border-bottom: 1px solid var(--ch-linea) !important;
+}
+
+html .nav-logo {
+  display: block;
+  width: auto;
+  height: 52px;
+  max-width: 100%;
+}
+
+html .nav-brand-sub {
+  color: var(--ch-texto-suave);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+html .nav-section-label { color: var(--ch-texto-suave) !important; font-weight: 700 !important; }
+
+html .nav-item {
+  color: var(--ch-texto) !important;
+  font-family: var(--ch-cuerpo) !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+html .nav-item:hover { background: var(--ch-fondo) !important; color: var(--ch-texto) !important; }
+html .nav-icon { color: var(--ch-texto-suave) !important; }
+
+/* Grupo que contiene el módulo activo: solo resaltado de texto */
+html .nav-item--group.nav-item--on,
+html .nav-item--group.nav-item--on:hover {
+  background: transparent !important;
+  color: var(--ch-texto) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+/* Módulo activo */
+html .nav-item--on:not(.nav-item--group),
+html .nav-item--on:not(.nav-item--group):hover {
+  background: var(--ch-azul-suave) !important;
+  color: var(--ch-azul) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+html .nav-item--on:not(.nav-item--group) .nav-icon { color: var(--ch-azul) !important; }
+html .nav-submenu { border-left: 1px solid var(--ch-linea) !important; }
+html .nav-chevron { color: var(--ch-texto-suave) !important; }
+
+html .nav-foot { border-top: 1px solid var(--ch-linea) !important; }
+
+html .nav-user {
+  background: var(--ch-fondo) !important;
+  border: 1px solid var(--ch-linea) !important;
+}
+
+html .nav-avatar,
+html .bar-avatar {
+  background: var(--ch-amarillo) !important;
+  color: var(--ch-texto) !important;
+  border: 0 !important;
+  font-weight: 800 !important;
+}
+
+html .nav-user-info strong { color: var(--ch-texto) !important; }
+html .nav-user-info span { color: var(--ch-texto-suave) !important; }
+html .nav-signout { color: var(--ch-texto-suave) !important; }
+html .nav-signout:hover { background: var(--ch-fondo) !important; color: var(--ch-texto) !important; }
+html .nav-backdrop { background: rgba(39, 38, 77, .28) !important; }
+
+html .bar {
+  background: var(--ch-superficie) !important;
+  border-bottom: 1px solid var(--ch-linea) !important;
+}
+
+html .bar-path { color: var(--ch-texto-suave) !important; }
+html .bar-path strong,
+html .bar-user-text strong { color: var(--ch-texto) !important; }
+html .bar-user-text span { color: var(--ch-texto-suave) !important; }
+html .bar-dot,
+html .badge-dot { background: var(--ch-ok) !important; }
+html .menu-toggle span { background: var(--ch-texto) !important; }
+
+html .body-eyebrow { color: var(--ch-naranja-hover) !important; }
+html .body-title { color: var(--ch-texto) !important; font-family: var(--ch-display) !important; font-weight: 800 !important; }
+html .body-desc { color: var(--ch-texto-suave) !important; }
+
+html .body-badge {
+  background: var(--ch-superficie) !important;
+  color: var(--ch-texto) !important;
+  border: 1px solid var(--ch-linea) !important;
+}
+
+
+/* =====================================================================
+   CONTROLES COMPARTIDOS (todos los módulos)
+   ===================================================================== */
+
+/* Botón principal: naranja, solo acciones */
+html .product-primary-button,
+html .primary-button,
+html .sales-confirm-button,
+html .sales-add-button,
+html .quotes-emit-button,
+html .auth-btn {
+  background: var(--ch-naranja) !important;
+  color: #fff !important;
+  border: 1px solid var(--ch-naranja) !important;
+  border-radius: var(--ch-r-md) !important;
+  font-family: var(--ch-cuerpo) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+  transition: background .15s, border-color .15s !important;
+}
+
+html .product-primary-button:hover:not(:disabled),
+html .primary-button:hover:not(:disabled),
+html .sales-confirm-button:hover:not(:disabled),
+html .sales-add-button:hover:not(:disabled),
+html .quotes-emit-button:hover:not(:disabled),
+html .auth-btn:hover:not(:disabled) {
+  background: var(--ch-naranja-hover) !important;
+  border-color: var(--ch-naranja-hover) !important;
+}
+
+html .product-primary-button:disabled,
+html .primary-button:disabled,
+html .sales-confirm-button:disabled,
+html .sales-add-button:disabled,
+html .quotes-emit-button:disabled,
+html .auth-btn:disabled {
+  background: var(--ch-fondo-2) !important;
+  border-color: var(--ch-fondo-2) !important;
+  color: var(--ch-texto-suave) !important;
+  cursor: not-allowed !important;
+}
+
+/* Botón secundario: blanco con borde */
+html .product-secondary-button,
+html .secondary-button,
+html .inventory-refresh-button,
+html .product-edit-button,
+html .clients-edit-button,
+html .sales-clear-button {
+  background: var(--ch-superficie) !important;
+  color: var(--ch-texto) !important;
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: var(--ch-r-md) !important;
+  font-family: var(--ch-cuerpo) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+html .product-secondary-button:hover:not(:disabled),
+html .secondary-button:hover:not(:disabled),
+html .inventory-refresh-button:hover:not(:disabled),
+html .product-edit-button:hover:not(:disabled),
+html .clients-edit-button:hover:not(:disabled),
+html .sales-clear-button:hover:not(:disabled) {
+  border-color: var(--ch-texto-suave) !important;
+  background: var(--ch-superficie) !important;
+  color: var(--ch-texto) !important;
+}
+
+/* Acciones destructivas */
+html .returns-cancel-button,
+html .sales-remove-button {
+  background: var(--ch-peligro-suave) !important;
+  color: var(--ch-peligro) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--ch-r-md) !important;
+  font-weight: 700 !important;
+}
+
+/* Cerrar (×) */
+html .product-close-button,
+html .clients-close-button {
+  background: var(--ch-fondo) !important;
+  color: var(--ch-texto) !important;
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: 50% !important;
+}
+
+html .content button:focus-visible,
+html .auth-page button:focus-visible,
+html .content a:focus-visible {
+  outline: 3px solid var(--ch-amarillo) !important;
+  outline-offset: 2px !important;
+}
+
+/* Tarjetas */
+html .cash-card,
+html .cash-status-card,
+html .clients-form-card,
+html .clients-list-card,
+html .clients-summary-card,
+html .clients-check-card,
+html .history-detail-card,
+html .history-list-card,
+html .history-summary-card,
+html .history-toolbar,
+html .inventory-stat-card,
+html .inventory-summary-card,
+html .movement-form-card,
+html .owner-dashboard-card,
+html .owner-decision-card,
+html .owner-alert-summary-card,
+html .product-form-card,
+html .quotes-form-card,
+html .quotes-list-card,
+html .quotes-summary-card,
+html .replenishment-ok-card,
+html .returns-form-card,
+html .returns-list-card,
+html .returns-review-card,
+html .returns-summary-card,
+html .sales-cart-panel,
+html .sales-payment-card,
+html .sales-products-panel,
+html .sales-success-card,
+html .sales-summary-card {
+  background: var(--ch-superficie) !important;
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: var(--ch-r-lg) !important;
+  box-shadow: var(--ch-sombra-baja) !important;
+  color: var(--ch-texto) !important;
+}
+
+/* Números de las tarjetas de resumen */
+html .history-summary-card strong,
+html .clients-summary-card strong,
+html .quotes-summary-card strong,
+html .returns-summary-card strong,
+html .sales-summary-card strong,
+html .inventory-summary-card strong,
+html .inventory-stat-card strong,
+html .cash-summary-grid strong {
+  font-family: var(--ch-display) !important;
+  color: var(--ch-texto) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+html .history-summary-card span,
+html .clients-summary-card span,
+html .quotes-summary-card span,
+html .returns-summary-card span,
+html .sales-summary-card span,
+html .inventory-summary-card span,
+html .cash-summary-grid span {
+  color: var(--ch-texto-suave) !important;
+}
+
+html .cash-summary-grid > div {
+  background: var(--ch-fondo) !important;
+  border-color: var(--ch-linea) !important;
+}
+
+/* Etiquetas de sección */
+html .content .panel-label,
+html .content .section-kicker {
+  color: var(--ch-naranja-hover) !important;
+  letter-spacing: .1em !important;
+  font-weight: 700 !important;
+}
+
+/* Tablas */
+html .cash-table-wrap,
+html .clients-table-container,
+html .history-table-wrap,
+html .inventory-table-container,
+html .inventory-table-wrapper,
+html .owner-report-table-wrap,
+html .quotes-items-table-wrap,
+html .quotes-table-wrap,
+html .returns-table-wrap {
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: var(--ch-r-md) !important;
+  background: var(--ch-superficie) !important;
+  overflow-x: auto !important;
+}
+
+html .cash-table th,
+html .clients-table th,
+html .history-table th,
+html .inventory-table th,
+html .owner-report-table th,
+html .quotes-items-table th,
+html .quotes-table th,
+html .returns-table th {
+  background: var(--ch-fondo) !important;
+  color: var(--ch-texto-suave) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .06em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid var(--ch-linea) !important;
+}
+
+html .cash-table td,
+html .clients-table td,
+html .history-table td,
+html .inventory-table td,
+html .owner-report-table td,
+html .quotes-items-table td,
+html .quotes-table td,
+html .returns-table td {
+  color: var(--ch-texto) !important;
+  border-color: var(--ch-linea) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+html .cash-table tbody tr:hover td,
+html .clients-table tbody tr:hover td,
+html .history-table tbody tr:hover td,
+html .inventory-table tbody tr:hover td,
+html .quotes-table tbody tr:hover td,
+html .returns-table tbody tr:hover td {
+  background: var(--ch-azul-suave) !important;
+}
+
+html .content td small { color: var(--ch-texto-suave) !important; }
+
+/* Campos de formulario */
+html .content input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+html .content select,
+html .content textarea {
+  background: var(--ch-superficie) !important;
+  color: var(--ch-texto) !important;
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: var(--ch-r-md) !important;
+  font-family: var(--ch-cuerpo) !important;
+  box-shadow: none !important;
+}
+
+html .content input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+html .content select:focus,
+html .content textarea:focus {
+  border-color: var(--ch-naranja) !important;
+  box-shadow: 0 0 0 3px var(--ch-azul-suave) !important;
+  outline: none !important;
+}
+
+html .content input:disabled,
+html .content select:disabled,
+html .content textarea:disabled {
+  background: var(--ch-fondo) !important;
+  color: var(--ch-texto-suave) !important;
+}
+
+html .content input[type="checkbox"],
+html .content input[type="radio"] { accent-color: var(--ch-naranja); }
+
+/* Buscadores con ícono: el campo interno no lleva borde propio */
+html .clients-search,
+html .inventory-search,
+html .sales-search {
+  background: var(--ch-superficie) !important;
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: var(--ch-r-md) !important;
+}
+
+html .clients-search:focus-within,
+html .inventory-search:focus-within,
+html .sales-search:focus-within {
+  border-color: var(--ch-naranja) !important;
+  box-shadow: 0 0 0 3px var(--ch-azul-suave) !important;
+}
+
+html .content .clients-search input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+html .content .inventory-search input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+html .content .sales-search input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+html .content .clients-search input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+html .content .inventory-search input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+html .content .sales-search input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Estados */
+html .history-status--ok,
+html .return-status--ok,
+html .quote-status--ok,
+html .inventory-status-ok,
+html .status-success {
+  background: var(--ch-ok-suave) !important;
+  color: var(--ch-ok) !important;
+}
+
+html .history-status--pending,
+html .return-status--pending,
+html .inventory-status-warning {
+  background: var(--ch-amarillo-suave) !important;
+  color: var(--ch-alerta) !important;
+}
+
+html .history-status--danger,
+html .return-status--danger,
+html .quote-status--danger,
+html .inventory-status-danger,
+html .status-danger {
+  background: var(--ch-peligro-suave) !important;
+  color: var(--ch-peligro) !important;
+}
+
+html .quote-status--info,
+html .history-channel--online {
+  background: var(--ch-azul-suave) !important;
+  color: var(--ch-azul) !important;
+}
+
+html .history-channel {
+  background: var(--ch-fondo) !important;
+  color: var(--ch-texto-suave) !important;
+}
+
+html .cash-open-badge {
+  background: var(--ch-ok-suave) !important;
+  color: var(--ch-ok) !important;
+}
+
+html .cash-closed-badge {
+  background: var(--ch-fondo) !important;
+  color: var(--ch-texto-suave) !important;
+}
+
+/* Mensajes */
+html .inventory-error,
+html .error-message {
+  background: var(--ch-peligro-suave) !important;
+  color: var(--ch-peligro) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--ch-r-md) !important;
+}
+
+html .movement-success,
+html .success-message {
+  background: var(--ch-ok-suave) !important;
+  color: var(--ch-ok) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--ch-r-md) !important;
+}
+
+html .cash-info-box,
+html .history-origin-note {
+  background: var(--ch-azul-suave) !important;
+  color: var(--ch-azul) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--ch-r-md) !important;
+}
+
+html .history-cancel-note {
+  background: var(--ch-peligro-suave) !important;
+  color: var(--ch-peligro) !important;
+  border-radius: var(--ch-r-md) !important;
+}
+
+html .inventory-empty { color: var(--ch-texto-suave) !important; }
+html .inventory-spinner { border-top-color: var(--ch-naranja) !important; }
+
+
+/* =====================================================================
+   PROPIETARIO · DASHBOARD, REPORTES Y ALERTAS
+   Sin franjas de colores decorativas; gráficos en el azul del logo.
+   ===================================================================== */
+
+html .owner-kpi,
+html .owner-mini-kpi {
+  background: var(--ch-superficie) !important;
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: var(--ch-r-lg) !important;
+  box-shadow: var(--ch-sombra-baja) !important;
+}
+
+html .owner-kpi::before,
+html .owner-kpi::after,
+html .owner-mini-kpi::before,
+html .owner-mini-kpi::after { display: none !important; }
+
+html .owner-kpi > span,
+html .owner-mini-kpi > span { color: var(--ch-texto-suave) !important; }
+
+html .owner-kpi > strong,
+html .owner-mini-kpi > strong {
+  color: var(--ch-texto) !important;
+  font-family: var(--ch-display) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+html .owner-kpi small { color: var(--ch-texto-suave) !important; }
+
+html .owner-card-head { border-bottom: 1px solid var(--ch-linea) !important; }
+html .owner-card-head h3 { color: var(--ch-texto) !important; }
+
+html .owner-bar-track,
+html .owner-product-track { background: var(--ch-fondo) !important; }
+
+html .owner-bar-fill,
+html .owner-product-track > div,
+html .owner-report-bar-track > div { background: var(--ch-azul) !important; }
+
+html .owner-report-bar-track { background: var(--ch-fondo) !important; }
+
+html .owner-product-rank {
+  background: var(--ch-azul-suave) !important;
+  color: var(--ch-azul) !important;
+}
+
+html .owner-state--open {
+  background: var(--ch-ok-suave) !important;
+  color: var(--ch-ok) !important;
+  border-color: transparent !important;
+}
+
+
+/* =====================================================================
+   CARGA INICIAL
+   ===================================================================== */
+
+html .splash,
+html .splash--brand { background: var(--ch-fondo) !important; }
+html .splash-ring { border-color: var(--ch-linea) !important; border-top-color: var(--ch-naranja) !important; }
+html .splash-text { color: var(--ch-texto-suave) !important; font-family: var(--ch-cuerpo) !important; }
+
+
+/* =====================================================================
+   INICIO DE SESIÓN DEL PERSONAL
+   Sobrio y centrado (CLAUDE.md §39), siempre sobre fondo blanco/claro.
+   ===================================================================== */
+
+html .auth-page--internal { background: var(--ch-fondo) !important; }
+
+html .auth-card--brand {
+  background: var(--ch-superficie) !important;
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--ch-sombra) !important;
+}
+
+html .auth-logo {
+  width: auto !important;
+  height: 64px !important;
+  max-width: 100% !important;
+  margin: 0 auto 22px !important;
+}
+
+html .auth-heading > span.auth-badge {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: var(--ch-naranja-hover) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+}
+
+html .auth-badge i { display: none !important; }
+
+html .auth-heading h1 {
+  color: var(--ch-texto) !important;
+  font-family: var(--ch-display) !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  text-wrap: balance;
+}
+
+html .auth-sub {
+  margin: 6px 0 0;
+  color: var(--ch-texto-suave);
+  font-size: 14px;
+}
+
+html .field label { color: var(--ch-texto) !important; font-weight: 600 !important; }
+
+html .field input {
+  background: var(--ch-superficie) !important;
+  border: 1px solid var(--ch-linea) !important;
+  border-radius: var(--ch-r-md) !important;
+  color: var(--ch-texto) !important;
+  font-family: var(--ch-cuerpo) !important;
+}
+
+html .field input:focus {
+  border-color: var(--ch-naranja) !important;
+  box-shadow: 0 0 0 3px var(--ch-azul-suave) !important;
+}
+
+html .password-toggle { color: var(--ch-naranja-hover) !important; font-weight: 700 !important; }
+
+html .auth-btn {
+  width: 100% !important;
+  justify-content: center !important;
+  min-height: 48px !important;
+  font-size: 15px !important;
+}
+
+html .auth-error {
+  background: var(--ch-peligro-suave) !important;
+  color: var(--ch-peligro) !important;
+  border: 0 !important;
+  border-radius: var(--ch-r-md) !important;
+}
+
+html .auth-note {
+  display: grid !important;
+  gap: 8px !important;
+  text-align: center !important;
+  color: var(--ch-texto-suave) !important;
+  border-top: 1px solid var(--ch-linea) !important;
+}
+
+html .auth-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ch-naranja-hover);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+html .auth-link:hover { text-decoration: underline; }

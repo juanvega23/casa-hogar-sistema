@@ -29,13 +29,14 @@ import OwnerAlertsModule from './modules/OwnerAlertsModule'
 import SupportModule from './modules/SupportModule'
 import AccountPasswordModule from './modules/AccountPasswordModule'
 import Storefront from './modules/Storefront'
-import logoCasaHogar from './assets/casa-hogar-logo.png'
+import logoCasaHogar from './assets/casa-hogar-logo-horizontal.png'
 import SuppliersModule from './modules/SuppliersModule'
 import PurchasesModule from './modules/PurchasesModule'
 import PurchaseReceptionModule from './modules/PurchaseReceptionModule'
 import PurchaseReturnsModule from './modules/PurchaseReturnsModule'
 
 import './App.css'
+import './styles/tema-casa-hogar.css'
 
 
 // =====================================================
@@ -1275,7 +1276,10 @@ function InternalSystemApp({
 
           <div className="auth-heading">
             <span className="auth-badge"><i /> Sistema interno</span>
-            <h1>Ingreso del personal</h1>
+            <h1>Ingresa con tu cuenta del personal</h1>
+            <p className="auth-sub">
+              Compras, inventario, ventas, caja y reportes.
+            </p>
           </div>
 
           <form
@@ -1323,13 +1327,26 @@ function InternalSystemApp({
             )}
 
             <button type="submit" className="auth-btn">
-              Ingresar al sistema
+              Ingresar
             </button>
           </form>
 
-          <p className="auth-note">
-            Acceso exclusivo para personal autorizado
-          </p>
+          <div className="auth-note">
+            <span>
+              ¿Olvidaste tu contraseña? Pide una temporal a Soporte TI.
+            </span>
+
+            <span>
+              ¿Eres cliente?{' '}
+              <button
+                type="button"
+                className="auth-link"
+                onClick={() => navigate('/tienda')}
+              >
+                Ir a la tienda en línea
+              </button>
+            </span>
+          </div>
         </main>
       </div>
     )
@@ -1361,17 +1378,15 @@ function InternalSystemApp({
         }`}
       >
         <div className="nav-brand nav-brand--logo">
-          <div className="nav-brand-mark">
-            <img
-              src={logoCasaHogar}
-              alt="Ferretería Casa Hogar"
-            />
-          </div>
+          <img
+            className="nav-logo"
+            src={logoCasaHogar}
+            alt="Ferretería Casa Hogar"
+          />
 
-          <div className="nav-brand-copy">
-            <strong>Casa Hogar</strong>
-            <span>Sistema de Gestión</span>
-          </div>
+          <span className="nav-brand-sub">
+            Sistema de gestión
+          </span>
         </div>
 
         <span className="nav-section-label">
