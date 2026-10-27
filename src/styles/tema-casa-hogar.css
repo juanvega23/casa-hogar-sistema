@@ -1161,8 +1161,11 @@ html .auth-link:hover { text-decoration: underline; }
   gap: 16px;
 }
 
+/* Columna minmax(0, 1fr): un nombre de departamento largo no debe
+   ensanchar el contenido más que la tarjeta (se recortaba a la derecha). */
 .t-producto {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   overflow: hidden;
   border-radius: 16px;
@@ -1231,7 +1234,7 @@ html .auth-link:hover { text-decoration: underline; }
 }
 
 /* Columna flexible: precio y botón quedan alineados al pie de cada tarjeta */
-.t-producto-info { display: flex; flex-direction: column; gap: 4px; padding: 14px; }
+.t-producto-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px; }
 
 .t-producto-meta {
   display: flex;
