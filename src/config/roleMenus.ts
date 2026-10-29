@@ -43,10 +43,16 @@ export const menusByRole: Record<
   // =========================================================
   // GERENCIA
   //
-  // Consulta, supervisión y análisis.
-  // No ejecuta operaciones.
+  // Supervisa la operación: Panel de supervisión con lo que
+  // está pendiente en cada área, más consulta de los módulos.
+  // No ejecuta operaciones ni administra el sistema.
   // =========================================================
   gerencia: [
+    {
+      id: 'supervision',
+      nombre: 'Panel de supervisión',
+    },
+
     // ---------------------------------------------------------
     // COMPRAS
     // ---------------------------------------------------------

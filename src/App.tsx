@@ -26,6 +26,7 @@ import CashModule from './modules/CashModule'
 import OwnerDashboardModule from './modules/OwnerDashboardModule'
 import OwnerReportsModule from './modules/OwnerReportsModule'
 import OwnerAlertsModule from './modules/OwnerAlertsModule'
+import SupervisionModule from './modules/SupervisionModule'
 import SupportModule from './modules/SupportModule'
 import AccountPasswordModule from './modules/AccountPasswordModule'
 import Storefront from './modules/Storefront'
@@ -1046,7 +1047,27 @@ function InternalSystemApp({
 
 
     // -------------------------------------------------
-    // REPORTES OPERATIVOS (GERENCIA / ADMINISTRACIÓN)
+    // PANEL DE SUPERVISIÓN (GERENCIA)
+    // Cada alerta abre el módulo de consulta donde se ve.
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id ===
+      'supervision'
+    ) {
+      return (
+        <SupervisionModule
+          onAbrirModulo={id => {
+            setModuloActivo(id)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+        />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // REPORTES OPERATIVOS (GERENCIA)
     // Mismo análisis de solo consulta que el Propietario;
     // reportes_propietario() admite ambos roles.
     // -------------------------------------------------
