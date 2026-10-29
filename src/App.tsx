@@ -19,6 +19,7 @@ import {
 import InventoryModule from './modules/InventoryModule'
 import ProductsModule from './modules/ProductsModule'
 import MovementsModule from './modules/MovementsModule'
+import KardexModule from './modules/KardexModule'
 import ReplenishmentModule from './modules/ReplenishmentModule'
 import SalesModule from './modules/SalesModule'
 import ClientsModule from './modules/ClientsModule'
@@ -835,6 +836,20 @@ function InternalSystemApp({
         <MovementsModule
           soloConsulta={esConsulta}
         />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // KÁRDEX POR PRODUCTO (solo consulta)
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id === 'kardex' ||
+      moduloSeleccionado.id === 'kardex-consulta'
+    ) {
+      return (
+        <KardexModule />
       )
     }
 

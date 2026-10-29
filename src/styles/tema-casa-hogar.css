@@ -2669,3 +2669,95 @@ html .inventory-module .productos-th-filtro select {
 .t-clave input::-ms-clear,
 .password-field input::-ms-reveal,
 .password-field input::-ms-clear { display: none; }
+
+/* =========================================================
+   KÁRDEX POR PRODUCTO
+   ========================================================= */
+
+.kardex-filtros {
+  display: grid;
+  grid-template-columns: minmax(260px, 2fr) repeat(2, minmax(150px, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-lg);
+  background: var(--ch-superficie);
+}
+
+.kardex-filtros label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--ch-texto); }
+.kardex-producto { grid-template-rows: auto auto auto; }
+
+.kardex-filtros input,
+.kardex-filtros select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--ch-linea);
+  border-radius: 8px;
+  background: var(--ch-superficie);
+  font: inherit;
+  font-weight: 400;
+  color: var(--ch-texto);
+}
+
+.kardex-rangos { display: flex; gap: 6px; }
+.kardex-rangos button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--ch-linea);
+  border-radius: 999px;
+  background: var(--ch-superficie);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ch-texto);
+  cursor: pointer;
+}
+.kardex-rangos button.is-activo { border-color: var(--ch-azul-borde); background: var(--ch-azul-suave); color: var(--ch-azul); }
+
+.kardex-vacio { padding: 28px; border: 1px dashed var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-superficie); font-size: 14.5px; text-align: center; color: var(--ch-texto-suave); }
+
+.kardex-tarjeta { display: grid; gap: 12px; margin-top: 16px; padding: 16px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
+.kardex-cabecera { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.kardex-cabecera div { display: flex; align-items: baseline; gap: 10px; }
+.kardex-cabecera span { font-family: var(--ch-datos); font-size: 13px; color: var(--ch-texto-suave); }
+.kardex-cabecera strong { font-family: var(--ch-display); font-size: 18px; color: var(--ch-texto); }
+.kardex-cabecera small { font-size: 13px; color: var(--ch-texto-suave); }
+
+.kardex-tabla-contenedor { overflow-x: auto; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); }
+
+.kardex-tabla { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.kardex-tabla th,
+.kardex-tabla td { padding: 7px 8px; border-bottom: 1px solid var(--ch-linea); text-align: right; white-space: nowrap; }
+.kardex-tabla th:nth-child(-n + 3),
+.kardex-tabla td:nth-child(-n + 3) { text-align: left; }
+.kardex-tabla thead tr:nth-child(2) th { text-align: right; }
+.kardex-tabla td:nth-child(3) { white-space: normal; min-width: 150px; }
+.kardex-tabla thead th { background: var(--ch-fondo); font-size: 12.5px; font-weight: 700; color: var(--ch-texto-suave); }
+.kardex-tabla th.kardex-grupo { text-align: center; color: var(--ch-texto); border-left: 1px solid var(--ch-linea); }
+.kardex-grupo--entrada { box-shadow: inset 0 -3px 0 var(--ch-ok); }
+.kardex-grupo--salida { box-shadow: inset 0 -3px 0 var(--ch-peligro); }
+.kardex-grupo--saldo { box-shadow: inset 0 -3px 0 var(--ch-azul); }
+
+/* Separa visualmente los tres grupos */
+.kardex-tabla thead tr:nth-child(2) th:nth-child(1),
+.kardex-tabla thead tr:nth-child(2) th:nth-child(4),
+.kardex-tabla thead tr:nth-child(2) th:nth-child(7),
+.kardex-tabla td:nth-child(4),
+.kardex-tabla td:nth-child(7),
+.kardex-tabla td:nth-child(10) { border-left: 1px solid var(--ch-linea); }
+
+.kardex-documento { font-family: var(--ch-datos); font-size: 12.5px; }
+.kardex-saldo { font-weight: 600; color: var(--ch-texto); }
+.kardex-tabla tr.is-inicial td { background: var(--ch-azul-suave); font-weight: 600; }
+.kardex-tabla sup { margin-left: 2px; color: var(--ch-alerta); font-weight: 700; }
+.kardex-tabla tfoot td { background: var(--ch-fondo); font-weight: 700; color: var(--ch-texto); border-bottom: 0; }
+.kardex-nota { margin: 0; font-size: 13px; color: var(--ch-texto-suave); }
+
+@media (max-width: 900px) {
+  .kardex-filtros { grid-template-columns: 1fr 1fr; }
+  .kardex-producto,
+  .kardex-rangos { grid-column: 1 / -1; }
+}

@@ -574,12 +574,12 @@ export default function MovementsModule({
           </span>
 
           <h2>
-            Movimientos
+            Movimientos de inventario
           </h2>
 
           <p>
             {soloConsulta
-              ? 'Consulta el historial de entradas, salidas y ajustes del inventario (Kardex).'
+              ? 'Consulta el historial de entradas, salidas y ajustes de todos los productos. La tarjeta valorizada de cada uno está en Kárdex por producto.'
               : 'Registra entradas, salidas y ajustes del inventario.'}
           </p>
         </div>

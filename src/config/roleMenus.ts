@@ -82,7 +82,11 @@ export const menusByRole: Record<
         },
         {
           id: 'movimientos-consulta',
-          nombre: 'Movimientos / Kardex',
+          nombre: 'Movimientos de inventario',
+        },
+        {
+          id: 'kardex-consulta',
+          nombre: 'Kárdex por producto',
         },
         {
           id: 'devoluciones-consulta',
@@ -393,7 +397,7 @@ export const menusByRole: Record<
   //
   // Consulta productos.
   // Recibe productos.
-  // Gestiona inventario y Kardex.
+  // Gestiona inventario, movimientos y kárdex por producto.
   //
   // NO registra compras.
   // NO autoriza compras.
@@ -418,7 +422,11 @@ export const menusByRole: Record<
         },
         {
           id: 'movimientos',
-          nombre: 'Movimientos / Kardex',
+          nombre: 'Movimientos de inventario',
+        },
+        {
+          id: 'kardex',
+          nombre: 'Kárdex por producto',
         },
         {
           id: 'reposicion',
