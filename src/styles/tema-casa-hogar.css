@@ -1914,14 +1914,15 @@ html .auth-link:hover { text-decoration: underline; }
   box-shadow: var(--ch-sombra);
 }
 
-/* Panel izquierdo: fondo claro con tinte del azul del logo */
+/* Panel izquierdo: celeste claro con las herramientas abajo. El color de
+   fondo es el de la parte superior de la imagen, para que no se note el
+   borde cuando el panel es más alto que ella. */
 .t-acceso-panel {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 22px;
-  padding: 44px 48px;
-  background: linear-gradient(165deg, #e9eefa 0%, var(--ch-fondo) 70%);
+  padding: 44px 48px 230px;
+  background: #ebf3fe url('../assets/acceso-herramientas.webp') center bottom / 100% auto no-repeat;
   border-right: 1px solid var(--ch-linea);
 }
 
@@ -2130,7 +2131,7 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .t-carrito-grid { grid-template-columns: 1fr; }
   .t-resumen { position: static; }
   .t-acceso { grid-template-columns: 1fr; }
-  .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-linea); padding: 28px; }
+  .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-linea); padding: 28px; background: #ebf3fe; }
   .t-acceso-tarjeta { padding: 28px; }
   /* En celular el encabezado ya muestra el logo: solo queda el lema */
   .t-acceso-logo,
