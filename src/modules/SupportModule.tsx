@@ -56,7 +56,7 @@ type ResumenSistema = {
   servicios: { bucket_productos: boolean; tareas_programadas: boolean }
 }
 
-// Roles que se conservan solo por compatibilidad (ver CLAUDE.md §8).
+// Roles que se conservan solo por compatibilidad (ver contexto maestro del proyecto §8).
 const ROLES_ANTIGUOS = ['ventas', 'administracion']
 
 function formatearFecha(valor: string | null) {

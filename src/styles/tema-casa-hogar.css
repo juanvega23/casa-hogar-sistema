@@ -654,7 +654,7 @@ html .splash-text { color: var(--ch-texto-suave) !important; font-family: var(--
 
 /* =====================================================================
    INICIO DE SESIÓN DEL PERSONAL
-   Sobrio y centrado (CLAUDE.md §39), siempre sobre fondo blanco/claro.
+   Sobrio y centrado (contexto maestro §39), siempre sobre fondo blanco/claro.
    ===================================================================== */
 
 html .auth-page--internal { background: var(--ch-fondo) !important; }
