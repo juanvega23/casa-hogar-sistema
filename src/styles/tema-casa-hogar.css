@@ -2165,6 +2165,35 @@ html .inventory-module .productos-th-filtro select {
 }
 .soporte-rol-vacio { font-size: 14px; color: var(--ch-texto-suave); }
 
+/* ==========================================================
+   COMPRAS · REPOSICIÓN SUGERIDA (arriba del formulario)
+   ========================================================== */
+.compras-reposicion {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 20px 22px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-lg);
+  background: var(--ch-superficie);
+  box-shadow: var(--ch-sombra-baja);
+}
+
+.compras-reposicion-encabezado { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; }
+.compras-reposicion-encabezado h3 { margin: 4px 0 2px; font-family: var(--ch-display); font-size: 19px; color: var(--ch-texto); }
+.compras-reposicion-encabezado p { margin: 0; font-size: 14px; color: var(--ch-texto-suave); }
+
+.compras-reposicion-tabla { max-height: 360px; overflow: auto; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); }
+.compras-reposicion-tabla .inventory-table { min-width: 720px; }
+.compras-reposicion-tabla thead th { position: sticky; top: 0; z-index: 1; }
+.compras-reposicion-tabla td { white-space: nowrap; }
+
+.compras-reposicion-nombre { display: block; margin-top: 2px; white-space: normal; }
+.compras-reposicion-estado { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--ch-amarillo-suave); font-size: 12.5px; font-weight: 600; color: var(--ch-texto); }
+.compras-reposicion-estado.is-agotado { background: var(--ch-peligro-suave); color: var(--ch-peligro); }
+.compras-reposicion-accion { text-align: right; }
+.compras-reposicion-nota { font-size: 12.5px; color: var(--ch-texto-suave); }
+
 /* Auditoría: registros cargados directamente en la base */
 .soporte-sin-usuario { color: var(--ch-texto-suave); font-style: italic; cursor: help; }
 

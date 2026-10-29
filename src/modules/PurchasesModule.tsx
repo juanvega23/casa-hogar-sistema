@@ -160,6 +160,26 @@ type ItemCompra = {
 }
 
 
+// Fila de reposicion_sugerida(): producto en o bajo su mínimo
+type Sugerencia = {
+  producto_id: number
+  codigo: string
+  nombre: string
+  categoria: string
+  unidad_medida: string
+  existencia: number
+  stock_minimo: number
+  stock_maximo: number | null
+  en_camino: number
+  ventas_30d: number
+  cantidad_sugerida: number
+  costo_referencia: number | null
+  proveedor_id: number | null
+  proveedor_nombre: string | null
+  proveedor_costo: number | null
+}
+
+
 type PurchasesModuleProps = {
 
   roleCode: string
@@ -656,6 +676,9 @@ function PurchasesModule({
   const [items, setItems] =
   useState<ItemCompra[]>([])
 
+  const [sugerencias, setSugerencias] =
+    useState<Sugerencia[]>([])
+
 const esOrdenesCompra =
   vista === 'ordenes-compra'
 
@@ -933,6 +956,31 @@ const descripcionVista =
   }
 
 
+  /*
+   * Productos en o bajo su mínimo con la cantidad a comprar
+   * (ya descuenta lo pedido que no ha llegado). Solo la usa
+   * el Encargado de Compras al armar una compra.
+   */
+  async function cargarSugerencias() {
+    if (roleCode !== 'encargado_compras') {
+      return
+    }
+
+    const { data, error } =
+      await supabase.rpc(
+        'reposicion_sugerida',
+      )
+
+    if (error) {
+      throw error
+    }
+
+    setSugerencias(
+      (data ?? []) as Sugerencia[],
+    )
+  }
+
+
   async function cargarTodo() {
 
     try {
@@ -949,6 +997,8 @@ const descripcionVista =
         cargarProductos(),
 
         cargarCompras(),
+
+        cargarSugerencias(),
 
       ])
 
@@ -1231,6 +1281,83 @@ const comprasFiltradas =
 
     )
 
+  }
+
+
+  /*
+   * Lleva productos de la reposición sugerida a la compra con
+   * la cantidad sugerida y el costo de referencia del producto.
+   * Si el formulario estaba cerrado, abre una compra nueva; si
+   * todos comparten el mismo proveedor sugerido, lo selecciona.
+   */
+  function agregarSugeridos(
+    lista: Sugerencia[],
+  ) {
+    const actuales =
+      mostrarFormulario ? items : []
+
+    const nuevos = lista.filter(
+      s =>
+        Number(s.cantidad_sugerida) > 0 &&
+        !actuales.some(
+          item =>
+            item.producto_id === s.producto_id,
+        ),
+    )
+
+    if (nuevos.length === 0) {
+      setMensaje('')
+      setError(
+        'Esos productos ya están en la compra.',
+      )
+      return
+    }
+
+    if (!mostrarFormulario) {
+      abrirNuevaCompra()
+    }
+
+    setItems(previos => [
+      ...(mostrarFormulario ? previos : []),
+      ...nuevos.map(
+        (s): ItemCompra => ({
+          producto_id: s.producto_id,
+          codigo: s.codigo,
+          nombre: s.nombre,
+          unidad_medida: s.unidad_medida,
+          cantidad: String(
+            Number(s.cantidad_sugerida),
+          ),
+          costo_unitario: Number(
+            s.costo_referencia ?? 0,
+          ).toFixed(2),
+        }),
+      ),
+    ])
+
+    const proveedoresSugeridos = new Set(
+      nuevos.map(s => s.proveedor_id),
+    )
+
+    const [unicoProveedor] =
+      proveedoresSugeridos
+
+    if (
+      (!mostrarFormulario || !proveedorId) &&
+      proveedoresSugeridos.size === 1 &&
+      unicoProveedor
+    ) {
+      setProveedorId(
+        String(unicoProveedor),
+      )
+    }
+
+    setError('')
+    setMensaje(
+      nuevos.length === 1
+        ? `${nuevos[0].nombre} se agregó a la compra con la cantidad sugerida.`
+        : `${nuevos.length} productos se agregaron a la compra con la cantidad sugerida.`,
+    )
   }
 
 
@@ -1903,7 +2030,10 @@ const comprasFiltradas =
       setItems([])
 
 
-      await cargarCompras()
+      await Promise.all([
+        cargarCompras(),
+        cargarSugerencias(),
+      ])
 
     } catch (err) {
 
@@ -2707,6 +2837,143 @@ const comprasFiltradas =
 
         </div>
 
+      )}
+
+
+      {/* ====================================================
+          REPOSICIÓN SUGERIDA
+          Productos en o bajo el mínimo (reposicion_sugerida).
+      ==================================================== */}
+
+      {puedeRegistrar && sugerencias.length > 0 && (
+        <section className="compras-reposicion">
+          <div className="compras-reposicion-encabezado">
+            <div>
+              <span className="panel-label">
+                REPOSICIÓN SUGERIDA
+              </span>
+
+              <h3>
+                {sugerencias.length === 1
+                  ? '1 producto en o bajo el mínimo'
+                  : `${sugerencias.length} productos en o bajo el mínimo`}
+              </h3>
+
+              <p>
+                La cantidad sugerida completa el stock máximo y ya descuenta lo pedido que no ha llegado.
+              </p>
+            </div>
+
+            {sugerencias.some(
+              s => Number(s.cantidad_sugerida) > 0,
+            ) && (
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() =>
+                  agregarSugeridos(sugerencias)
+                }
+              >
+                Agregar todo a la compra
+              </button>
+            )}
+          </div>
+
+          <div className="compras-reposicion-tabla">
+            <table className="inventory-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Existencia</th>
+                  <th>En camino</th>
+                  <th>Sugerido</th>
+                  <th>Proveedor sugerido</th>
+                  <th />
+                </tr>
+              </thead>
+
+              <tbody>
+                {sugerencias.map(s => {
+                  const agotado =
+                    Number(s.existencia) <= 0
+
+                  const enCompra =
+                    mostrarFormulario &&
+                    items.some(
+                      item =>
+                        item.producto_id === s.producto_id,
+                    )
+
+                  return (
+                    <tr key={s.producto_id}>
+                      <td>
+                        <span className="product-code">
+                          {s.codigo}
+                        </span>
+                        <strong className="compras-reposicion-nombre">
+                          {s.nombre}
+                        </strong>
+                      </td>
+
+                      <td>
+                        <span
+                          className={
+                            agotado
+                              ? 'compras-reposicion-estado is-agotado'
+                              : 'compras-reposicion-estado'
+                          }
+                        >
+                          {agotado
+                            ? 'Agotado'
+                            : `${Number(s.existencia)} de mín. ${Number(s.stock_minimo)}`}
+                        </span>
+                      </td>
+
+                      <td>
+                        {Number(s.en_camino) > 0
+                          ? Number(s.en_camino)
+                          : '—'}
+                      </td>
+
+                      <td>
+                        <strong>
+                          {Number(s.cantidad_sugerida)}
+                        </strong>{' '}
+                        {s.unidad_medida}
+                      </td>
+
+                      <td>
+                        {s.proveedor_nombre ?? 'Sin proveedor asignado'}
+                      </td>
+
+                      <td className="compras-reposicion-accion">
+                        {Number(s.cantidad_sugerida) <= 0 ? (
+                          <span className="compras-reposicion-nota">
+                            Ya pedido
+                          </span>
+                        ) : enCompra ? (
+                          <span className="compras-reposicion-nota">
+                            En la compra
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="product-edit-button"
+                            onClick={() =>
+                              agregarSugeridos([s])
+                            }
+                          >
+                            Agregar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
 

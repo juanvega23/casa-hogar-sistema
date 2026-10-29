@@ -770,8 +770,8 @@ function InternalSystemApp({
 
 
     // -------------------------------------------------
-    // REPOSICIÓN
-    // Se conserva para futura integración.
+    // REPOSICIÓN (consulta del Bodeguero; Compras ve la
+    // misma lista al registrar una compra)
     // -------------------------------------------------
 
     if (

@@ -469,6 +469,10 @@ export const menusByRole: Record<
           id: 'movimientos',
           nombre: 'Movimientos / Kardex',
         },
+        {
+          id: 'reposicion',
+          nombre: 'Reposición',
+        },
       ],
     },
   ],

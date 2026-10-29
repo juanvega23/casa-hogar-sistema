@@ -6,31 +6,17 @@ import {
 
 import { supabase } from '../lib/supabase'
 
-type CategoriaRelacion = {
-  nombre: string
-}
-
-type ExistenciaRelacion = {
-  cantidad: number
-}
-
-type ProductoRespuesta = {
-  id: number
+// Fila de reposicion_sugerida() (misma lista que ve Compras)
+type SugerenciaRespuesta = {
+  producto_id: number
   codigo: string
   nombre: string
+  categoria: string
   unidad_medida: string
+  existencia: number
   stock_minimo: number
-  activo: boolean
-
-  categorias:
-    | CategoriaRelacion
-    | CategoriaRelacion[]
-    | null
-
-  existencias:
-    | ExistenciaRelacion
-    | ExistenciaRelacion[]
-    | null
+  en_camino: number
+  cantidad_sugerida: number
 }
 
 type ProductoReposicion = {
@@ -41,52 +27,12 @@ type ProductoReposicion = {
   unidad: string
   existencia: number
   stockMinimo: number
-  faltante: number
+  enCamino: number
+  sugerido: number
   estado:
     | 'Agotado'
     | 'Stock bajo'
     | 'En mínimo'
-}
-
-function obtenerCategoria(
-  relacion:
-    | CategoriaRelacion
-    | CategoriaRelacion[]
-    | null,
-) {
-  if (!relacion) {
-    return 'Sin categoría'
-  }
-
-  if (Array.isArray(relacion)) {
-    return (
-      relacion[0]?.nombre ??
-      'Sin categoría'
-    )
-  }
-
-  return relacion.nombre
-}
-
-function obtenerExistencia(
-  relacion:
-    | ExistenciaRelacion
-    | ExistenciaRelacion[]
-    | null,
-) {
-  if (!relacion) {
-    return 0
-  }
-
-  if (Array.isArray(relacion)) {
-    return Number(
-      relacion[0]?.cantidad ?? 0,
-    )
-  }
-
-  return Number(
-    relacion.cantidad ?? 0,
-  )
 }
 
 function obtenerEstado(
@@ -124,26 +70,9 @@ export default function ReplenishmentModule() {
     setError('')
 
     const { data, error } =
-      await supabase
-        .from('productos')
-        .select(`
-          id,
-          codigo,
-          nombre,
-          unidad_medida,
-          stock_minimo,
-          activo,
-          categorias (
-            nombre
-          ),
-          existencias (
-            cantidad
-          )
-        `)
-        .eq('activo', true)
-        .order('nombre', {
-          ascending: true,
-        })
+      await supabase.rpc(
+        'reposicion_sugerida',
+      )
 
     if (error) {
       setError(
@@ -156,68 +85,35 @@ export default function ReplenishmentModule() {
       return
     }
 
-    const respuesta =
-      (data ??
-        []) as unknown as ProductoRespuesta[]
+    const lista = (
+      (data ?? []) as SugerenciaRespuesta[]
+    ).map(
+      (producto): ProductoReposicion => {
+        const existencia =
+          Number(producto.existencia)
 
-    const lista =
-      respuesta
-        .map(
-          (
-            producto,
-          ): ProductoReposicion => {
-            const existencia =
-              obtenerExistencia(
-                producto.existencias,
-              )
+        const stockMinimo =
+          Number(producto.stock_minimo)
 
-            const stockMinimo =
-              Number(
-                producto.stock_minimo ??
-                  0,
-              )
-
-            return {
-              id: producto.id,
-
-              codigo:
-                producto.codigo,
-
-              nombre:
-                producto.nombre,
-
-              categoria:
-                obtenerCategoria(
-                  producto.categorias,
-                ),
-
-              unidad:
-                producto.unidad_medida,
-
-              existencia,
-
-              stockMinimo,
-
-              faltante:
-                Math.max(
-                  stockMinimo -
-                    existencia,
-                  0,
-                ),
-
-              estado:
-                obtenerEstado(
-                  existencia,
-                  stockMinimo,
-                ),
-            }
-          },
-        )
-        .filter(
-          (producto) =>
-            producto.existencia <=
-            producto.stockMinimo,
-        )
+        return {
+          id: producto.producto_id,
+          codigo: producto.codigo,
+          nombre: producto.nombre,
+          categoria: producto.categoria,
+          unidad: producto.unidad_medida,
+          existencia,
+          stockMinimo,
+          enCamino: Number(producto.en_camino),
+          sugerido: Number(
+            producto.cantidad_sugerida,
+          ),
+          estado: obtenerEstado(
+            existencia,
+            stockMinimo,
+          ),
+        }
+      },
+    )
 
     setProductos(lista)
     setCargando(false)
@@ -279,14 +175,14 @@ export default function ReplenishmentModule() {
             producto.existencia > 0,
         ).length
 
-      const unidadesFaltantes =
+      const unidadesSugeridas =
         productos.reduce(
           (
             total,
             producto,
           ) =>
             total +
-            producto.faltante,
+            producto.sugerido,
           0,
         )
 
@@ -297,7 +193,7 @@ export default function ReplenishmentModule() {
         agotados,
         stockBajo,
         enMinimo,
-        unidadesFaltantes,
+        unidadesSugeridas,
       }
     }, [productos])
 
@@ -496,7 +392,10 @@ export default function ReplenishmentModule() {
                     Stock mínimo
                   </th>
                   <th>
-                    Faltante al mínimo
+                    En camino
+                  </th>
+                  <th>
+                    Sugerido a comprar
                   </th>
                   <th>Estado</th>
                 </tr>
@@ -553,9 +452,19 @@ export default function ReplenishmentModule() {
                       </td>
 
                       <td>
-                        {
-                          producto.faltante
-                        }
+                        {producto.enCamino > 0
+                          ? producto.enCamino
+                          : '—'}
+                      </td>
+
+                      <td>
+                        {producto.sugerido > 0 ? (
+                          <strong>
+                            {producto.sugerido}
+                          </strong>
+                        ) : (
+                          'Ya pedido'
+                        )}
                       </td>
 
                       <td>
@@ -587,22 +496,24 @@ export default function ReplenishmentModule() {
       <div className="replenishment-info">
         <div>
           <span>
-            Unidades faltantes para
-            alcanzar mínimos
+            Unidades sugeridas
+            a comprar
           </span>
 
           <strong>
             {
-              resumen.unidadesFaltantes
+              resumen.unidadesSugeridas
             }
           </strong>
         </div>
 
         <p>
-          La reposición se calcula
-          comparando la existencia
-          actual con el stock mínimo
-          configurado en cada producto.
+          La cantidad sugerida completa
+          el stock máximo y descuenta lo
+          ya pedido que no ha llegado. El
+          Encargado de Compras ve esta
+          misma lista al registrar una
+          compra.
         </p>
       </div>
     </div>
