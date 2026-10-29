@@ -6,6 +6,11 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import {
+  errorCedula,
+  errorRuc,
+  mensajeIdentidad,
+} from '../lib/identidad'
 
 
 type Cliente = {
@@ -312,6 +317,19 @@ export default function ClientsModule({
       return
     }
 
+    // Persona natural: cédula; empresa: RUC J + 13 dígitos (la base valida lo mismo)
+    const problemaIdentificacion =
+      formulario.identificacion.trim()
+        ? formulario.tipo_cliente === 'juridica'
+          ? errorRuc(formulario.identificacion, false)
+          : errorCedula(formulario.identificacion)
+        : null
+
+    if (problemaIdentificacion) {
+      setError(problemaIdentificacion)
+      return
+    }
+
     let limiteCredito: number | null = null
 
     if (formulario.permite_credito) {
@@ -365,9 +383,10 @@ export default function ClientsModule({
 
     if (respuesta.error) {
       const mensaje =
-        respuesta.error.code === '23505'
+        respuesta.error.code === '23505' &&
+        !/identificacion/.test(respuesta.error.message)
           ? 'Ya existe un cliente con ese código.'
-          : respuesta.error.message
+          : mensajeIdentidad(respuesta.error.message)
 
       setError(mensaje)
       setGuardando(false)
@@ -589,7 +608,11 @@ export default function ClientsModule({
                       event.target.value,
                   }))
                 }
-                placeholder="Cédula o RUC"
+                placeholder={
+                  formulario.tipo_cliente === 'juridica'
+                    ? 'RUC: J0310000000000'
+                    : 'Cédula: 001-010190-0000M'
+                }
               />
             </label>
 

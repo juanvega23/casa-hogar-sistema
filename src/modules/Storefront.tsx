@@ -12,6 +12,13 @@ import type { User } from '@supabase/supabase-js'
 import { supabaseTienda as supabase } from '../lib/supabase'
 import { mensajeIntentoAcceso } from '../lib/accesos'
 import { errorClave } from '../lib/contrasenas'
+import {
+  errorCedula,
+  errorTelefono,
+  mensajeIdentidad,
+  normalizarCedula,
+  normalizarTelefono,
+} from '../lib/identidad'
 import { ReglasClave } from '../lib/ReglasClave'
 import { formatearFechaOferta } from '../lib/descuentos'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
@@ -236,6 +243,7 @@ type ClienteWeb = {
   correo: string
   telefono: string | null
   direccion: string | null
+  cedula: string | null
   activo: boolean
 }
 
@@ -457,6 +465,7 @@ export default function Storefront({ path, navigate }: Props) {
   const [nombre, setNombre] = useState('')
   const [telefono, setTelefono] = useState('')
   const [direccion, setDireccion] = useState('')
+  const [cedula, setCedula] = useState('')
 
   const [nuevaClave, setNuevaClave] = useState('')
   const [confirmarClave, setConfirmarClave] = useState('')
@@ -465,6 +474,7 @@ export default function Storefront({ path, navigate }: Props) {
   const [perfilNombre, setPerfilNombre] = useState('')
   const [perfilTelefono, setPerfilTelefono] = useState('')
   const [perfilDireccion, setPerfilDireccion] = useState('')
+  const [perfilCedula, setPerfilCedula] = useState('')
 
   const [pedidoAbierto, setPedidoAbierto] = useState<Pedido | null>(null)
   const [detallePedido, setDetallePedido] = useState<DetallePedido[]>([])
@@ -568,7 +578,7 @@ export default function Storefront({ path, navigate }: Props) {
     const { data, error: perfilError } =
       await supabase
         .from('clientes_web')
-        .select('id,nombre,correo,telefono,direccion,activo')
+        .select('id,nombre,correo,telefono,direccion,cedula,activo')
         .eq('id', user.id)
         .single()
 
@@ -966,6 +976,14 @@ export default function Storefront({ path, navigate }: Props) {
       return
     }
 
+    // La base valida lo mismo (validar_identidad_cliente_web)
+    const problemaIdentidad = errorCedula(cedula) ?? errorTelefono(telefono)
+
+    if (problemaIdentidad) {
+      setError(problemaIdentidad)
+      return
+    }
+
     const problemaClave = errorClave(password)
 
     if (problemaClave) {
@@ -985,14 +1003,21 @@ export default function Storefront({ path, navigate }: Props) {
         data: {
           account_type: 'cliente_web',
           full_name: nombre.trim(),
-          phone: telefono.trim(),
+          phone: normalizarTelefono(telefono),
           address: direccion.trim(),
+          cedula: normalizarCedula(cedula),
         },
       },
     })
 
     if (signupError) {
-      setError(signupError.message)
+      // Si la base rechaza el alta (por ejemplo, cédula o teléfono ya
+      // usados en otra cuenta), Supabase solo devuelve este mensaje.
+      setError(
+        /database error saving new user/i.test(signupError.message)
+          ? 'No se pudo crear la cuenta. Revisá que la cédula y el teléfono no estén registrados en otra cuenta.'
+          : signupError.message,
+      )
       setProcesando(false)
       return
     }
@@ -1072,6 +1097,18 @@ export default function Storefront({ path, navigate }: Props) {
     navigate('/tienda/mi-cuenta')
   }
 
+  function abrirEdicionPerfil() {
+    if (!cliente) return
+
+    setPerfilNombre(cliente.nombre)
+    setPerfilTelefono(cliente.telefono ?? '')
+    setPerfilDireccion(cliente.direccion ?? '')
+    setPerfilCedula('')
+    setError('')
+    setMensaje('')
+    setEditandoPerfil(true)
+  }
+
   async function guardarPerfil(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!cliente) return
@@ -1084,23 +1121,34 @@ export default function Storefront({ path, navigate }: Props) {
       return
     }
 
+    // La cédula solo se agrega si falta (después no se puede cambiar)
+    const agregaCedula = !cliente.cedula
+    const problemaIdentidad =
+      (agregaCedula ? errorCedula(perfilCedula) : null) ?? errorTelefono(perfilTelefono)
+
+    if (problemaIdentidad) {
+      setError(problemaIdentidad)
+      return
+    }
+
     setProcesando(true)
 
     const { data, error: perfilError } = await supabase
       .from('clientes_web')
       .update({
         nombre: perfilNombre.trim(),
-        telefono: perfilTelefono.trim() || null,
+        telefono: normalizarTelefono(perfilTelefono),
         direccion: perfilDireccion.trim() || null,
+        ...(agregaCedula ? { cedula: normalizarCedula(perfilCedula) } : {}),
       })
       .eq('id', cliente.id)
-      .select('id,nombre,correo,telefono,direccion,activo')
+      .select('id,nombre,correo,telefono,direccion,cedula,activo')
       .single()
 
     setProcesando(false)
 
     if (perfilError) {
-      setError(perfilError.message)
+      setError(mensajeIdentidad(perfilError.message))
       return
     }
 
@@ -1791,6 +1839,15 @@ export default function Storefront({ path, navigate }: Props) {
                       Ingresar para continuar
                     </button>
                   </>
+                ) : !cliente?.cedula || !cliente?.telefono ? (
+                  <>
+                    {/* Cuentas anteriores a la cédula obligatoria (registrar_pedido_web también lo exige) */}
+                    <div className="t-total"><span>Total</span><b>{dinero(totalCarrito)}</b></div>
+                    <div className="t-aviso">Para confirmar pedidos necesitamos tu cédula y tu teléfono. Completalos en "Mi cuenta" y volvé al carrito.</div>
+                    <button className="t-confirmar" type="button" onClick={() => navigate('/tienda/mi-cuenta')}>
+                      Completar mis datos
+                    </button>
+                  </>
                 ) : (
                   <form className="t-form" onSubmit={confirmarPedido}>
                     <fieldset className="t-entrega">
@@ -1949,8 +2006,32 @@ export default function Storefront({ path, navigate }: Props) {
                           <input value={nombre} onChange={e => setNombre(e.target.value)} autoComplete="name" required />
                         </label>
                         <label>
+                          Cédula de identidad
+                          <input
+                            value={cedula}
+                            onChange={e => setCedula(e.target.value)}
+                            onBlur={() => cedula && setCedula(normalizarCedula(cedula))}
+                            placeholder="001-010190-0000M"
+                            maxLength={20}
+                            autoComplete="off"
+                            required
+                          />
+                          <small className={cedula && errorCedula(cedula) ? 't-ayuda is-error' : 't-ayuda'}>
+                            {cedula && errorCedula(cedula)
+                              ? errorCedula(cedula)
+                              : 'La pedimos para verificar tu identidad al entregar el pedido.'}
+                          </small>
+                        </label>
+                        <label>
                           Teléfono
-                          <input value={telefono} onChange={e => setTelefono(e.target.value)} autoComplete="tel" />
+                          <input
+                            value={telefono}
+                            onChange={e => setTelefono(e.target.value)}
+                            placeholder="8123 4567"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            required
+                          />
                         </label>
                         <label>
                           Dirección
@@ -2040,6 +2121,18 @@ export default function Storefront({ path, navigate }: Props) {
           {error && <div className="store-error">{error}</div>}
           {mensaje && <div className="store-message">{mensaje}</div>}
 
+          {(!cliente.cedula || !cliente.telefono) && !editandoPerfil && (
+            <div className="t-completar-datos">
+              <span>
+                <strong>Completá tus datos para hacer pedidos.</strong>
+                {' '}Necesitamos tu {!cliente.cedula && !cliente.telefono ? 'cédula y tu teléfono' : !cliente.cedula ? 'cédula' : 'teléfono'} para verificar tu identidad al entregar.
+              </span>
+              <button className="store-primary store-primary--small" type="button" onClick={abrirEdicionPerfil}>
+                Completar datos
+              </button>
+            </div>
+          )}
+
           <section className="store-account-card store-account-card--stitch">
             <div className="store-section-heading">
               <div>
@@ -2052,14 +2145,7 @@ export default function Storefront({ path, navigate }: Props) {
                   <button
                     className="store-secondary-button"
                     type="button"
-                    onClick={() => {
-                      setPerfilNombre(cliente.nombre)
-                      setPerfilTelefono(cliente.telefono ?? '')
-                      setPerfilDireccion(cliente.direccion ?? '')
-                      setError('')
-                      setMensaje('')
-                      setEditandoPerfil(true)
-                    }}
+                    onClick={abrirEdicionPerfil}
                   >
                     Editar datos
                   </button>
@@ -2086,8 +2172,32 @@ export default function Storefront({ path, navigate }: Props) {
                 </label>
                 <label>
                   Teléfono
-                  <input value={perfilTelefono} onChange={e => setPerfilTelefono(e.target.value)} />
+                  <input
+                    value={perfilTelefono}
+                    onChange={e => setPerfilTelefono(e.target.value)}
+                    placeholder="8123 4567"
+                    inputMode="tel"
+                    required
+                  />
                 </label>
+                {!cliente.cedula && (
+                  <label>
+                    Cédula de identidad
+                    <input
+                      value={perfilCedula}
+                      onChange={e => setPerfilCedula(e.target.value)}
+                      onBlur={() => perfilCedula && setPerfilCedula(normalizarCedula(perfilCedula))}
+                      placeholder="001-010190-0000M"
+                      maxLength={20}
+                      required
+                    />
+                    <small className={perfilCedula && errorCedula(perfilCedula) ? 't-ayuda is-error' : 't-ayuda'}>
+                      {perfilCedula && errorCedula(perfilCedula)
+                        ? errorCedula(perfilCedula)
+                        : 'Después de guardarla no se puede cambiar.'}
+                    </small>
+                  </label>
+                )}
                 <label className="store-form-full">
                   Dirección
                   <textarea value={perfilDireccion} onChange={e => setPerfilDireccion(e.target.value)} />
@@ -2114,8 +2224,16 @@ export default function Storefront({ path, navigate }: Props) {
                   <dd>{cliente.correo}</dd>
                 </div>
                 <div>
+                  <dt>Cédula</dt>
+                  <dd>{cliente.cedula || 'Falta: necesaria para hacer pedidos'}</dd>
+                </div>
+                <div>
                   <dt>Teléfono</dt>
-                  <dd>{cliente.telefono || 'Sin registrar'}</dd>
+                  <dd>
+                    {cliente.telefono
+                      ? cliente.telefono.replace(/^(\d{4})(\d{4})$/, '$1 $2')
+                      : 'Falta: necesario para hacer pedidos'}
+                  </dd>
                 </div>
                 <div>
                   <dt>Dirección</dt>

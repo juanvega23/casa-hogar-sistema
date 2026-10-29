@@ -16,6 +16,7 @@ type Pedido = {
   cliente_nombre: string
   telefono: string | null
   correo: string | null
+  cliente_cedula: string | null
   modalidad_entrega: string
   direccion_entrega: string | null
   metodo_pago: string | null
@@ -155,7 +156,8 @@ export default function OnlineOrdersModule({
         pedido.numero.toLowerCase().includes(termino) ||
         pedido.cliente_nombre.toLowerCase().includes(termino) ||
         (pedido.correo ?? '').toLowerCase().includes(termino) ||
-        (pedido.telefono ?? '').toLowerCase().includes(termino)
+        (pedido.telefono ?? '').toLowerCase().includes(termino) ||
+        (pedido.cliente_cedula ?? '').toLowerCase().includes(termino)
 
       const coincideEstado =
         estado === 'todos' ||
@@ -199,6 +201,7 @@ export default function OnlineOrdersModule({
           cliente_nombre,
           telefono,
           correo,
+          cliente_cedula,
           modalidad_entrega,
           direccion_entrega,
           metodo_pago,
@@ -442,6 +445,11 @@ export default function OnlineOrdersModule({
                   ? ` · ${pedidoSeleccionado.correo}`
                   : ''}
               </p>
+              {/* Para verificar la identidad de quien retira o recibe */}
+              <p>
+                Cédula:{' '}
+                <strong>{pedidoSeleccionado.cliente_cedula ?? 'No registrada (pedido anterior)'}</strong>
+              </p>
             </div>
 
             <button
@@ -630,7 +638,7 @@ export default function OnlineOrdersModule({
               type="text"
               value={busqueda}
               onChange={event => setBusqueda(event.target.value)}
-              placeholder="Buscar por número, cliente, correo o teléfono..."
+              placeholder="Buscar por número, cliente, cédula, correo o teléfono..."
             />
           </div>
 

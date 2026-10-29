@@ -6,6 +6,10 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import {
+  errorRuc,
+  mensajeIdentidad,
+} from '../lib/identidad'
 
 
 // ==========================================================
@@ -585,6 +589,15 @@ export default function SuppliersModule({
       }
 
 
+      // RUC: J + 13 dígitos o cédula (la base valida lo mismo)
+      const problemaRuc =
+        errorRuc(form.ruc, true)
+
+      if (problemaRuc) {
+        throw new Error(problemaRuc)
+      }
+
+
       const payload = {
         nombre,
 
@@ -697,9 +710,11 @@ export default function SuppliersModule({
       await cargarProveedores()
     } catch (err) {
       setError(
-        obtenerMensajeError(
-          err,
-          'No fue posible guardar el proveedor.',
+        mensajeIdentidad(
+          obtenerMensajeError(
+            err,
+            'No fue posible guardar el proveedor.',
+          ),
         ),
       )
     } finally {
