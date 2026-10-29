@@ -2120,6 +2120,54 @@ html .inventory-module .productos-th-filtro select {
   .productos-tabla .productos-col-acciones { position: static; }
 }
 
+/* ==========================================================
+   SOPORTE TI · ROLES Y PERMISOS (una tarjeta por rol)
+   ========================================================== */
+/* Columnas continuas: las tarjetas cortas no dejan huecos junto a las largas */
+.soporte-roles { columns: 2 440px; column-gap: 16px; }
+
+.soporte-rol {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  break-inside: avoid;
+  padding: 20px 22px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-lg);
+  background: var(--ch-superficie);
+  box-shadow: var(--ch-sombra-baja);
+  color: var(--ch-texto);
+}
+.soporte-rol.is-antiguo { background: var(--ch-fondo); box-shadow: none; }
+
+.soporte-rol header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.soporte-rol header > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.soporte-rol h3 { width: 100%; margin: 0; font-family: var(--ch-display); font-size: 18px; line-height: 1.25; }
+.soporte-rol-codigo { font-family: var(--ch-datos); font-size: 12.5px; color: var(--ch-texto-suave); }
+.soporte-rol-aviso { padding: 2px 9px; border-radius: 999px; background: var(--ch-amarillo-suave); font-size: 12px; font-weight: 600; }
+
+.soporte-rol-usuarios { display: grid; justify-items: end; flex: none; font-size: 12.5px; color: var(--ch-texto-suave); text-align: right; }
+.soporte-rol-usuarios strong { font-family: var(--ch-display); font-size: 24px; line-height: 1; color: var(--ch-texto); }
+
+.soporte-rol p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ch-texto-suave); }
+
+.soporte-rol-modulos { display: grid; gap: 10px; padding-top: 4px; }
+.soporte-rol-grupo { display: grid; gap: 6px; }
+.soporte-rol-grupo > span { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ch-texto-suave); }
+.soporte-rol-modulos ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.soporte-rol-modulos li {
+  padding: 5px 11px;
+  border: 1px solid var(--ch-linea);
+  border-radius: 999px;
+  background: var(--ch-fondo);
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+.soporte-rol-vacio { font-size: 14px; color: var(--ch-texto-suave); }
+
+/* Auditoría: registros cargados directamente en la base */
+.soporte-sin-usuario { color: var(--ch-texto-suave); font-style: italic; cursor: help; }
+
 @media (prefers-reduced-motion: reduce) {
   .tienda *,
   .t-cargando-anillo { animation: none !important; transition: none !important; }

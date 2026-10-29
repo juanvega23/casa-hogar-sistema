@@ -94,15 +94,21 @@ async function mensajeDeFuncion(error: unknown) {
     : 'No fue posible completar la operación.'
 }
 
+/*
+ * Módulos del menú de un rol: los que tienen submódulos se
+ * muestran como grupo; los de acceso directo, juntos al inicio.
+ */
 function modulosDeRol(codigo: string) {
   const menu = menusByRole[codigo as RoleCode] ?? []
 
-  return menu.map(item =>
-    item.children?.length
-      ? `${item.nombre}: ${item.children.map(c => c.nombre).join(', ')}`
-      : item.nombre,
-  )
+  return {
+    directos: menu.filter(item => !item.children?.length),
+    grupos: menu.filter(item => item.children?.length),
+  }
 }
+
+// Registros hechos directamente en la base (cargas de datos), sin sesión de usuario.
+const SIN_USUARIO = '—'
 
 export default function SupportModule({
   roleCode,
@@ -248,7 +254,9 @@ export default function SupportModule({
         e.accion.toLowerCase().includes(termino) ||
         (e.referencia ?? '').toLowerCase().includes(termino) ||
         (e.detalle ?? '').toLowerCase().includes(termino) ||
-        e.usuario.toLowerCase().includes(termino)
+        (e.usuario === SIN_USUARIO ? 'carga del sistema' : e.usuario)
+          .toLowerCase()
+          .includes(termino)
 
       return coincideModulo && coincideBusqueda
     })
@@ -446,44 +454,74 @@ export default function SupportModule({
 
         {mensajes}
 
-        <section className="history-list-card">
-          <div className="history-table-wrap">
-            <table className="history-table">
-              <thead>
-                <tr>
-                  <th>Rol</th>
-                  <th>Usuarios activos</th>
-                  <th>Módulos habilitados</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roles.map(rol => {
-                  const activos = usuarios.filter(
-                    u => u.role_id === rol.id && u.activo,
-                  ).length
+        <section className="soporte-roles">
+          {[...roles]
+            .sort(
+              (a, b) =>
+                Number(ROLES_ANTIGUOS.includes(a.codigo)) -
+                  Number(ROLES_ANTIGUOS.includes(b.codigo)) ||
+                a.nombre.localeCompare(b.nombre, 'es'),
+            )
+            .map(rol => {
+              const activos = usuarios.filter(
+                u => u.role_id === rol.id && u.activo,
+              ).length
+              const { directos, grupos } = modulosDeRol(rol.codigo)
+              const antiguo = ROLES_ANTIGUOS.includes(rol.codigo)
 
-                  return (
-                    <tr key={rol.id}>
-                      <td>
-                        <strong>{rol.nombre}</strong>
-                        <small>
-                          {rol.codigo}
-                          {ROLES_ANTIGUOS.includes(rol.codigo) && ' · rol antiguo (compatibilidad)'}
-                        </small>
-                        {rol.descripcion && <small>{rol.descripcion}</small>}
-                      </td>
-                      <td>{activos}</td>
-                      <td>
-                        {modulosDeRol(rol.codigo).map(linea => (
-                          <small key={linea}>{linea}</small>
+              return (
+                <article
+                  key={rol.id}
+                  className={antiguo ? 'soporte-rol is-antiguo' : 'soporte-rol'}
+                >
+                  <header>
+                    <div>
+                      <h3>{rol.nombre}</h3>
+                      <span className="soporte-rol-codigo">{rol.codigo}</span>
+                      {antiguo && (
+                        <span className="soporte-rol-aviso">
+                          Rol antiguo · compatibilidad
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="soporte-rol-usuarios">
+                      <strong>{activos}</strong>
+                      {activos === 1 ? 'usuario activo' : 'usuarios activos'}
+                    </span>
+                  </header>
+
+                  {rol.descripcion && <p>{rol.descripcion}</p>}
+
+                  <div className="soporte-rol-modulos">
+                    {directos.length > 0 && (
+                      <ul>
+                        {directos.map(item => (
+                          <li key={item.id}>{item.nombre}</li>
                         ))}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </ul>
+                    )}
+
+                    {grupos.map(item => (
+                      <div key={item.id} className="soporte-rol-grupo">
+                        <span>{item.nombre}</span>
+                        <ul>
+                          {item.children?.map(sub => (
+                            <li key={sub.id}>{sub.nombre}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+
+                    {directos.length === 0 && grupos.length === 0 && (
+                      <span className="soporte-rol-vacio">
+                        Sin módulos asignados
+                      </span>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
         </section>
       </div>
     )
@@ -581,7 +619,18 @@ export default function SupportModule({
                       <td><strong>{e.accion}</strong></td>
                       <td>{e.referencia ?? '—'}</td>
                       <td>{e.detalle ?? '—'}</td>
-                      <td>{e.usuario}</td>
+                      <td>
+                        {e.usuario === SIN_USUARIO ? (
+                          <span
+                            className="soporte-sin-usuario"
+                            title="Registrado directamente en la base de datos (carga de datos), sin sesión de un usuario."
+                          >
+                            Carga del sistema
+                          </span>
+                        ) : (
+                          e.usuario
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
