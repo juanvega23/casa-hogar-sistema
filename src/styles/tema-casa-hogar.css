@@ -997,19 +997,26 @@ html .auth-link:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 
-/* Portada: carrusel de fotos de ambiente + dos ofertas al lado */
-.t-portada {
-  display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-  gap: 14px;
-}
-
+/* Portada: carrusel a todo el ancho. La primera diapositiva es la
+   portada en gris acero (texto + ofertas); luego pasan las fotos. */
 .t-carrusel {
   position: relative;
   overflow: hidden;
-  min-height: 0;
-  aspect-ratio: 16 / 7;
+  height: clamp(380px, 31vw, 420px);
   border-radius: 20px;
+  border: 1px solid var(--ch-acero-borde);
+  background: var(--t-acero);
+}
+
+.t-diapositiva.t-diapositiva--inicio { padding: 0; }
+
+/* Margen lateral para las flechas y abajo para los puntos */
+.t-portada {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 20px;
+  width: 100%;
+  padding: 30px 64px 46px;
   background: var(--t-acero);
 }
 
@@ -1144,12 +1151,11 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-collage {
   display: grid;
+  grid-template-columns: 1.25fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 14px;
+  gap: 12px;
   min-height: 0;
 }
-
-.t-collage .t-pieza { border-color: var(--ch-linea); }
 
 .t-pieza {
   position: relative;
@@ -1165,10 +1171,10 @@ html .auth-link:hover { text-decoration: underline; }
 }
 
 .t-pieza:hover { box-shadow: var(--ch-sombra); transform: translateY(-2px); }
-/* Con el carrusel, las dos ofertas van apiladas en filas iguales */
+.t-pieza--grande { grid-row: span 2; }
 .t-pieza > svg { width: 44%; max-width: 92px; height: auto; fill: none; stroke: var(--ch-texto-suave); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .t-pieza--grande .t-foto,
-.t-pieza--grande .t-foto-vacia { width: 60%; height: 62%; }
+.t-pieza--grande .t-foto-vacia { width: 78%; height: 70%; }
 .t-pieza:not(.t-pieza--grande) .t-foto,
 .t-pieza:not(.t-pieza--grande) .t-foto-vacia { width: 70%; height: 64px; }
 .t-pieza-nombre { position: absolute; left: 14px; right: 14px; bottom: 11px; display: grid; gap: 1px; font-size: 13px; font-weight: 700; text-align: left; }
@@ -1913,8 +1919,9 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .t-cabeza-interior { grid-template-columns: auto auto; }
   .t-buscador { grid-column: 1 / -1; order: 3; }
   .t-acciones { justify-self: end; }
-  .t-portada { grid-template-columns: 1fr; }
-  .t-collage { grid-template-rows: none; grid-template-columns: 1fr 1fr; min-height: 190px; }
+  /* En pantallas angostas la primera diapositiva lleva solo el texto */
+  .t-portada { grid-template-columns: 1fr; align-content: center; }
+  .t-collage { display: none; }
   .t-confianza { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .t-confianza > div:nth-child(3) { border-left: 0; }
   .t-confianza > div:nth-child(n + 3) { border-top: 1px solid var(--ch-linea); }
@@ -1956,7 +1963,8 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
 
 /* Carrusel en celular: foto arriba y texto debajo (sin tapar la foto) */
 @media (max-width: 700px) {
-  .t-carrusel { aspect-ratio: auto; background: var(--ch-superficie); border: 1px solid var(--ch-linea); }
+  .t-carrusel { height: auto; background: var(--ch-superficie); border-color: var(--ch-linea); }
+  .t-portada { padding: 22px 20px 48px; }
   .t-diapositiva { flex-direction: column; align-items: stretch; padding: 0; }
   .t-diapositiva picture { position: static; display: block; height: 200px; }
   .t-diapositiva-tarjeta { width: auto; padding: 16px 16px 44px; border-radius: 0; box-shadow: none; }

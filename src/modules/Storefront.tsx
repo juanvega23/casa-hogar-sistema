@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from 'react'
 
 import type { User } from '@supabase/supabase-js'
@@ -84,17 +85,23 @@ const DIAPOSITIVAS: Diapositiva[] = [
 
 const INTERVALO_CARRUSEL = 6000
 
+/*
+ * Carrusel de la portada: la primera diapositiva es la portada de
+ * siempre (texto y ofertas); después pasan las fotos de ambiente.
+ */
 function Carrusel({
+  inicio,
   descuentoMaximo,
   onElegir,
 }: {
+  inicio: ReactNode
   descuentoMaximo: (departamento: string) => number
   onElegir: (departamento: string) => void
 }) {
   const [indice, setIndice] = useState(0)
   const [pausado, setPausado] = useState(false)
   const inicioToque = useRef<number | null>(null)
-  const total = DIAPOSITIVAS.length
+  const total = DIAPOSITIVAS.length + 1
 
   const sinMovimiento =
     typeof window !== 'undefined' &&
@@ -129,7 +136,19 @@ function Carrusel({
       }}
     >
       <div className="t-carrusel-pista" style={{ transform: `translateX(-${indice * 100}%)` }}>
-        {DIAPOSITIVAS.map((d, i) => {
+        <div
+          className="t-diapositiva t-diapositiva--inicio"
+          role="group"
+          aria-roledescription="diapositiva"
+          aria-label={`1 de ${total}`}
+          aria-hidden={indice !== 0}
+          inert={indice !== 0}
+        >
+          {inicio}
+        </div>
+
+        {DIAPOSITIVAS.map((d, posicion) => {
+          const i = posicion + 1
           const descuento = descuentoMaximo(d.departamento)
 
           return (
@@ -170,13 +189,13 @@ function Carrusel({
       </button>
 
       <div className="t-carrusel-puntos">
-        {DIAPOSITIVAS.map((d, i) => (
+        {['Ofertas de la semana', ...DIAPOSITIVAS.map(d => d.titulo)].map((titulo, i) => (
           <button
-            key={d.id}
+            key={titulo}
             type="button"
             className={i === indice ? 'is-activo' : ''}
             onClick={() => setIndice(i)}
-            aria-label={`Ir a la diapositiva ${i + 1}: ${d.titulo}`}
+            aria-label={`Ir a la diapositiva ${i + 1}: ${titulo}`}
             aria-current={i === indice}
           />
         ))}
@@ -648,13 +667,13 @@ export default function Storefront({ path, navigate }: Props) {
     [productos],
   )
 
-  // Pieza chica junto al carrusel: el siguiente producto disponible
-  // con más descuento (los departamentos ya tienen su mosaico).
+  // Las dos piezas chicas de la portada: los siguientes productos
+  // disponibles con más descuento (los departamentos ya tienen su mosaico).
   const piezasSecundarias = useMemo(
     () => productos
       .filter(p => p.disponible && p.id !== destacado?.id)
       .sort((a, b) => b.descuento_porcentaje - a.descuento_porcentaje)
-      .slice(0, 1),
+      .slice(0, 2),
     [productos, destacado],
   )
 
@@ -1199,15 +1218,39 @@ export default function Storefront({ path, navigate }: Props) {
 
       {vista === 'catalogo' && (
         <main className="t-contenido">
-          <section className="t-portada" aria-label="Portada de la tienda">
-            <h1 className="t-solo-lectores">Ferretería Casa Hogar · Tienda en línea</h1>
-
-            <Carrusel
-              descuentoMaximo={descuentoMaximo}
-              onElegir={nombre =>
-                elegirDepartamento(departamentos.some(d => d.nombre === nombre) ? nombre : 'Todos')
-              }
-            />
+          <Carrusel
+            descuentoMaximo={descuentoMaximo}
+            onElegir={nombre =>
+              elegirDepartamento(departamentos.some(d => d.nombre === nombre) ? nombre : 'Todos')
+            }
+            inicio={
+          <div className="t-portada">
+            <div className="t-portada-texto">
+              <span className="t-etiqueta">{hayOfertas ? 'Ofertas de la semana' : 'Pedidos en línea'}</span>
+              <h1>Todo para tu obra, <em>listo para retirar</em></h1>
+              <p>Armá tu pedido desde la casa o el trabajo. Lo preparamos en bodega y te avisamos cuando puedas pasar por él, o te lo llevamos.</p>
+              <div className="t-botones">
+                <button
+                  className="t-boton t-boton--primario"
+                  type="button"
+                  onClick={() => elegirDepartamento(hayOfertas ? FILTRO_OFERTAS : 'Todos')}
+                >
+                  {hayOfertas ? 'Ver ofertas' : 'Ver productos'}
+                </button>
+                <button
+                  className="t-boton t-boton--secundario"
+                  type="button"
+                  onClick={() => document.getElementById('como-comprar')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                  Cómo funciona el retiro
+                </button>
+              </div>
+              <div className="t-garantias">
+                <span>Precios del sistema</span>
+                <span>Existencia real</span>
+                <span>Pagás al retirar</span>
+              </div>
+            </div>
 
             <div className="t-collage">
               {destacado && (
@@ -1245,7 +1288,9 @@ export default function Storefront({ path, navigate }: Props) {
                 </button>
               ))}
             </div>
-          </section>
+          </div>
+            }
+          />
 
           {/* Con un solo departamento la barra superior ya alcanza */}
           {departamentos.length > 1 && (
