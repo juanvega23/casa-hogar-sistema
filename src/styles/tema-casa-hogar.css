@@ -1088,8 +1088,8 @@ html .auth-link:hover { text-decoration: underline; }
 }
 
 .t-diapositiva--derecha { justify-content: flex-end; }
-.t-diapositiva picture { position: absolute; inset: 0; }
-.t-diapositiva img { width: 100%; height: 100%; object-fit: cover; }
+.t-diapositiva > picture { position: absolute; inset: 0; }
+.t-diapositiva > picture img { width: 100%; height: 100%; object-fit: cover; }
 
 .t-diapositiva-tarjeta {
   position: relative;
@@ -2019,7 +2019,7 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .t-carrusel { height: auto; background: var(--ch-superficie); border-color: var(--ch-linea); }
   .t-portada { padding: 22px 20px 48px; }
   .t-diapositiva { flex-direction: column; align-items: stretch; padding: 0; }
-  .t-diapositiva picture { position: static; display: block; height: 200px; }
+  .t-diapositiva > picture { position: static; display: block; height: 200px; }
   .t-diapositiva-tarjeta { width: auto; padding: 16px 16px 44px; border-radius: 0; box-shadow: none; }
   .t-carrusel-flecha { display: none; }
   .t-carrusel-puntos { bottom: 10px; background: var(--ch-fondo); }
