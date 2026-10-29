@@ -1741,7 +1741,7 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-pie-interior {
   display: grid;
-  grid-template-columns: 1.4fr repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr));
   gap: 24px;
 }
 
@@ -2777,3 +2777,25 @@ html .inventory-module .productos-th-filtro select {
   color: var(--ch-texto);
 }
 .t-ayuda.is-error { color: var(--ch-peligro); }
+
+/* Contacto de la ferretería (pie y pedidos) */
+.t-pie a { color: var(--ch-texto); text-decoration: none; }
+.t-pie a:hover { color: var(--ch-naranja-hover); text-decoration: underline; }
+.t-pie-contacto li { line-height: 1.4; }
+
+.t-pedido-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
+
+.t-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-md);
+  background: var(--ch-superficie);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ch-texto);
+  text-decoration: none;
+}
+.t-whatsapp:hover { background: var(--ch-fondo); border-color: var(--ch-texto-suave); }

@@ -273,6 +273,20 @@ const METODOS_PAGO: { valor: MetodoPago; titulo: string; detalle: string }[] = [
  * Cuenta FICTICIA para la demostración del proyecto.
  * Reemplazar por la cuenta real de la ferretería antes de usarla.
  */
+// Contacto de la ferretería: pie de la tienda, pedidos y confirmación.
+const CONTACTO_TIENDA = {
+  telefono: '7887 2746',
+  telefonoEnlace: 'tel:+50578872746',
+  whatsapp: '50578872746',
+  direccion: 'Del Instituto Rigoberto López Pérez 2 c. al norte, barrio Hialeah, Managua',
+  mapa: 'https://www.google.com/maps/search/?api=1&query=Instituto+Rigoberto+L%C3%B3pez+P%C3%A9rez+Managua',
+}
+
+function enlaceWhatsApp(mensaje?: string) {
+  const base = `https://wa.me/${CONTACTO_TIENDA.whatsapp}`
+  return mensaje ? `${base}?text=${encodeURIComponent(mensaje)}` : base
+}
+
 const CUENTA_TRANSFERENCIA = {
   banco: 'Banco Ejemplo de Nicaragua',
   titular: 'Ferretería Casa Hogar, S.A.',
@@ -1273,7 +1287,7 @@ export default function Storefront({ path, navigate }: Props) {
 
     const fila = Array.isArray(data) ? data[0] : data
     setCarrito({})
-    setMensaje(`Pedido ${fila?.numero ?? ''} registrado correctamente.`, 'cuenta')
+    setMensaje(`Pedido ${fila?.numero ?? ''} registrado correctamente. Si tenés alguna duda, escribinos al WhatsApp o llamanos al ${CONTACTO_TIENDA.telefono}.`, 'cuenta')
     setProcesando(false)
     await cargarCliente(usuario!)
     navigate('/tienda/mi-cuenta')
@@ -2316,16 +2330,27 @@ export default function Storefront({ path, navigate }: Props) {
                         </ul>
                       )}
 
-                      {pedido.estado === 'recibido' && (
-                        <button
-                          className="store-secondary-button"
-                          type="button"
-                          disabled={procesando}
-                          onClick={() => void cancelarPedido(pedido)}
+                      <div className="t-pedido-acciones">
+                        <a
+                          className="t-whatsapp"
+                          href={enlaceWhatsApp(`Hola, tengo una consulta sobre mi pedido ${pedido.numero}.`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
                         >
-                          {procesando ? 'Cancelando...' : 'Cancelar pedido'}
-                        </button>
-                      )}
+                          Consultar por WhatsApp
+                        </a>
+
+                        {pedido.estado === 'recibido' && (
+                          <button
+                            className="store-secondary-button"
+                            type="button"
+                            disabled={procesando}
+                            onClick={() => void cancelarPedido(pedido)}
+                          >
+                            {procesando ? 'Cancelando...' : 'Cancelar pedido'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2442,6 +2467,16 @@ export default function Storefront({ path, navigate }: Props) {
               <li>Retiro en tienda</li>
               <li>Entrega a domicilio</li>
               <li>Pago en caja: efectivo, tarjeta o transferencia</li>
+            </ul>
+          </div>
+
+          <div className="t-pie-contacto">
+            <h2>Contacto</h2>
+            <ul>
+              <li><a href={CONTACTO_TIENDA.telefonoEnlace}>Llamar al {CONTACTO_TIENDA.telefono}</a></li>
+              <li><a href={enlaceWhatsApp()} target="_blank" rel="noopener noreferrer">WhatsApp {CONTACTO_TIENDA.telefono}</a></li>
+              <li>{CONTACTO_TIENDA.direccion}</li>
+              <li><a href={CONTACTO_TIENDA.mapa} target="_blank" rel="noopener noreferrer">Cómo llegar</a></li>
             </ul>
           </div>
         </div>
