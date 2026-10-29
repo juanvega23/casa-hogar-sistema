@@ -62,6 +62,7 @@ type ProductoRespuesta = {
 
   precio_compra: number | string
   precio_venta: number | string
+  descuento_porcentaje: number | string | null
   stock_minimo: number | string
   stock_maximo: number | string | null
 
@@ -136,6 +137,7 @@ type Producto = {
 
   precioCompra: number
   precioVenta: number
+  descuento: number
 
   stock: number
   stockMinimo: number
@@ -497,6 +499,15 @@ export default function ProductsModule({
     roleCode ===
     'encargado_compras'
 
+  // Precio de venta y descuento (actualizar_precio_producto)
+  const puedeCambiarPrecios =
+    roleCode ===
+    'responsable_comercial'
+
+  const mostrarAcciones =
+    puedeAdministrar ||
+    puedeCambiarPrecios
+
 
   // ========================================================
   // ESTADOS PRINCIPALES
@@ -579,6 +590,31 @@ export default function ProductsModule({
     useState<FiltrosTabla>(
       FILTROS_VACIOS,
     )
+
+
+  const [
+    productoPrecio,
+    setProductoPrecio,
+  ] =
+    useState<Producto | null>(null)
+
+
+  const [
+    formPrecio,
+    setFormPrecio,
+  ] =
+    useState({
+      precio: '',
+      descuento: '',
+      motivo: '',
+    })
+
+
+  const [
+    guardandoPrecio,
+    setGuardandoPrecio,
+  ] =
+    useState(false)
 
 
   const [
@@ -723,6 +759,7 @@ export default function ProductsModule({
 
               precio_compra,
               precio_venta,
+              descuento_porcentaje,
               stock_minimo,
               stock_maximo,
               activo,
@@ -1086,6 +1123,12 @@ export default function ProductsModule({
                   0,
               ),
 
+            descuento:
+              Number(
+                producto.descuento_porcentaje ??
+                  0,
+              ),
+
 
             stock:
               obtenerStock(
@@ -1426,6 +1469,108 @@ export default function ProductsModule({
     setMostrarFormulario(
       true,
     )
+  }
+
+
+  // ========================================================
+  // PRECIO Y DESCUENTO (RESPONSABLE COMERCIAL)
+  // ========================================================
+
+  function abrirPrecio(
+    producto: Producto,
+  ) {
+    setError('')
+    setExito('')
+    setProductoPrecio(producto)
+    setFormPrecio({
+      precio: producto.precioVenta.toFixed(2),
+      descuento: String(producto.descuento),
+      motivo: '',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+
+  function cerrarPrecio() {
+    if (guardandoPrecio) {
+      return
+    }
+
+    setProductoPrecio(null)
+  }
+
+
+  // Misma fórmula que registrar_venta() y la tienda en línea
+  const vistaPrecio = (() => {
+    if (!productoPrecio) {
+      return null
+    }
+
+    const precio = Number(formPrecio.precio)
+    const descuento = Number(formPrecio.descuento || 0)
+
+    if (
+      !Number.isFinite(precio) ||
+      !Number.isFinite(descuento)
+    ) {
+      return null
+    }
+
+    const final =
+      Math.round(
+        precio * (1 - descuento / 100) * 100,
+      ) / 100
+
+    const margen =
+      final - productoPrecio.precioCompra
+
+    return {
+      final,
+      margen,
+      margenPorcentaje:
+        final > 0 ? (margen / final) * 100 : 0,
+      bajoCosto:
+        final < productoPrecio.precioCompra,
+    }
+  })()
+
+
+  async function guardarPrecio(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault()
+
+    if (!productoPrecio || !vistaPrecio) {
+      return
+    }
+
+    setError('')
+    setExito('')
+    setGuardandoPrecio(true)
+
+    const { error: precioError } =
+      await supabase.rpc(
+        'actualizar_precio_producto',
+        {
+          p_producto_id: productoPrecio.id,
+          p_precio_venta: Number(formPrecio.precio),
+          p_descuento_porcentaje: Number(formPrecio.descuento || 0),
+          p_motivo: formPrecio.motivo.trim() || null,
+        },
+      )
+
+    setGuardandoPrecio(false)
+
+    if (precioError) {
+      setError(precioError.message)
+      return
+    }
+
+    setExito(
+      `Precio de ${productoPrecio.nombre} actualizado. Precio final: ${formatearCordobas(vistaPrecio.final)}.`,
+    )
+    setProductoPrecio(null)
+    await cargarDatos()
   }
 
 
@@ -1958,6 +2103,15 @@ export default function ProductsModule({
         productoEditando !==
         null
       ) {
+        // El precio de venta no se envía: la base solo deja
+        // cambiarlo al Responsable Comercial.
+        const datosEdicion =
+          Object.fromEntries(
+            Object.entries(datosProducto).filter(
+              ([campo]) => campo !== 'precio_venta',
+            ),
+          )
+
         const {
           error:
             actualizarError,
@@ -1967,7 +2121,7 @@ export default function ProductsModule({
               'productos',
             )
             .update(
-              datosProducto,
+              datosEdicion,
             )
             .eq(
               'id',
@@ -2688,7 +2842,18 @@ export default function ProductsModule({
                       )
                   }
                   placeholder="0.00"
+                  disabled={
+                    productoEditando !== null
+                  }
                 />
+
+                {/* Después de crearlo, precio y descuento los cambia el
+                    Responsable Comercial (actualizar_precio_producto). */}
+                <small>
+                  {productoEditando !== null
+                    ? 'Lo cambia el Responsable Comercial.'
+                    : 'Precio inicial; después lo ajusta el Responsable Comercial.'}
+                </small>
               </div>
 
 
@@ -2862,6 +3027,170 @@ export default function ProductsModule({
                         null
                       ? 'Guardar cambios'
                       : 'Crear producto'}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
+
+      {/* ====================================================
+          PRECIO Y DESCUENTO
+          SOLO RESPONSABLE COMERCIAL
+      ==================================================== */}
+
+      {productoPrecio &&
+        puedeCambiarPrecios && (
+          <section className="product-form-card">
+            <div className="product-form-head">
+              <div>
+                <span className="panel-label">
+                  PRECIO Y DESCUENTO
+                </span>
+
+                <h3>{productoPrecio.nombre}</h3>
+
+                <p>
+                  {productoPrecio.codigo} · costo{' '}
+                  {formatearCordobas(productoPrecio.precioCompra)}. El precio final no puede quedar por debajo del costo.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="product-close-button"
+                onClick={cerrarPrecio}
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              className="product-form"
+              onSubmit={guardarPrecio}
+            >
+              <div className="product-field">
+                <label htmlFor="precio-venta">
+                  Precio de venta *
+                </label>
+
+                <input
+                  id="precio-venta"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={formPrecio.precio}
+                  onChange={event =>
+                    setFormPrecio(actual => ({
+                      ...actual,
+                      precio: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </div>
+
+              <div className="product-field">
+                <label htmlFor="precio-descuento">
+                  Descuento (%)
+                </label>
+
+                <input
+                  id="precio-descuento"
+                  type="number"
+                  min="0"
+                  max="99"
+                  step="1"
+                  value={formPrecio.descuento}
+                  onChange={event =>
+                    setFormPrecio(actual => ({
+                      ...actual,
+                      descuento: event.target.value,
+                    }))
+                  }
+                  placeholder="0"
+                />
+
+                <small>
+                  0 = sin oferta. Con descuento sale en "Ofertas de la semana".
+                </small>
+              </div>
+
+              <div className="product-field product-field--double">
+                <label htmlFor="precio-motivo">
+                  Motivo
+                </label>
+
+                <input
+                  id="precio-motivo"
+                  type="text"
+                  value={formPrecio.motivo}
+                  onChange={event =>
+                    setFormPrecio(actual => ({
+                      ...actual,
+                      motivo: event.target.value,
+                    }))
+                  }
+                  placeholder="Ej. Oferta de temporada, ajuste por nuevo costo"
+                  maxLength={160}
+                />
+              </div>
+
+              {vistaPrecio && (
+                <div
+                  className={
+                    vistaPrecio.bajoCosto
+                      ? 'precio-vista is-bajo-costo'
+                      : 'precio-vista'
+                  }
+                >
+                  <div>
+                    <span>Precio final</span>
+                    <strong>
+                      {formatearCordobas(vistaPrecio.final)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Ganancia por unidad</span>
+                    <strong>
+                      {formatearCordobas(vistaPrecio.margen)}
+                    </strong>
+                    <small>
+                      {vistaPrecio.margenPorcentaje.toFixed(1)} % del precio final
+                    </small>
+                  </div>
+
+                  {vistaPrecio.bajoCosto && (
+                    <p>
+                      Queda por debajo del costo: sube el precio o baja el descuento.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="product-form-actions">
+                <button
+                  type="button"
+                  className="product-secondary-button"
+                  onClick={cerrarPrecio}
+                  disabled={guardandoPrecio}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="product-primary-button"
+                  disabled={
+                    guardandoPrecio ||
+                    !vistaPrecio ||
+                    vistaPrecio.bajoCosto
+                  }
+                >
+                  {guardandoPrecio
+                    ? 'Guardando...'
+                    : 'Guardar precio'}
                 </button>
               </div>
             </form>
@@ -3057,7 +3386,7 @@ export default function ProductsModule({
 
                 <th>Stock mínimo</th>
                 <th>Stock máximo</th>
-                {puedeAdministrar && (
+                {mostrarAcciones && (
                   <th className="productos-col-acciones">
                     Acciones
                   </th>
@@ -3136,6 +3465,12 @@ export default function ProductsModule({
                         {formatearCordobas(
                           producto.precioVenta,
                         )}
+
+                        {producto.descuento > 0 && (
+                          <span className="productos-descuento">
+                            −{producto.descuento} %
+                          </span>
+                        )}
                       </td>
 
 
@@ -3158,18 +3493,22 @@ export default function ProductsModule({
                         {producto.stockMaximo ?? 'Sin definir'}
                       </td>
 
-                      {puedeAdministrar && (
+                      {mostrarAcciones && (
                         <td className="productos-col-acciones">
                           <button
                             type="button"
                             className="product-edit-button"
                             onClick={() =>
-                              abrirEditarProducto(
-                                producto,
-                              )
+                              puedeCambiarPrecios
+                                ? abrirPrecio(producto)
+                                : abrirEditarProducto(
+                                    producto,
+                                  )
                             }
                           >
-                            Editar
+                            {puedeCambiarPrecios
+                              ? 'Precio'
+                              : 'Editar'}
                           </button>
                         </td>
                       )}
@@ -3180,7 +3519,7 @@ export default function ProductsModule({
                 <tr>
                   <td
                     colSpan={
-                      puedeAdministrar
+                      mostrarAcciones
                         ? 14
                         : 13
                     }

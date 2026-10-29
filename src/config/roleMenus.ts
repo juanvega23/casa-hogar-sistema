@@ -310,7 +310,7 @@ export const menusByRole: Record<
 
     {
       id: 'productos-consulta',
-      nombre: 'Consultar productos',
+      nombre: 'Productos y precios',
     },
   ],
 
