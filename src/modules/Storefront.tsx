@@ -2006,15 +2006,12 @@ export default function Storefront({ path, navigate }: Props) {
                   </form>
                 )}
 
-                <div className="t-acceso-separador" aria-hidden="true"><span>o</span></div>
-
-                <div className="t-acceso-pie">
-                  {modoAuth === 'recuperar' ? (
+                {/* El personal entra por /login; la tienda no enlaza al sistema interno. */}
+                {modoAuth === 'recuperar' && (
+                  <div className="t-acceso-pie">
                     <button className="t-enlace" type="button" onClick={() => cambiarModoAuth('login')}>Volver a iniciar sesión</button>
-                  ) : (
-                    <span>¿Sos parte del personal? <a className="t-enlace" href="/login">Ingresá al sistema interno</a></span>
-                  )}
-                </div>
+                  </div>
+                )}
               </>
             )}
           </section>

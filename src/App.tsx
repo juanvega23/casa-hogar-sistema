@@ -1928,8 +1928,13 @@ function InternalSystemApp({
 // =====================================================
 
 function App() {
+  // La raíz del sitio es la tienda; el personal entra por /login.
   const [path, setPath] =
-    useState(window.location.pathname)
+    useState(() =>
+      window.location.pathname === '/'
+        ? '/tienda'
+        : window.location.pathname,
+    )
 
   function navigate(nextPath: string) {
     if (window.location.pathname !== nextPath) {
@@ -1948,8 +1953,7 @@ function App() {
     window.addEventListener('popstate', handlePopState)
 
     if (window.location.pathname === '/') {
-      window.history.replaceState({}, '', '/login')
-      setPath('/login')
+      window.history.replaceState({}, '', '/tienda')
     }
 
     return () => {

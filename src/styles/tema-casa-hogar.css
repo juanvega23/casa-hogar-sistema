@@ -1976,10 +1976,6 @@ html .auth-link:hover { text-decoration: underline; }
 .t-clave button:hover { background: var(--ch-fondo); color: var(--ch-texto); }
 .t-clave svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-/* Separador "o" antes del enlace al sistema interno */
-.t-acceso-separador { display: flex; align-items: center; gap: 14px; font-size: 13.5px; color: var(--ch-texto-suave); }
-.t-acceso-separador::before,
-.t-acceso-separador::after { content: ''; flex: 1; height: 1px; background: var(--ch-linea); }
 
 .t-pestanas { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; background: var(--ch-fondo); }
 
