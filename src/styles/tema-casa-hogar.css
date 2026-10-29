@@ -1920,27 +1920,27 @@ html .auth-link:hover { text-decoration: underline; }
 .t-acceso-panel {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 44px 48px 230px;
+  gap: 16px;
+  padding: 36px 44px 165px;
   background: #ebf3fe url('../assets/acceso-herramientas.webp') center bottom / 100% auto no-repeat;
   border-right: 1px solid var(--ch-linea);
 }
 
-.t-acceso-logo { width: auto; height: 46px; align-self: flex-start; }
+.t-acceso-logo { width: auto; height: 40px; align-self: flex-start; }
 
-.t-acceso-lema { display: grid; gap: 8px; }
-.t-acceso-panel h1 { margin: 0; font-family: var(--ch-display); font-size: clamp(34px, 3.6vw, 44px); font-weight: 800; line-height: 1.02; letter-spacing: -.02em; text-wrap: balance; color: var(--ch-texto); }
+.t-acceso-lema { display: grid; gap: 6px; }
+.t-acceso-panel h1 { margin: 0; font-family: var(--ch-display); font-size: clamp(30px, 3vw, 36px); font-weight: 800; line-height: 1.02; letter-spacing: -.02em; text-wrap: balance; color: var(--ch-texto); }
 .t-acceso-panel h1 em { font-style: normal; color: var(--ch-naranja); }
-.t-acceso-lema p { margin: 0; font-size: 18px; color: var(--ch-texto-suave); }
+.t-acceso-lema p { margin: 0; font-size: 16px; color: var(--ch-texto-suave); }
 
-.t-acceso-panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.t-acceso-panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 
 .t-acceso-panel li {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
   gap: 16px;
   align-items: center;
-  padding: 14px 18px;
+  padding: 11px 16px;
   border: 1px solid var(--ch-linea);
   border-radius: var(--ch-r-lg);
   background: var(--ch-superficie);
