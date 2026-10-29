@@ -122,13 +122,11 @@ export default function OnlineOrdersModule({
   const puedeConsultar = [
     'vendedor',
     'responsable_comercial',
-    'marketing_digital',
     'gerencia',
   ].includes(roleCode)
 
   const puedeGestionar =
-    roleCode === 'vendedor' ||
-    roleCode === 'marketing_digital'
+    roleCode === 'vendedor'
 
   const puedeConvertir =
     roleCode === 'vendedor'

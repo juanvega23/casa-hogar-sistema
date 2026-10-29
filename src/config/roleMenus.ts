@@ -9,7 +9,6 @@ export type RoleCode =
   | 'responsable_compras'
   | 'vendedor'
   | 'responsable_comercial'
-  | 'marketing_digital'
   | 'responsable_caja'
 
 export type MenuItem = {
@@ -305,35 +304,6 @@ export const menusByRole: Record<
         {
           id: 'historial-ventas',
           nombre: 'Historial de ventas',
-        },
-      ],
-    },
-
-    {
-      id: 'productos-consulta',
-      nombre: 'Consultar productos',
-    },
-  ],
-
-  // =========================================================
-  // MARKETING Y CANALES DIGITALES
-  //
-  // Participa solamente en funciones relacionadas con
-  // el canal digital.
-  //
-  // NO registra ventas presenciales.
-  // NO maneja Caja.
-  // NO maneja devoluciones.
-  // NO gestiona cuentas por cobrar.
-  // =========================================================
-  marketing_digital: [
-    {
-      id: 'ventas-modulo',
-      nombre: 'Ventas',
-      children: [
-        {
-          id: 'pedidos-en-linea',
-          nombre: 'Pedidos en línea',
         },
       ],
     },
