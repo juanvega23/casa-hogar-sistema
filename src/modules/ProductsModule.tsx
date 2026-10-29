@@ -166,8 +166,6 @@ type EstadoExistencia =
 
 type FiltrosTabla =
   Record<ColumnaFiltro, string> & {
-    codigo: string
-    nombre: string
     existencia: EstadoExistencia
   }
 
@@ -180,9 +178,20 @@ const COLUMNAS_FILTRO: ColumnaFiltro[] = [
   'unidad',
 ]
 
+// Título de la columna y primera opción de su menú
+const TITULOS_FILTRO: Record<
+  ColumnaFiltro,
+  [string, string]
+> = {
+  categoria: ['Categoría', 'Todas las categorías'],
+  marca: ['Marca', 'Todas las marcas'],
+  modelo: ['Modelo', 'Todos los modelos'],
+  color: ['Color', 'Todos los colores'],
+  material: ['Material', 'Todos los materiales'],
+  unidad: ['Unidad', 'Todas las unidades'],
+}
+
 const FILTROS_VACIOS: FiltrosTabla = {
-  codigo: '',
-  nombre: '',
   categoria: '',
   marca: '',
   modelo: '',
@@ -196,7 +205,7 @@ const ESTADOS_EXISTENCIA: {
   valor: EstadoExistencia
   etiqueta: string
 }[] = [
-  { valor: '', etiqueta: 'Todas' },
+  { valor: '', etiqueta: 'Cualquier existencia' },
   { valor: 'sin', etiqueta: 'Sin existencia' },
   { valor: 'bajo', etiqueta: 'En o bajo el mínimo' },
   { valor: 'normal', etiqueta: 'Normal' },
@@ -223,6 +232,18 @@ function estadoExistencia(
   }
 
   return 'normal'
+}
+
+
+function IconoMenu() {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      aria-hidden="true"
+    >
+      <path d="M3 4.5 6 7.5 9 4.5" />
+    </svg>
+  )
 }
 
 
@@ -254,26 +275,6 @@ function cumpleFiltros(
     if (!texto.includes(termino)) {
       return false
     }
-  }
-
-  const codigo =
-    filtros.codigo.trim().toLowerCase()
-
-  if (
-    codigo &&
-    !producto.codigo.toLowerCase().includes(codigo)
-  ) {
-    return false
-  }
-
-  const nombre =
-    filtros.nombre.trim().toLowerCase()
-
-  if (
-    nombre &&
-    !producto.nombre.toLowerCase().includes(nombre)
-  ) {
-    return false
   }
 
   for (const columna of COLUMNAS_FILTRO) {
@@ -1257,11 +1258,37 @@ export default function ProductsModule({
     ])
 
 
+  // Filtros elegidos, para mostrarlos como etiquetas que se quitan con un clic
+  const filtrosActivos: {
+    campo: keyof FiltrosTabla
+    texto: string
+  }[] = [
+    ...COLUMNAS_FILTRO.filter(
+      columna => filtros[columna],
+    ).map(columna => ({
+      campo: columna,
+      texto: `${TITULOS_FILTRO[columna][0]}: ${filtros[columna]}`,
+    })),
+    ...(filtros.existencia
+      ? [
+          {
+            campo: 'existencia' as const,
+            texto: `Existencia: ${
+              ESTADOS_EXISTENCIA.find(
+                estado =>
+                  estado.valor ===
+                  filtros.existencia,
+              )?.etiqueta
+            }`,
+          },
+        ]
+      : []),
+  ]
+
+
   const hayFiltros =
     termino !== '' ||
-    Object.values(filtros).some(
-      valor => valor !== '',
-    )
+    filtrosActivos.length > 0
 
 
   function cambiarFiltro(
@@ -2889,6 +2916,24 @@ export default function ProductsModule({
 
 
         <div className="productos-resultados">
+          {filtrosActivos.map(filtro => (
+            <button
+              key={filtro.campo}
+              type="button"
+              className="productos-chip"
+              onClick={() =>
+                cambiarFiltro(
+                  filtro.campo,
+                  '',
+                )
+              }
+              aria-label={`Quitar filtro ${filtro.texto}`}
+            >
+              {filtro.texto}
+              <span aria-hidden="true">×</span>
+            </button>
+          ))}
+
           {hayFiltros && (
             <button
               type="button"
@@ -2925,67 +2970,25 @@ export default function ProductsModule({
               <tr>
                 <th className="productos-col-codigo">Código</th>
                 <th className="productos-col-nombre">Producto</th>
-                <th>Categoría</th>
-                <th>Marca</th>
-                <th>Modelo</th>
-                <th>Color</th>
-                <th>Material</th>
-                <th>Unidad</th>
-                <th>Precio compra</th>
-                <th>Precio venta</th>
-                <th>Existencia</th>
-                <th>Stock mínimo</th>
-                <th>Stock máximo</th>
-                {puedeAdministrar && (
-                  <th className="productos-col-acciones">
-                    Acciones
-                  </th>
-                )}
-              </tr>
 
-
-              {/* Filtros por columna */}
-              <tr className="productos-filtros">
-                <th className="productos-col-codigo">
-                  <input
-                    type="search"
-                    className="productos-filtro"
-                    value={filtros.codigo}
-                    onChange={event =>
-                      cambiarFiltro(
-                        'codigo',
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Filtrar"
-                    aria-label="Filtrar por código"
-                  />
-                </th>
-
-                <th className="productos-col-nombre">
-                  <input
-                    type="search"
-                    className="productos-filtro"
-                    value={filtros.nombre}
-                    onChange={event =>
-                      cambiarFiltro(
-                        'nombre',
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Filtrar"
-                    aria-label="Filtrar por producto"
-                  />
-                </th>
-
+                {/* El título es el filtro: un select transparente
+                    encima abre el menú nativo al hacer clic. */}
                 {COLUMNAS_FILTRO.map(columna => (
-                  <th key={columna}>
+                  <th
+                    key={columna}
+                    className={
+                      filtros[columna]
+                        ? 'productos-th-filtro is-activo'
+                        : 'productos-th-filtro'
+                    }
+                  >
+                    <span>
+                      {TITULOS_FILTRO[columna][0]}
+                    </span>
+
+                    <IconoMenu />
+
                     <select
-                      className={
-                        filtros[columna]
-                          ? 'productos-filtro is-activo'
-                          : 'productos-filtro'
-                      }
                       value={filtros[columna]}
                       onChange={event =>
                         cambiarFiltro(
@@ -2993,10 +2996,10 @@ export default function ProductsModule({
                           event.target.value,
                         )
                       }
-                      aria-label={`Filtrar por ${columna}`}
+                      aria-label={`Filtrar por ${TITULOS_FILTRO[columna][0].toLowerCase()}`}
                     >
                       <option value="">
-                        Todos
+                        {TITULOS_FILTRO[columna][1]}
                       </option>
 
                       {opcionesFiltro[columna].map(
@@ -3013,16 +3016,23 @@ export default function ProductsModule({
                   </th>
                 ))}
 
-                <th />
-                <th />
+                <th>Precio compra</th>
+                <th>Precio venta</th>
 
-                <th>
+                <th
+                  className={
+                    filtros.existencia
+                      ? 'productos-th-filtro is-activo'
+                      : 'productos-th-filtro'
+                  }
+                >
+                  <span>
+                    Existencia
+                  </span>
+
+                  <IconoMenu />
+
                   <select
-                    className={
-                      filtros.existencia
-                        ? 'productos-filtro is-activo'
-                        : 'productos-filtro'
-                    }
                     value={filtros.existencia}
                     onChange={event =>
                       cambiarFiltro(
@@ -3045,11 +3055,12 @@ export default function ProductsModule({
                   </select>
                 </th>
 
-                <th />
-                <th />
-
+                <th>Stock mínimo</th>
+                <th>Stock máximo</th>
                 {puedeAdministrar && (
-                  <th className="productos-col-acciones" />
+                  <th className="productos-col-acciones">
+                    Acciones
+                  </th>
                 )}
               </tr>
             </thead>

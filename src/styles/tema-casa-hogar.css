@@ -2050,12 +2050,17 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
    TABLA DE PRODUCTOS (sistema interno)
    La tabla tiene su propio alto, así la barra horizontal queda
    a la vista; los títulos, el código, el nombre y "Editar"
-   quedan fijos al desplazarse.
+   quedan fijos al desplazarse. Los títulos con flecha son
+   filtros: un select invisible encima abre el menú.
    ========================================================== */
-.productos-resultados { display: flex; align-items: center; gap: 14px; flex: none; }
+.productos-resultados { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; }
 
+.productos-chip,
 .productos-limpiar {
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
   border: 1px solid var(--ch-linea);
   border-radius: 999px;
   background: var(--ch-superficie);
@@ -2064,6 +2069,9 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   font-weight: 600;
   cursor: pointer;
 }
+.productos-chip { border-color: var(--ch-azul-borde); background: var(--ch-azul-suave); }
+.productos-chip span { color: var(--ch-texto-suave); font-size: 15px; line-height: 1; }
+.productos-chip:hover span { color: var(--ch-texto); }
 .productos-limpiar:hover { border-color: var(--ch-texto-suave); }
 
 html .productos-tabla-contenedor {
@@ -2073,31 +2081,27 @@ html .productos-tabla-contenedor {
 
 .productos-tabla { border-collapse: separate; border-spacing: 0; }
 .productos-tabla thead { position: sticky; top: 0; z-index: 3; }
-.productos-tabla thead th { white-space: nowrap; }
+.productos-tabla th,
+.productos-tabla td:not(.productos-col-nombre) { white-space: nowrap; }
 
-html .productos-tabla .productos-filtros th {
-  padding: 0 8px 10px;
-  text-transform: none !important;
-  letter-spacing: 0 !important;
-}
-.productos-tabla tr:first-child th { border-bottom: 0 !important; }
+.productos-th-filtro { position: relative; cursor: pointer; }
+.productos-th-filtro svg { display: inline-block; width: 12px; height: 12px; margin-left: 3px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+html .productos-tabla th.productos-th-filtro:hover { color: var(--ch-texto) !important; }
+html .productos-tabla th.productos-th-filtro.is-activo { color: var(--ch-azul) !important; }
+.productos-th-filtro:has(select:focus-visible) { outline: 2px solid var(--ch-azul); outline-offset: -5px; }
 
-html .inventory-module .productos-filtro {
+html .inventory-module .productos-th-filtro select {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  min-width: 0;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 8px;
-  border: 1px solid var(--ch-linea);
-  border-radius: 8px;
-  background-color: var(--ch-superficie);
-  color: var(--ch-texto);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  font-size: 13px;
+  cursor: pointer;
 }
-html .inventory-module select.productos-filtro { min-width: 116px; padding-right: 4px; }
-html .inventory-module .productos-filtro.is-activo { border-color: var(--ch-azul); background-color: var(--ch-azul-suave); }
 
 .productos-tabla .productos-col-codigo,
 .productos-tabla .productos-col-nombre,
@@ -2107,13 +2111,13 @@ html .inventory-module .productos-filtro.is-activo { border-color: var(--ch-azul
 .productos-tabla th.productos-col-acciones { z-index: 2; }
 
 .productos-tabla .productos-col-codigo { left: 0; width: 112px; min-width: 112px; }
-.productos-tabla .productos-col-nombre { left: 112px; width: 210px; min-width: 210px; box-shadow: inset -1px 0 0 var(--ch-linea); }
-.productos-tabla .productos-col-acciones { right: 0; box-shadow: inset 1px 0 0 var(--ch-linea); text-align: center; }
+.productos-tabla .productos-col-nombre { left: 112px; width: 210px; min-width: 210px; }
+.productos-tabla .productos-col-acciones { right: 0; text-align: center; }
 
 @media (max-width: 760px) {
   .productos-tabla .productos-col-codigo,
   .productos-tabla .productos-col-nombre,
-  .productos-tabla .productos-col-acciones { position: static; box-shadow: none; }
+  .productos-tabla .productos-col-acciones { position: static; }
 }
 
 @media (prefers-reduced-motion: reduce) {
