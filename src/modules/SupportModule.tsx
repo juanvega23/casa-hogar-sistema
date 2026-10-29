@@ -8,6 +8,8 @@ import {
 import { FunctionsHttpError } from '@supabase/supabase-js'
 
 import { supabase } from '../lib/supabase'
+import { errorClave } from '../lib/contrasenas'
+import { ReglasClave } from '../lib/ReglasClave'
 
 import {
   menusByRole,
@@ -36,6 +38,16 @@ type UsuarioInterno = {
   activo: boolean
   ultimo_acceso: string | null
   created_at: string
+}
+
+// Cuentas bloqueadas por intentos fallidos (cuentas_bloqueadas())
+type CuentaBloqueada = {
+  correo: string
+  nombre: string
+  tipo: string
+  fallidos: number
+  bloqueado_hasta: string
+  ultimo_fallo: string | null
 }
 
 type EventoAuditoria = {
@@ -67,13 +79,33 @@ function formatearFecha(valor: string | null) {
 /*
  * Contraseña temporal legible (sin caracteres ambiguos como 0/O
  * o 1/l) generada con el generador criptográfico del navegador.
+ * Siempre trae mayúscula, minúscula, número y símbolo, para cumplir
+ * la regla de contraseñas (src/lib/contrasenas.tsx).
  */
 function generarClaveTemporal() {
-  const alfabeto =
-    'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
-  const valores = new Uint32Array(12)
+  const grupos = [
+    'ABCDEFGHJKLMNPQRSTUVWXYZ',
+    'abcdefghijkmnpqrstuvwxyz',
+    '23456789',
+    '#$%&*!?@+-',
+  ]
+  const todos = grupos.join('')
+  const valores = new Uint32Array(24)
   crypto.getRandomValues(valores)
-  return Array.from(valores, v => alfabeto[v % alfabeto.length]).join('')
+
+  // Uno de cada grupo y el resto de cualquiera (12 en total)
+  const letras = [
+    ...grupos.map((grupo, i) => grupo[valores[i] % grupo.length]),
+    ...Array.from(valores.slice(4, 12), v => todos[v % todos.length]),
+  ]
+
+  // Mezcla (Fisher-Yates) para que los obligatorios no queden al inicio
+  for (let i = letras.length - 1; i > 0; i--) {
+    const j = valores[12 + i] % (i + 1)
+    ;[letras[i], letras[j]] = [letras[j], letras[i]]
+  }
+
+  return letras.join('')
 }
 
 async function mensajeDeFuncion(error: unknown) {
@@ -116,6 +148,7 @@ export default function SupportModule({
   const [usuarios, setUsuarios] = useState<UsuarioInterno[]>([])
   const [roles, setRoles] = useState<Rol[]>([])
   const [eventos, setEventos] = useState<EventoAuditoria[]>([])
+  const [bloqueadas, setBloqueadas] = useState<CuentaBloqueada[]>([])
   const [resumen, setResumen] = useState<ResumenSistema | null>(null)
 
   const [cargando, setCargando] = useState(true)
@@ -161,7 +194,7 @@ export default function SupportModule({
 
     const necesitaUsuarios = vista === 'usuarios' || vista === 'roles'
 
-    const [rolesResp, usuariosResp, auditoriaResp, resumenResp] =
+    const [rolesResp, usuariosResp, auditoriaResp, resumenResp, bloqueadasResp] =
       await Promise.all([
         supabase
           .from('roles')
@@ -179,13 +212,18 @@ export default function SupportModule({
         vista === 'configuracion'
           ? supabase.rpc('resumen_sistema_soporte')
           : Promise.resolve({ data: null, error: null }),
+
+        vista === 'usuarios'
+          ? supabase.rpc('cuentas_bloqueadas')
+          : Promise.resolve({ data: [], error: null }),
       ])
 
     const primeraError =
       rolesResp.error ||
       usuariosResp.error ||
       auditoriaResp.error ||
-      resumenResp.error
+      resumenResp.error ||
+      bloqueadasResp.error
 
     if (primeraError) {
       setError(primeraError.message)
@@ -205,6 +243,7 @@ export default function SupportModule({
     )
 
     setEventos((auditoriaResp.data ?? []) as EventoAuditoria[])
+    setBloqueadas((bloqueadasResp.data ?? []) as CuentaBloqueada[])
     setResumen((resumenResp.data ?? null) as ResumenSistema | null)
 
     setCargando(false)
@@ -217,6 +256,25 @@ export default function SupportModule({
   function limpiarMensajes() {
     setError('')
     setExito('')
+  }
+
+  async function desbloquear(cuenta: CuentaBloqueada) {
+    limpiarMensajes()
+    setProcesando(true)
+
+    const { error: rpcError } = await supabase.rpc('desbloquear_cuenta', {
+      p_correo: cuenta.correo,
+    })
+
+    setProcesando(false)
+
+    if (rpcError) {
+      setError(rpcError.message)
+      return
+    }
+
+    setExito(`La cuenta ${cuenta.correo} fue desbloqueada. Ya puede volver a iniciar sesión.`)
+    await cargarDatos()
   }
 
   const usuariosFiltrados = useMemo(() => {
@@ -279,6 +337,13 @@ export default function SupportModule({
 
     if (!altaRol) {
       setError('Selecciona el rol del nuevo usuario.')
+      return
+    }
+
+    const problemaClave = errorClave(altaClave)
+
+    if (problemaClave) {
+      setError(problemaClave)
       return
     }
 
@@ -361,8 +426,10 @@ export default function SupportModule({
 
     limpiarMensajes()
 
-    if (nuevaClave.length < 8) {
-      setError('La contraseña temporal debe tener al menos 8 caracteres.')
+    const problemaClave = errorClave(nuevaClave)
+
+    if (problemaClave) {
+      setError(problemaClave)
       return
     }
 
@@ -825,6 +892,44 @@ export default function SupportModule({
         </article>
       </div>
 
+      {bloqueadas.length > 0 && (
+        <section className="soporte-bloqueadas">
+          <div>
+            <h3>Cuentas bloqueadas temporalmente</h3>
+            <p>
+              Se bloquean solas 15 minutos después de 5 intentos fallidos seguidos. Desbloquéala solo si confirmaste que es la persona dueña de la cuenta.
+            </p>
+          </div>
+
+          <ul>
+            {bloqueadas.map(cuenta => (
+              <li key={cuenta.correo}>
+                <span>
+                  <strong>{cuenta.correo}</strong>
+                  <small>
+                    {cuenta.nombre !== '—' ? `${cuenta.nombre} · ` : ''}
+                    {cuenta.tipo} · hasta las{' '}
+                    {new Date(cuenta.bloqueado_hasta).toLocaleTimeString('es-NI', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </small>
+                </span>
+
+                <button
+                  type="button"
+                  className="product-secondary-button"
+                  onClick={() => void desbloquear(cuenta)}
+                  disabled={procesando}
+                >
+                  Desbloquear
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {mensajes}
 
       {mostrarAlta && (
@@ -888,6 +993,7 @@ export default function SupportModule({
                 minLength={8}
                 required
               />
+              <ReglasClave clave={altaClave} />
             </label>
 
             <div className="cash-actions cash-field-full">
@@ -995,8 +1101,9 @@ export default function SupportModule({
                 value={nuevaClave}
                 onChange={event => setNuevaClave(event.target.value)}
                 minLength={8}
-                placeholder="Mínimo 8 caracteres"
+                placeholder="Usa el botón Generar"
               />
+              {nuevaClave && <ReglasClave clave={nuevaClave} />}
             </label>
 
             <div className="cash-actions">

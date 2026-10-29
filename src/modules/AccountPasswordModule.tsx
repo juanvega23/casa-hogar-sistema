@@ -4,6 +4,8 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import { errorClave } from '../lib/contrasenas'
+import { ReglasClave } from '../lib/ReglasClave'
 
 type AccountPasswordModuleProps = {
   onClose: () => void
@@ -27,8 +29,10 @@ export default function AccountPasswordModule({
     setError('')
     setExito('')
 
-    if (clave.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.')
+    const problema = errorClave(clave)
+
+    if (problema) {
+      setError(problema)
       return
     }
 
@@ -92,6 +96,7 @@ export default function AccountPasswordModule({
               onChange={event => setClave(event.target.value)}
               required
             />
+            <ReglasClave clave={clave} />
           </label>
 
           <label>

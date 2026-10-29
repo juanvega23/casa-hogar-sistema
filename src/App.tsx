@@ -5,6 +5,11 @@ import {
 } from 'react'
 
 import { supabase } from './lib/supabase'
+import { mensajeIntentoAcceso } from './lib/accesos'
+import {
+  registrarActividad,
+  useCierrePorInactividad,
+} from './lib/inactividad'
 
 import {
   menusByRole,
@@ -588,6 +593,36 @@ function InternalSystemApp({
     setMensaje('')
     setCargando(true)
 
+    /*
+     * Primero se pasa por intentar_acceso(): la base verifica la
+     * contraseña, cuenta los intentos fallidos y bloquea la cuenta
+     * 15 minutos tras 5 seguidos. Solo si lo permite se inicia sesión.
+     */
+    const {
+      data: intento,
+      error: intentoError,
+    } =
+      await supabase.rpc(
+        'intentar_acceso',
+        {
+          p_correo: email,
+          p_clave: password,
+        },
+      )
+
+    const rechazo = mensajeIntentoAcceso(
+      intento,
+      intentoError,
+      'Si no recuerdas tu contraseña, Soporte TI puede desbloquear la cuenta y darte una temporal.',
+    )
+
+    if (rechazo) {
+      setMensaje(rechazo)
+      setCargando(false)
+
+      return
+    }
+
     const {
       data,
       error,
@@ -607,6 +642,8 @@ function InternalSystemApp({
 
       return
     }
+
+    registrarActividad()
 
     const {
       data: tipoCuenta,
@@ -695,6 +732,38 @@ function InternalSystemApp({
     setMensaje('')
     navigate('/login')
   }
+
+
+  // ===================================================
+  // CIERRE POR INACTIVIDAD (1 hora sin usar el sistema)
+  // ===================================================
+
+  async function cerrarPorInactividad() {
+    await supabase.auth.signOut()
+
+    setPerfil(null)
+    setUserId(null)
+
+    setPassword('')
+    setModuloActivo('')
+    setGruposAbiertos({})
+    setCambiandoClave(false)
+    setMensaje(
+      'Tu sesión se cerró porque pasó 1 hora sin actividad. Vuelve a ingresar.',
+    )
+    navigate('/login')
+  }
+
+  const {
+    segundosRestantes: segundosInactividad,
+    seguirConectado,
+  } =
+    useCierrePorInactividad({
+      activo: Boolean(perfil),
+      minutos: 60,
+      avisoSegundos: 120,
+      alCerrar: () => void cerrarPorInactividad(),
+    })
 
 
   // ===================================================
@@ -1792,6 +1861,48 @@ function InternalSystemApp({
           )}
         </main>
       </section>
+
+      {segundosInactividad !== null && (
+        <div className="inactividad-fondo">
+          <section
+            className="inactividad-aviso"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="inactividad-titulo"
+            aria-describedby="inactividad-texto"
+          >
+            <h2 id="inactividad-titulo">¿Sigues ahí?</h2>
+
+            <p id="inactividad-texto">
+              Por seguridad, tu sesión se cerrará en{' '}
+              <strong>
+                {Math.floor(segundosInactividad / 60)}:
+                {String(segundosInactividad % 60).padStart(2, '0')}
+              </strong>{' '}
+              porque no hubo actividad en casi una hora.
+            </p>
+
+            <div className="inactividad-acciones">
+              <button
+                type="button"
+                className="product-secondary-button"
+                onClick={() => void cerrarSesion()}
+              >
+                Cerrar sesión
+              </button>
+
+              <button
+                type="button"
+                className="product-primary-button"
+                onClick={seguirConectado}
+                autoFocus
+              >
+                Seguir conectado
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

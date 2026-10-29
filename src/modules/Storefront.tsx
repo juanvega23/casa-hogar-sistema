@@ -8,7 +8,11 @@ import {
 } from 'react'
 
 import type { User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+// La tienda usa su propia sesión, separada de la del personal.
+import { supabaseTienda as supabase } from '../lib/supabase'
+import { mensajeIntentoAcceso } from '../lib/accesos'
+import { errorClave } from '../lib/contrasenas'
+import { ReglasClave } from '../lib/ReglasClave'
 import { formatearFechaOferta } from '../lib/descuentos'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
 import fotoObra from '../assets/portada/obra.webp'
@@ -898,6 +902,24 @@ export default function Storefront({ path, navigate }: Props) {
     setError('')
     setMensaje('')
 
+    // Bloqueo por intentos fallidos (lo controla la base, ver App.tsx)
+    const { data: intento, error: intentoError } = await supabase.rpc('intentar_acceso', {
+      p_correo: email,
+      p_clave: password,
+    })
+
+    const rechazo = mensajeIntentoAcceso(
+      intento,
+      intentoError,
+      'Si no recordás tu contraseña, usá "¿Olvidaste tu contraseña?".',
+    )
+
+    if (rechazo) {
+      setError(rechazo)
+      setProcesando(false)
+      return
+    }
+
     const { data, error: loginError } =
       await supabase.auth.signInWithPassword({ email, password })
 
@@ -941,6 +963,13 @@ export default function Storefront({ path, navigate }: Props) {
     // si no, Supabase solo devuelve "Database error saving new user".
     if (nombre.trim().length < 2) {
       setError('Ingresá tu nombre completo (al menos 2 caracteres).')
+      return
+    }
+
+    const problemaClave = errorClave(password)
+
+    if (problemaClave) {
+      setError(problemaClave)
       return
     }
 
@@ -1012,8 +1041,10 @@ export default function Storefront({ path, navigate }: Props) {
     setError('')
     setMensaje('')
 
-    if (nuevaClave.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.')
+    const problemaClave = errorClave(nuevaClave)
+
+    if (problemaClave) {
+      setError(problemaClave)
       return
     }
 
@@ -1938,7 +1969,7 @@ export default function Storefront({ path, navigate }: Props) {
                       <span className="t-clave">
                         <input
                           type={verClave ? 'text' : 'password'}
-                          minLength={6}
+                          minLength={modoAuth === 'registro' ? 8 : undefined}
                           value={password}
                           onChange={e => setPassword(e.target.value)}
                           autoComplete={modoAuth === 'login' ? 'current-password' : 'new-password'}
@@ -1957,6 +1988,7 @@ export default function Storefront({ path, navigate }: Props) {
                           </svg>
                         </button>
                       </span>
+                      {modoAuth === 'registro' && <ReglasClave clave={password} />}
                     </label>
 
                     {modoAuth === 'login' && (
@@ -2206,19 +2238,20 @@ export default function Storefront({ path, navigate }: Props) {
                     Nueva contraseña
                     <input
                       type="password"
-                      minLength={6}
+                      minLength={8}
                       value={nuevaClave}
                       onChange={e => setNuevaClave(e.target.value)}
                       autoComplete="new-password"
                       required
                     />
+                    <ReglasClave clave={nuevaClave} />
                   </label>
 
                   <label>
                     Confirmar contraseña
                     <input
                       type="password"
-                      minLength={6}
+                      minLength={8}
                       value={confirmarClave}
                       onChange={e => setConfirmarClave(e.target.value)}
                       autoComplete="new-password"

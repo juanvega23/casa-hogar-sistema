@@ -24,7 +24,17 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const LONGITUD_MINIMA_CLAVE = 8
+// Misma regla que src/lib/contrasenas.tsx y que la configuración de
+// Supabase Auth: 8+ caracteres, mayúscula, minúscula, número y
+// símbolo, sin espacios.
+const REGLAS_CLAVE: [RegExp, string][] = [
+  [/^.{8,}$/, 'al menos 8 caracteres'],
+  [/[A-Z]/, 'una letra mayúscula'],
+  [/[a-z]/, 'una letra minúscula'],
+  [/[0-9]/, 'un número'],
+  [/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/, 'un carácter especial'],
+  [/^\S*$/, 'ningún espacio'],
+]
 
 class ErrorSolicitud extends Error {
   constructor(public estado: number, mensaje: string) {
@@ -100,13 +110,18 @@ async function verificarSoporteTi(
 }
 
 function validarClave(clave: unknown): string {
-  if (typeof clave !== 'string' || clave.length < LONGITUD_MINIMA_CLAVE) {
+  const texto = typeof clave === 'string' ? clave : ''
+  const faltan = REGLAS_CLAVE
+    .filter(([regla]) => !regla.test(texto))
+    .map(([, descripcion]) => descripcion)
+
+  if (faltan.length) {
     throw new ErrorSolicitud(
       400,
-      `La contraseña temporal debe tener al menos ${LONGITUD_MINIMA_CLAVE} caracteres.`,
+      `La contraseña temporal debe tener ${faltan.join(', ')}.`,
     )
   }
-  return clave
+  return texto
 }
 
 async function registrarAuditoria(
@@ -157,15 +172,18 @@ async function crearUsuario(
     throw new ErrorSolicitud(400, 'El rol seleccionado no existe o está inactivo.')
   }
 
-  // account_type 'personal' hace que handle_new_user() cree el
-  // perfil interno (y no un cliente de la tienda).
+  // app_metadata.account_type 'personal' hace que handle_new_user()
+  // cree el perfil interno. Va en app_metadata porque solo la
+  // service_role puede escribirlo; user_metadata lo controla el usuario.
   const { data: creado, error: errorAlta } =
     await admin.auth.admin.createUser({
       email: correo,
       password: clave,
       email_confirm: true,
-      user_metadata: {
+      app_metadata: {
         account_type: 'personal',
+      },
+      user_metadata: {
         full_name: nombre,
       },
     })
