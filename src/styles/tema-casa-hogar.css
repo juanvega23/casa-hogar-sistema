@@ -2046,6 +2046,76 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .history-detail-summary--seis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 
+/* ==========================================================
+   TABLA DE PRODUCTOS (sistema interno)
+   La tabla tiene su propio alto, así la barra horizontal queda
+   a la vista; los títulos, el código, el nombre y "Editar"
+   quedan fijos al desplazarse.
+   ========================================================== */
+.productos-resultados { display: flex; align-items: center; gap: 14px; flex: none; }
+
+.productos-limpiar {
+  padding: 6px 12px;
+  border: 1px solid var(--ch-linea);
+  border-radius: 999px;
+  background: var(--ch-superficie);
+  color: var(--ch-texto);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.productos-limpiar:hover { border-color: var(--ch-texto-suave); }
+
+html .productos-tabla-contenedor {
+  max-height: max(380px, calc(100vh - 150px));
+  overflow: auto !important;
+}
+
+.productos-tabla { border-collapse: separate; border-spacing: 0; }
+.productos-tabla thead { position: sticky; top: 0; z-index: 3; }
+.productos-tabla thead th { white-space: nowrap; }
+
+html .productos-tabla .productos-filtros th {
+  padding: 0 8px 10px;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.productos-tabla tr:first-child th { border-bottom: 0 !important; }
+
+html .inventory-module .productos-filtro {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--ch-linea);
+  border-radius: 8px;
+  background-color: var(--ch-superficie);
+  color: var(--ch-texto);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+html .inventory-module select.productos-filtro { min-width: 116px; padding-right: 4px; }
+html .inventory-module .productos-filtro.is-activo { border-color: var(--ch-azul); background-color: var(--ch-azul-suave); }
+
+.productos-tabla .productos-col-codigo,
+.productos-tabla .productos-col-nombre,
+.productos-tabla .productos-col-acciones { position: sticky; z-index: 1; background: var(--ch-superficie); }
+.productos-tabla th.productos-col-codigo,
+.productos-tabla th.productos-col-nombre,
+.productos-tabla th.productos-col-acciones { z-index: 2; }
+
+.productos-tabla .productos-col-codigo { left: 0; width: 112px; min-width: 112px; }
+.productos-tabla .productos-col-nombre { left: 112px; width: 210px; min-width: 210px; box-shadow: inset -1px 0 0 var(--ch-linea); }
+.productos-tabla .productos-col-acciones { right: 0; box-shadow: inset 1px 0 0 var(--ch-linea); text-align: center; }
+
+@media (max-width: 760px) {
+  .productos-tabla .productos-col-codigo,
+  .productos-tabla .productos-col-nombre,
+  .productos-tabla .productos-col-acciones { position: static; box-shadow: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tienda *,
   .t-cargando-anillo { animation: none !important; transition: none !important; }
