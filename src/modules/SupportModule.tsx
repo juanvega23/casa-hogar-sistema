@@ -56,9 +56,6 @@ type ResumenSistema = {
   servicios: { bucket_productos: boolean; tareas_programadas: boolean }
 }
 
-// Roles que se conservan solo por compatibilidad (ver contexto maestro del proyecto §8).
-const ROLES_ANTIGUOS = ['ventas', 'administracion']
-
 function formatearFecha(valor: string | null) {
   if (!valor) return '—'
   return new Intl.DateTimeFormat('es-NI', {
@@ -423,10 +420,6 @@ export default function SupportModule({
     </>
   )
 
-  const rolesAsignables = roles.filter(
-    r => !ROLES_ANTIGUOS.includes(r.codigo),
-  )
-
   // ---------------------------------------------------------
   // ROLES Y PERMISOS
   // ---------------------------------------------------------
@@ -456,33 +449,19 @@ export default function SupportModule({
 
         <section className="soporte-roles">
           {[...roles]
-            .sort(
-              (a, b) =>
-                Number(ROLES_ANTIGUOS.includes(a.codigo)) -
-                  Number(ROLES_ANTIGUOS.includes(b.codigo)) ||
-                a.nombre.localeCompare(b.nombre, 'es'),
-            )
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
             .map(rol => {
               const activos = usuarios.filter(
                 u => u.role_id === rol.id && u.activo,
               ).length
               const { directos, grupos } = modulosDeRol(rol.codigo)
-              const antiguo = ROLES_ANTIGUOS.includes(rol.codigo)
 
               return (
-                <article
-                  key={rol.id}
-                  className={antiguo ? 'soporte-rol is-antiguo' : 'soporte-rol'}
-                >
+                <article key={rol.id} className="soporte-rol">
                   <header>
                     <div>
                       <h3>{rol.nombre}</h3>
                       <span className="soporte-rol-codigo">{rol.codigo}</span>
-                      {antiguo && (
-                        <span className="soporte-rol-aviso">
-                          Rol antiguo · compatibilidad
-                        </span>
-                      )}
                     </div>
 
                     <span className="soporte-rol-usuarios">
@@ -895,7 +874,7 @@ export default function SupportModule({
                 required
               >
                 <option value="">Seleccionar rol</option>
-                {rolesAsignables.map(r => (
+                {roles.map(r => (
                   <option key={r.id} value={r.id}>{r.nombre}</option>
                 ))}
               </select>
@@ -976,15 +955,9 @@ export default function SupportModule({
                 required
               >
                 <option value="">Seleccionar rol</option>
-                {roles
-                  .filter(
-                    r =>
-                      !ROLES_ANTIGUOS.includes(r.codigo) ||
-                      r.id === editando.role_id,
-                  )
-                  .map(r => (
-                    <option key={r.id} value={r.id}>{r.nombre}</option>
-                  ))}
+                {roles.map(r => (
+                  <option key={r.id} value={r.id}>{r.nombre}</option>
+                ))}
               </select>
             </label>
 

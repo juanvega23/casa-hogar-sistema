@@ -2138,13 +2138,11 @@ html .inventory-module .productos-th-filtro select {
   box-shadow: var(--ch-sombra-baja);
   color: var(--ch-texto);
 }
-.soporte-rol.is-antiguo { background: var(--ch-fondo); box-shadow: none; }
 
 .soporte-rol header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .soporte-rol header > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
 .soporte-rol h3 { width: 100%; margin: 0; font-family: var(--ch-display); font-size: 18px; line-height: 1.25; }
 .soporte-rol-codigo { font-family: var(--ch-datos); font-size: 12.5px; color: var(--ch-texto-suave); }
-.soporte-rol-aviso { padding: 2px 9px; border-radius: 999px; background: var(--ch-amarillo-suave); font-size: 12px; font-weight: 600; }
 
 .soporte-rol-usuarios { display: grid; justify-items: end; flex: none; font-size: 12.5px; color: var(--ch-texto-suave); text-align: right; }
 .soporte-rol-usuarios strong { font-family: var(--ch-display); font-size: 24px; line-height: 1; color: var(--ch-texto); }
