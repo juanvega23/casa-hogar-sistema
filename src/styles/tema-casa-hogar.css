@@ -1914,22 +1914,18 @@ html .auth-link:hover { text-decoration: underline; }
   box-shadow: var(--ch-sombra);
 }
 
+/* Fondo: pasillo de ferretería ya difuminado en el archivo, aclarado
+   con una capa del fondo del tema para que el texto marino se lea. */
 .t-acceso-panel {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  align-content: center;
   gap: 20px;
-  padding: 0 40px 40px;
-  background: var(--t-acero);
+  padding: 40px;
+  background:
+    linear-gradient(rgba(243, 245, 248, .66), rgba(243, 245, 248, .52)),
+    url('../assets/acceso-clientes.webp') center / cover,
+    var(--t-acero);
   border-right: 1px solid var(--ch-acero-borde);
-}
-
-/* Foto de ambiente de borde a borde; ocupa el alto que sobre */
-.t-acceso-foto {
-  flex: 1 1 0;
-  width: calc(100% + 80px);
-  min-height: 190px;
-  margin: 0 -40px 4px;
-  object-fit: cover;
 }
 
 .t-acceso-panel h1 { margin: 0; font-family: var(--ch-display); font-size: 30px; font-weight: 800; line-height: 1.08; text-wrap: balance; color: var(--ch-texto); }
@@ -2070,9 +2066,7 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .t-carrito-grid { grid-template-columns: 1fr; }
   .t-resumen { position: static; }
   .t-acceso { grid-template-columns: 1fr; }
-  .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-acero-borde); padding: 28px; }
-  .t-acceso-foto { display: none; }
-  .t-acceso-tarjeta { padding: 28px; }
+  .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-acero-borde); padding: 28px; }  .t-acceso-tarjeta { padding: 28px; }
 }
 
 @media (max-width: 560px) {

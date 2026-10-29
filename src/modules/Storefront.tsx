@@ -1769,7 +1769,6 @@ export default function Storefront({ path, navigate }: Props) {
       {vista === 'login' && (
         <main className="t-contenido t-acceso">
           <div className="t-acceso-panel">
-            <img className="t-acceso-foto" src={fotoTaller} alt="" />
             <h1>Tu cuenta para comprar en Casa Hogar</h1>
             <ul>
               <li><i aria-hidden="true">✓</i><span><strong>Seguí tus pedidos</strong><span>Mirá si está recibido, preparado o listo para retirar.</span></span></li>
