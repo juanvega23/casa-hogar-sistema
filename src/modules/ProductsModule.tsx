@@ -6,6 +6,11 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import {
+  descuentoVigente,
+  formatearFechaOferta,
+  hoyManagua,
+} from '../lib/descuentos'
 
 
 // ==========================================================
@@ -63,6 +68,7 @@ type ProductoRespuesta = {
   precio_compra: number | string
   precio_venta: number | string
   descuento_porcentaje: number | string | null
+  descuento_hasta: string | null
   stock_minimo: number | string
   stock_maximo: number | string | null
 
@@ -138,6 +144,7 @@ type Producto = {
   precioCompra: number
   precioVenta: number
   descuento: number
+  descuentoHasta: string | null
 
   stock: number
   stockMinimo: number
@@ -606,6 +613,7 @@ export default function ProductsModule({
     useState({
       precio: '',
       descuento: '',
+      hasta: '',
       motivo: '',
     })
 
@@ -760,6 +768,7 @@ export default function ProductsModule({
               precio_compra,
               precio_venta,
               descuento_porcentaje,
+              descuento_hasta,
               stock_minimo,
               stock_maximo,
               activo,
@@ -1129,6 +1138,9 @@ export default function ProductsModule({
                   0,
               ),
 
+            descuentoHasta:
+              producto.descuento_hasta,
+
 
             stock:
               obtenerStock(
@@ -1485,6 +1497,7 @@ export default function ProductsModule({
     setFormPrecio({
       precio: producto.precioVenta.toFixed(2),
       descuento: String(producto.descuento),
+      hasta: producto.descuentoHasta ?? '',
       motivo: '',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1556,6 +1569,7 @@ export default function ProductsModule({
           p_precio_venta: Number(formPrecio.precio),
           p_descuento_porcentaje: Number(formPrecio.descuento || 0),
           p_motivo: formPrecio.motivo.trim() || null,
+          p_descuento_hasta: formPrecio.hasta || null,
         },
       )
 
@@ -3116,6 +3130,32 @@ export default function ProductsModule({
                 </small>
               </div>
 
+              <div className="product-field">
+                <label htmlFor="precio-hasta">
+                  Válido hasta
+                </label>
+
+                <input
+                  id="precio-hasta"
+                  type="date"
+                  min={hoyManagua()}
+                  value={formPrecio.hasta}
+                  onChange={event =>
+                    setFormPrecio(actual => ({
+                      ...actual,
+                      hasta: event.target.value,
+                    }))
+                  }
+                  disabled={!Number(formPrecio.descuento || 0)}
+                />
+
+                <small>
+                  {Number(formPrecio.descuento || 0)
+                    ? 'Ese día es el último de la oferta; después vuelve solo al precio normal. Vacío = sin fecha de fin.'
+                    : 'Solo aplica si hay descuento.'}
+                </small>
+              </div>
+
               <div className="product-field product-field--double">
                 <label htmlFor="precio-motivo">
                   Motivo
@@ -3467,9 +3507,20 @@ export default function ProductsModule({
                         )}
 
                         {producto.descuento > 0 && (
-                          <span className="productos-descuento">
-                            −{producto.descuento} %
-                          </span>
+                          descuentoVigente(
+                            producto.descuento,
+                            producto.descuentoHasta,
+                          ) > 0 ? (
+                            <span className="productos-descuento">
+                              −{producto.descuento} %
+                              {producto.descuentoHasta &&
+                                ` · hasta ${formatearFechaOferta(producto.descuentoHasta)}`}
+                            </span>
+                          ) : (
+                            <span className="productos-descuento is-vencido">
+                              Oferta vencida
+                            </span>
+                          )
                         )}
                       </td>
 

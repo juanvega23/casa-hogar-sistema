@@ -6,6 +6,7 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import { descuentoVigente } from '../lib/descuentos'
 
 
 type CategoriaRelacion = {
@@ -22,6 +23,7 @@ type ProductoRespuesta = {
   nombre: string
   precio_venta: number
   descuento_porcentaje: number
+  descuento_hasta: string | null
   activo: boolean
 
   categorias:
@@ -356,6 +358,7 @@ export default function SalesModule({
           nombre,
           precio_venta,
           descuento_porcentaje,
+          descuento_hasta,
           activo,
           categorias (
             nombre
@@ -409,11 +412,15 @@ export default function SalesModule({
                 0,
             ),
 
+          // Solo el vigente, igual que registrar_venta()
           descuento:
-            Number(
-              producto
-                .descuento_porcentaje ??
-                0,
+            descuentoVigente(
+              Number(
+                producto
+                  .descuento_porcentaje ??
+                  0,
+              ),
+              producto.descuento_hasta,
             ),
 
           existencia:

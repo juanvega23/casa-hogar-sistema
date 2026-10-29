@@ -1541,6 +1541,8 @@ html .auth-link:hover { text-decoration: underline; }
 .t-precio--oferta { color: var(--ch-peligro); }
 .t-precio-antes { font-size: 13px; color: var(--ch-texto-suave); text-decoration: line-through; font-variant-numeric: tabular-nums; }
 
+.t-oferta-hasta { font-size: 13px; font-weight: 600; color: var(--ch-texto-suave); }
+
 .t-comprar { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; margin-top: 10px; }
 
 .t-cantidad {
@@ -2174,6 +2176,12 @@ html .inventory-module .productos-th-filtro select {
   font-size: 12px;
   font-weight: 700;
   color: var(--ch-texto);
+}
+
+.productos-descuento.is-vencido {
+  background: var(--ch-fondo);
+  font-weight: 600;
+  color: var(--ch-texto-suave);
 }
 
 .precio-vista {

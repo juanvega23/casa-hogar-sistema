@@ -9,6 +9,7 @@ import {
 
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { formatearFechaOferta } from '../lib/descuentos'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
 import fotoObra from '../assets/portada/obra.webp'
 import fotoObraMovil from '../assets/portada/obra-movil.webp'
@@ -214,6 +215,7 @@ type Producto = {
   precio: number
   precio_regular: number
   descuento_porcentaje: number
+  descuento_hasta: string | null
   unidad_medida: string
   disponible: boolean
   pocas_unidades: boolean
@@ -473,6 +475,7 @@ export default function Storefront({ path, navigate }: Props) {
         // catálogo aún no se aplicó: se usa el precio final.
         precio_regular: Number(item.precio_regular ?? item.precio ?? 0),
         descuento_porcentaje: Number(item.descuento_porcentaje ?? 0),
+        descuento_hasta: item.descuento_hasta ? String(item.descuento_hasta) : null,
         unidad_medida: String(item.unidad_medida ?? 'unidad'),
         disponible: Boolean(item.disponible),
         pocas_unidades: Boolean(item.pocas_unidades),
@@ -1526,6 +1529,12 @@ export default function Storefront({ path, navigate }: Props) {
                       <span className="t-precio-antes">{dinero(productoDetalle.precio_regular)}</span>
                     )}
                   </div>
+
+                  {productoDetalle.descuento_hasta && (
+                    <span className="t-oferta-hasta">
+                      Oferta válida hasta el {formatearFechaOferta(productoDetalle.descuento_hasta)}
+                    </span>
+                  )}
 
                   {productoDetalle.disponible ? (
                     <div className="t-comprar">
