@@ -862,6 +862,12 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-buscador:focus-within { border-color: var(--ch-naranja); box-shadow: 0 0 0 3px var(--ch-azul-suave); }
 
+/* El buscador completo ya marca el foco (borde y halo de arriba): sin
+   esto, el contorno amarillo del selector y del campo quedaba recortado
+   por las esquinas redondeadas y se veía como una línea suelta. */
+.t-buscador select:focus-visible,
+.t-buscador input:focus-visible { outline: none; }
+
 .t-buscador select {
   max-width: 190px;
   padding: 0 12px;
@@ -947,13 +953,31 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-departamentos-interior {
   display: flex;
-  gap: 4px;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* Lista desplazable de departamentos; si no cabe, se esfuma en el
+   borde derecho para indicar que hay más (se desliza con el dedo
+   o la rueda del mouse). */
+.t-departamentos-lista {
+  display: flex;
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
+.t-departamentos-lista::-webkit-scrollbar { display: none; }
+
+.t-departamentos-lista.hay-mas {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+}
+
 .t-departamentos button {
-  padding: 12px 12px;
+  flex: none;
+  padding: 12px 10px;
   border: 0;
   background: none;
   color: var(--ch-texto);
@@ -965,7 +989,10 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-departamentos button:hover { color: var(--ch-azul); }
 .t-departamentos button.is-activo { color: var(--ch-azul); box-shadow: inset 0 -3px 0 var(--ch-azul); }
-.t-departamentos .t-dep-ofertas { margin-left: auto; color: var(--ch-peligro); }
+.t-departamentos .t-dep-ofertas { color: var(--ch-peligro); }
+
+/* El contorno de foco va hacia adentro: la barra recorta lo que sale */
+.t-departamentos button:focus-visible { outline-offset: -3px; }
 .t-departamentos .t-dep-ofertas.is-activo { color: var(--ch-peligro); box-shadow: inset 0 -3px 0 var(--ch-peligro); }
 
 /* Contenido */

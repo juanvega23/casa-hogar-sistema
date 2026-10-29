@@ -630,6 +630,38 @@ export default function Storefront({ path, navigate }: Props) {
 
   const hayOfertas = productos.some(p => p.descuento_porcentaje > 0)
 
+  // Barra de departamentos: ¿quedan departamentos ocultos a la derecha?
+  const listaDepartamentos = useRef<HTMLDivElement>(null)
+  const [hayMasDepartamentos, setHayMasDepartamentos] = useState(false)
+
+  useEffect(() => {
+    const lista = listaDepartamentos.current
+    if (!lista) return
+
+    function medir() {
+      if (!lista) return
+      setHayMasDepartamentos(lista.scrollLeft + lista.clientWidth < lista.scrollWidth - 1)
+    }
+
+    // La rueda del mouse desplaza la barra hacia los lados.
+    function alGirar(event: WheelEvent) {
+      if (!lista || lista.scrollWidth <= lista.clientWidth || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
+      event.preventDefault()
+      lista.scrollLeft += event.deltaY
+    }
+
+    medir()
+    lista.addEventListener('scroll', medir, { passive: true })
+    lista.addEventListener('wheel', alGirar, { passive: false })
+    window.addEventListener('resize', medir)
+
+    return () => {
+      lista.removeEventListener('scroll', medir)
+      lista.removeEventListener('wheel', alGirar)
+      window.removeEventListener('resize', medir)
+    }
+  }, [departamentos, vista])
+
   const mostrarDepartamento =
     categoria === 'Todos' || categoria === FILTRO_OFERTAS || busqueda.trim() !== ''
 
@@ -1184,24 +1216,30 @@ export default function Storefront({ path, navigate }: Props) {
 
         <nav className="t-departamentos" aria-label="Departamentos">
           <div className="t-departamentos-interior">
-            <button
-              type="button"
-              className={categoria === 'Todos' ? 'is-activo' : ''}
-              onClick={() => elegirDepartamento('Todos')}
+            {/* Solo esta lista se desplaza; "Ofertas de la semana" queda fija a la derecha */}
+            <div
+              ref={listaDepartamentos}
+              className={hayMasDepartamentos ? 't-departamentos-lista hay-mas' : 't-departamentos-lista'}
             >
-              Todos los productos
-            </button>
-
-            {departamentos.map(d => (
               <button
                 type="button"
-                key={d.nombre}
-                className={categoria === d.nombre ? 'is-activo' : ''}
-                onClick={() => elegirDepartamento(d.nombre)}
+                className={categoria === 'Todos' ? 'is-activo' : ''}
+                onClick={() => elegirDepartamento('Todos')}
               >
-                {d.nombre}
+                Todos los productos
               </button>
-            ))}
+
+              {departamentos.map(d => (
+                <button
+                  type="button"
+                  key={d.nombre}
+                  className={categoria === d.nombre ? 'is-activo' : ''}
+                  onClick={() => elegirDepartamento(d.nombre)}
+                >
+                  {d.nombre}
+                </button>
+              ))}
+            </div>
 
             {hayOfertas && (
               <button
