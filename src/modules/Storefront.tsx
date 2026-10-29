@@ -209,6 +209,8 @@ export default function Storefront({ path, navigate }: Props) {
   const [categoria, setCategoria] = useState('Todos')
   const [orden, setOrden] = useState<Orden>('destacados')
   const [cantidadesTarjeta, setCantidadesTarjeta] = useState<Record<number, number>>({})
+  const [productoDetalle, setProductoDetalle] = useState<Producto | null>(null)
+  const [cantidadDetalle, setCantidadDetalle] = useState(1)
   const [carrito, setCarrito] = useState<Record<number, number>>(leerCarritoGuardado)
 
   const [usuario, setUsuario] = useState<User | null>(null)
@@ -433,6 +435,9 @@ export default function Storefront({ path, navigate }: Props) {
 
   const hayOfertas = productos.some(p => p.descuento_porcentaje > 0)
 
+  const mostrarDepartamento =
+    categoria === 'Todos' || categoria === FILTRO_OFERTAS || busqueda.trim() !== ''
+
   const productosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLocaleLowerCase('es')
 
@@ -467,30 +472,15 @@ export default function Storefront({ path, navigate }: Props) {
     [productos],
   )
 
-  /*
-   * Las dos piezas chicas de la portada muestran departamentos; si
-   * el catálogo tiene menos de dos, se completan con productos
-   * disponibles para que la portada no quede con huecos.
-   */
-  const piezasSecundarias = useMemo(() => {
-    const piezas: (
-      | { tipo: 'departamento'; nombre: string }
-      | { tipo: 'producto'; producto: Producto }
-    )[] = departamentos
-      .slice(0, 2)
-      .map(d => ({ tipo: 'departamento' as const, nombre: d.nombre }))
-
-    if (departamentos.length < 2) {
-      for (const producto of productos) {
-        if (piezas.length >= 2) break
-        if (producto.disponible && producto.id !== destacado?.id) {
-          piezas.push({ tipo: 'producto', producto })
-        }
-      }
-    }
-
-    return piezas
-  }, [departamentos, productos, destacado])
+  // Las dos piezas chicas de la portada: los siguientes productos
+  // disponibles con más descuento (los departamentos ya tienen su mosaico).
+  const piezasSecundarias = useMemo(
+    () => productos
+      .filter(p => p.disponible && p.id !== destacado?.id)
+      .sort((a, b) => b.descuento_porcentaje - a.descuento_porcentaje)
+      .slice(0, 2),
+    [productos, destacado],
+  )
 
   function elegirDepartamento(nombre: string) {
     setCategoria(nombre)
@@ -548,6 +538,35 @@ export default function Storefront({ path, navigate }: Props) {
     )
     setError('')
   }
+
+  function abrirDetalle(producto: Producto) {
+    setProductoDetalle(producto)
+    setCantidadDetalle(1)
+  }
+
+  function agregarDesdeDetalle() {
+    if (!productoDetalle) return
+    agregar(productoDetalle, cantidadDetalle)
+    setProductoDetalle(null)
+  }
+
+  // Ventana de detalle: se cierra con Escape y bloquea el desplazamiento de fondo.
+  useEffect(() => {
+    if (!productoDetalle) return
+
+    function alPresionar(event: KeyboardEvent) {
+      if (event.key === 'Escape') setProductoDetalle(null)
+    }
+
+    const desbordeAnterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', alPresionar)
+
+    return () => {
+      document.body.style.overflow = desbordeAnterior
+      window.removeEventListener('keydown', alPresionar)
+    }
+  }, [productoDetalle])
 
   function quitar(productoId: number) {
     setCarrito(actual => {
@@ -1030,8 +1049,8 @@ export default function Storefront({ path, navigate }: Props) {
                 <button
                   type="button"
                   className="t-pieza t-pieza--grande"
-                  onClick={() => agregar(destacado)}
-                  aria-label={`Agregar ${destacado.nombre} al carrito`}
+                  onClick={() => abrirDetalle(destacado)}
+                  aria-label={`Ver ${destacado.nombre}`}
                 >
                   <span className="t-precio-colgante">
                     <small>{destacado.descuento_porcentaje > 0 ? `Oferta −${destacado.descuento_porcentaje}%` : 'Destacado'}</small>
@@ -1042,30 +1061,24 @@ export default function Storefront({ path, navigate }: Props) {
                 </button>
               )}
 
-              {piezasSecundarias.map(pieza =>
-                pieza.tipo === 'departamento' ? (
-                  <button
-                    type="button"
-                    key={`d-${pieza.nombre}`}
-                    className="t-pieza"
-                    onClick={() => elegirDepartamento(pieza.nombre)}
-                  >
-                    <IconoDepartamento nombre={pieza.nombre} />
-                    <small className="t-pieza-nombre">{pieza.nombre}</small>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    key={`p-${pieza.producto.id}`}
-                    className="t-pieza"
-                    onClick={() => agregar(pieza.producto)}
-                    aria-label={`Agregar ${pieza.producto.nombre} al carrito`}
-                  >
-                    <ProductImage producto={pieza.producto} />
-                    <small className="t-pieza-nombre">{pieza.producto.nombre}</small>
-                  </button>
-                ),
-              )}
+              {piezasSecundarias.map(producto => (
+                <button
+                  type="button"
+                  key={producto.id}
+                  className="t-pieza"
+                  onClick={() => abrirDetalle(producto)}
+                  aria-label={`Ver ${producto.nombre}`}
+                >
+                  {producto.descuento_porcentaje > 0 && (
+                    <span className="t-descuento">−{producto.descuento_porcentaje}%</span>
+                  )}
+                  <ProductImage producto={producto} />
+                  <small className="t-pieza-nombre">
+                    <span>{producto.nombre}</span>
+                    <b>{dinero(producto.precio)}</b>
+                  </small>
+                </button>
+              ))}
             </div>
           </section>
 
@@ -1126,7 +1139,14 @@ export default function Storefront({ path, navigate }: Props) {
               {productosFiltrados.map(producto => (
                 <article className="t-producto" key={producto.id}>
                   <div className="t-producto-foto">
-                    <ProductImage producto={producto} />
+                    <button
+                      type="button"
+                      className="t-producto-ver"
+                      onClick={() => abrirDetalle(producto)}
+                      aria-label={`Ver detalles de ${producto.nombre}`}
+                    >
+                      <ProductImage producto={producto} />
+                    </button>
                     <span
                       className={
                         !producto.disponible
@@ -1145,10 +1165,15 @@ export default function Storefront({ path, navigate }: Props) {
 
                   <div className="t-producto-info">
                     <div className="t-producto-meta">
-                      <span>{producto.categoria}</span>
+                      {/* Dentro de un departamento, repetirlo en cada tarjeta no aporta */}
+                      <span>{mostrarDepartamento ? producto.categoria : ''}</span>
                       <span className="t-sku">{producto.codigo}</span>
                     </div>
-                    <h3>{producto.nombre}</h3>
+                    <h3>
+                      <button type="button" className="t-producto-nombre" onClick={() => abrirDetalle(producto)} title={producto.nombre}>
+                        {producto.nombre}
+                      </button>
+                    </h3>
                     <span className="t-unidad">{unidadLegible(producto.unidad_medida)}</span>
 
                     <div className="t-precio-fila">
@@ -1198,6 +1223,80 @@ export default function Storefront({ path, navigate }: Props) {
               </div>
             )}
           </section>
+
+          {productoDetalle && (
+            <div className="t-detalle-fondo" onClick={() => setProductoDetalle(null)}>
+              <div
+                className="t-detalle"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="t-detalle-titulo"
+                onClick={event => event.stopPropagation()}
+              >
+                <button className="t-detalle-cerrar" type="button" onClick={() => setProductoDetalle(null)} aria-label="Cerrar" autoFocus>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                </button>
+
+                <div className="t-detalle-foto">
+                  <ProductImage producto={productoDetalle} />
+                  {productoDetalle.descuento_porcentaje > 0 && (
+                    <span className="t-descuento">−{productoDetalle.descuento_porcentaje}%</span>
+                  )}
+                </div>
+
+                <div className="t-detalle-info">
+                  <div className="t-producto-meta">
+                    <span>{productoDetalle.categoria}</span>
+                    <span className="t-sku">{productoDetalle.codigo}</span>
+                  </div>
+
+                  <h2 id="t-detalle-titulo">{productoDetalle.nombre}</h2>
+
+                  <span
+                    className={
+                      !productoDetalle.disponible
+                        ? 't-stock t-stock--agotado'
+                        : productoDetalle.pocas_unidades
+                          ? 't-stock t-stock--bajo'
+                          : 't-stock'
+                    }
+                  >
+                    {!productoDetalle.disponible ? 'Agotado' : productoDetalle.pocas_unidades ? 'Últimas unidades' : 'Disponible'}
+                  </span>
+
+                  <p className="t-detalle-descripcion">
+                    {productoDetalle.descripcion ?? 'Este producto todavía no tiene descripción.'}
+                  </p>
+
+                  <span className="t-unidad">{unidadLegible(productoDetalle.unidad_medida)}</span>
+
+                  <div className="t-precio-fila">
+                    <span className={productoDetalle.descuento_porcentaje > 0 ? 't-precio t-precio--oferta' : 't-precio'}>
+                      {dinero(productoDetalle.precio)}
+                    </span>
+                    {productoDetalle.precio_regular > productoDetalle.precio && (
+                      <span className="t-precio-antes">{dinero(productoDetalle.precio_regular)}</span>
+                    )}
+                  </div>
+
+                  {productoDetalle.disponible ? (
+                    <div className="t-comprar">
+                      <div className="t-cantidad" role="group" aria-label={`Cantidad de ${productoDetalle.nombre}`}>
+                        <button type="button" onClick={() => setCantidadDetalle(c => Math.max(1, c - 1))} aria-label="Quitar uno">−</button>
+                        <span>{cantidadDetalle}</span>
+                        <button type="button" onClick={() => setCantidadDetalle(c => Math.min(99, c + 1))} aria-label="Agregar uno">+</button>
+                      </div>
+                      <button className="t-agregar" type="button" onClick={agregarDesdeDetalle}>
+                        Agregar al carrito
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="t-agregar" type="button" disabled>Sin existencias</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <section className="t-confianza" id="como-comprar" aria-label="Cómo comprar">
             <div>

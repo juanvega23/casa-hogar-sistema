@@ -244,6 +244,8 @@ Pegado al final cuando hay poco contenido: página con `display:flex; flex-direc
 
 Rediseñada y estabilizada (26/10/2026): portada de ofertas, mosaico de departamentos, tarjetas con descuento tachado y cantidad, banda "cómo comprar", pie claro, carrito con pasos, login con pestañas; dos productos por fila en celular. "Mi cuenta" y "Nueva contraseña" conservan clases `store-*` restiladas desde el tema. No hacer otro rediseño completo sin solicitud expresa.
 
+Desde el 28/10/2026: la portada muestra solo productos en oferta (no categorías); hacer clic en la foto o el nombre de un producto abre una ventana de detalle con su descripción (no lo agrega al carrito: solo el botón "Agregar" lo hace); nombres en máximo dos líneas; el departamento no se repite en las tarjetas cuando ya se está dentro de uno.
+
 El precio tachado y "Últimas unidades" requieren la migración `20261026202644_catalogo_publico_precios.sql` (agrega `precio_regular`, `descuento_porcentaje`, `unidad_medida`, `pocas_unidades` sin exponer la existencia exacta). Sin ella, la tienda funciona sin esos dos detalles.
 
 ## 39. Login interno
