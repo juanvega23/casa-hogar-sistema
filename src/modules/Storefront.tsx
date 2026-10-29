@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from 'react'
@@ -8,6 +9,181 @@ import {
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
+import fotoObra from '../assets/portada/obra.webp'
+import fotoObraMovil from '../assets/portada/obra-movil.webp'
+import fotoPintura from '../assets/portada/pintura.webp'
+import fotoPinturaMovil from '../assets/portada/pintura-movil.webp'
+import fotoTaller from '../assets/portada/taller.webp'
+import fotoTallerMovil from '../assets/portada/taller-movil.webp'
+import fotoPatio from '../assets/portada/patio.webp'
+import fotoPatioMovil from '../assets/portada/patio-movil.webp'
+
+/*
+ * Diapositivas del carrusel de la portada. Cada una lleva a su
+ * departamento; el texto va en una tarjeta del lado donde la foto
+ * no tiene lo principal (persona, herramientas).
+ */
+type Diapositiva = {
+  id: string
+  foto: string
+  fotoMovil: string
+  lado: 'izquierda' | 'derecha'
+  departamento: string
+  etiqueta: string
+  titulo: string
+  texto: string
+  boton: string
+}
+
+const DIAPOSITIVAS: Diapositiva[] = [
+  {
+    id: 'obra',
+    foto: fotoObra,
+    fotoMovil: fotoObraMovil,
+    lado: 'derecha',
+    departamento: 'Construcción / Albañilería',
+    etiqueta: 'Construcción',
+    titulo: 'Tu obra, con todo lo que necesita',
+    texto: 'Cemento, bloques, varillas y herramientas de albañil con existencia real.',
+    boton: 'Ver construcción',
+  },
+  {
+    id: 'pintura',
+    foto: fotoPintura,
+    fotoMovil: fotoPinturaMovil,
+    lado: 'izquierda',
+    departamento: 'Pinturas',
+    etiqueta: 'Pinturas',
+    titulo: 'Renová tus paredes',
+    texto: 'Pintura látex, brochas, rodillos y todo para un buen acabado.',
+    boton: 'Ver pinturas',
+  },
+  {
+    id: 'taller',
+    foto: fotoTaller,
+    fotoMovil: fotoTallerMovil,
+    lado: 'derecha',
+    departamento: 'Carpintería',
+    etiqueta: 'Carpintería',
+    titulo: 'Equipá tu taller',
+    texto: 'Madera, clavos, serruchos y abrasivos para cada proyecto.',
+    boton: 'Ver carpintería',
+  },
+  {
+    id: 'patio',
+    foto: fotoPatio,
+    fotoMovil: fotoPatioMovil,
+    lado: 'derecha',
+    departamento: 'Hogar y accesorios',
+    etiqueta: 'Hogar y patio',
+    titulo: 'Tu casa y tu patio, siempre listos',
+    texto: 'Mangueras, candados, escobas y accesorios para el hogar.',
+    boton: 'Ver hogar',
+  },
+]
+
+const INTERVALO_CARRUSEL = 6000
+
+function Carrusel({
+  descuentoMaximo,
+  onElegir,
+}: {
+  descuentoMaximo: (departamento: string) => number
+  onElegir: (departamento: string) => void
+}) {
+  const [indice, setIndice] = useState(0)
+  const [pausado, setPausado] = useState(false)
+  const inicioToque = useRef<number | null>(null)
+  const total = DIAPOSITIVAS.length
+
+  const sinMovimiento =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+  // Avanza solo; se reinicia cada vez que el cliente cambia de diapositiva.
+  useEffect(() => {
+    if (pausado || sinMovimiento) return
+    const id = window.setTimeout(() => setIndice(i => (i + 1) % total), INTERVALO_CARRUSEL)
+    return () => window.clearTimeout(id)
+  }, [indice, pausado, sinMovimiento, total])
+
+  function ir(delta: number) {
+    setIndice(i => (i + delta + total) % total)
+  }
+
+  return (
+    <section
+      className="t-carrusel"
+      aria-roledescription="carrusel"
+      aria-label="Destacados de la tienda"
+      onMouseEnter={() => setPausado(true)}
+      onMouseLeave={() => setPausado(false)}
+      onFocus={() => setPausado(true)}
+      onBlur={() => setPausado(false)}
+      onTouchStart={event => { inicioToque.current = event.touches[0].clientX }}
+      onTouchEnd={event => {
+        if (inicioToque.current === null) return
+        const distancia = event.changedTouches[0].clientX - inicioToque.current
+        if (Math.abs(distancia) > 50) ir(distancia < 0 ? 1 : -1)
+        inicioToque.current = null
+      }}
+    >
+      <div className="t-carrusel-pista" style={{ transform: `translateX(-${indice * 100}%)` }}>
+        {DIAPOSITIVAS.map((d, i) => {
+          const descuento = descuentoMaximo(d.departamento)
+
+          return (
+            <div
+              key={d.id}
+              className={`t-diapositiva t-diapositiva--${d.lado}`}
+              role="group"
+              aria-roledescription="diapositiva"
+              aria-label={`${i + 1} de ${total}`}
+              aria-hidden={i !== indice}
+              inert={i !== indice}
+            >
+              <picture>
+                <source media="(max-width: 700px)" srcSet={d.fotoMovil} />
+                <img src={d.foto} alt="" fetchPriority={i === 0 ? 'high' : 'auto'} />
+              </picture>
+
+              <div className="t-diapositiva-tarjeta">
+                <span className="t-etiqueta">
+                  {descuento > 0 ? `${d.etiqueta} · hasta ${descuento} % de descuento` : d.etiqueta}
+                </span>
+                <h2>{d.titulo}</h2>
+                <p>{d.texto}</p>
+                <button className="t-boton t-boton--primario" type="button" onClick={() => onElegir(d.departamento)}>
+                  {d.boton}
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <button className="t-carrusel-flecha t-carrusel-flecha--antes" type="button" onClick={() => ir(-1)} aria-label="Diapositiva anterior">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+      </button>
+      <button className="t-carrusel-flecha t-carrusel-flecha--despues" type="button" onClick={() => ir(1)} aria-label="Diapositiva siguiente">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+      </button>
+
+      <div className="t-carrusel-puntos">
+        {DIAPOSITIVAS.map((d, i) => (
+          <button
+            key={d.id}
+            type="button"
+            className={i === indice ? 'is-activo' : ''}
+            onClick={() => setIndice(i)}
+            aria-label={`Ir a la diapositiva ${i + 1}: ${d.titulo}`}
+            aria-current={i === indice}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
 
 
 type Producto = {
@@ -472,15 +648,22 @@ export default function Storefront({ path, navigate }: Props) {
     [productos],
   )
 
-  // Las dos piezas chicas de la portada: los siguientes productos
-  // disponibles con más descuento (los departamentos ya tienen su mosaico).
+  // Pieza chica junto al carrusel: el siguiente producto disponible
+  // con más descuento (los departamentos ya tienen su mosaico).
   const piezasSecundarias = useMemo(
     () => productos
       .filter(p => p.disponible && p.id !== destacado?.id)
       .sort((a, b) => b.descuento_porcentaje - a.descuento_porcentaje)
-      .slice(0, 2),
+      .slice(0, 1),
     [productos, destacado],
   )
+
+  // Mayor descuento vigente de un departamento (para el carrusel).
+  function descuentoMaximo(departamento: string) {
+    return productos
+      .filter(p => p.categoria === departamento && p.disponible)
+      .reduce((max, p) => Math.max(max, p.descuento_porcentaje), 0)
+  }
 
   function elegirDepartamento(nombre: string) {
     setCategoria(nombre)
@@ -1016,33 +1199,15 @@ export default function Storefront({ path, navigate }: Props) {
 
       {vista === 'catalogo' && (
         <main className="t-contenido">
-          <section className="t-portada">
-            <div className="t-portada-texto">
-              <span className="t-etiqueta">{hayOfertas ? 'Ofertas de la semana' : 'Pedidos en línea'}</span>
-              <h1>Todo para tu obra, <em>listo para retirar</em></h1>
-              <p>Armá tu pedido desde la casa o el trabajo. Lo preparamos en bodega y te avisamos cuando puedas pasar por él, o te lo llevamos.</p>
-              <div className="t-botones">
-                <button
-                  className="t-boton t-boton--primario"
-                  type="button"
-                  onClick={() => elegirDepartamento(hayOfertas ? FILTRO_OFERTAS : 'Todos')}
-                >
-                  {hayOfertas ? 'Ver ofertas' : 'Ver productos'}
-                </button>
-                <button
-                  className="t-boton t-boton--secundario"
-                  type="button"
-                  onClick={() => document.getElementById('como-comprar')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  Cómo funciona el retiro
-                </button>
-              </div>
-              <div className="t-garantias">
-                <span>Precios del sistema</span>
-                <span>Existencia real</span>
-                <span>Pagás al retirar</span>
-              </div>
-            </div>
+          <section className="t-portada" aria-label="Portada de la tienda">
+            <h1 className="t-solo-lectores">Ferretería Casa Hogar · Tienda en línea</h1>
+
+            <Carrusel
+              descuentoMaximo={descuentoMaximo}
+              onElegir={nombre =>
+                elegirDepartamento(departamentos.some(d => d.nombre === nombre) ? nombre : 'Todos')
+              }
+            />
 
             <div className="t-collage">
               {destacado && (
