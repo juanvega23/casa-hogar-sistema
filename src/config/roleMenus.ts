@@ -1,8 +1,6 @@
 export type RoleCode =
   | 'propietario'
   | 'gerencia'
-  | 'administracion'
-  | 'ventas' // TEMPORAL: rol antiguo mientras hacemos la migración
   | 'almacen'
   | 'soporte_ti'
   | 'encargado_compras'
@@ -43,7 +41,7 @@ export const menusByRole: Record<
   ],
 
   // =========================================================
-  // GERENCIA / ADMINISTRACIÓN
+  // GERENCIA
   //
   // Consulta, supervisión y análisis.
   // No ejecuta operaciones.
@@ -146,59 +144,6 @@ export const menusByRole: Record<
       nombre: 'Reportes operativos',
     },
 
-  ],
-
-  // =========================================================
-  // ADMINISTRACIÓN - ROL ANTIGUO / TEMPORAL
-  //
-  // Se conserva temporalmente mientras terminamos la migración.
-  // La supervisión general se concentra en Gerencia.
-  //
-  // Solo se muestran pantallas que la base de datos le permite:
-  // antes tenía Dashboard (exclusivo del Propietario), Ventas y
-  // Caja, que fallaban por RLS. Puede registrar ajustes de
-  // inventario (registrar_movimiento_inventario) y anular
-  // compras (anular_compra).
-  // =========================================================
-  administracion: [
-    {
-      id: 'productos-consulta',
-      nombre: 'Productos',
-    },
-    {
-      id: 'inventario-consulta',
-      nombre: 'Bodega / Inventario',
-    },
-    {
-      id: 'movimientos',
-      nombre: 'Movimientos / Ajustes',
-    },
-    {
-      id: 'reportes',
-      nombre: 'Reportes',
-    },
-  ],
-
-  // =========================================================
-  // VENTAS - ROL ANTIGUO
-  //
-  // TEMPORAL.
-  // Se conserva hasta terminar la migración del usuario actual.
-  // Luego será eliminado o desactivado.
-  // =========================================================
-  ventas: [
-    {
-      id: 'ventas',
-      nombre: 'Ventas',
-    },
-    {
-      id: 'caja',
-      nombre: 'Caja',
-    },
-    {
-      id: 'productos-consulta',
-      nombre: 'Consultar productos',
-    },
   ],
 
   // =========================================================
