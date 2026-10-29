@@ -1914,17 +1914,12 @@ html .auth-link:hover { text-decoration: underline; }
   box-shadow: var(--ch-sombra);
 }
 
-/* Fondo: pasillo de ferretería ya difuminado en el archivo, aclarado
-   con una capa del fondo del tema para que el texto marino se lea. */
 .t-acceso-panel {
   display: grid;
   align-content: center;
   gap: 20px;
   padding: 40px;
-  background:
-    linear-gradient(rgba(243, 245, 248, .66), rgba(243, 245, 248, .52)),
-    url('../assets/acceso-clientes.webp') center / cover,
-    var(--t-acero);
+  background: var(--t-acero);
   border-right: 1px solid var(--ch-acero-borde);
 }
 
@@ -2066,7 +2061,8 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .t-carrito-grid { grid-template-columns: 1fr; }
   .t-resumen { position: static; }
   .t-acceso { grid-template-columns: 1fr; }
-  .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-acero-borde); padding: 28px; }  .t-acceso-tarjeta { padding: 28px; }
+  .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-acero-borde); padding: 28px; }
+  .t-acceso-tarjeta { padding: 28px; }
 }
 
 @media (max-width: 560px) {
