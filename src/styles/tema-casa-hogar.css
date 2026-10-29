@@ -2222,6 +2222,82 @@ html .inventory-module .productos-th-filtro select {
 .compras-reposicion-accion { text-align: right; }
 .compras-reposicion-nota { font-size: 12.5px; color: var(--ch-texto-suave); }
 
+/* ==========================================================
+   CAJA · ARQUEO POR DENOMINACIÓN
+   Conteo a la izquierda, resumen y diferencias a la derecha.
+   ========================================================== */
+.arqueo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 20px;
+  align-items: start;
+  margin-top: 16px;
+}
+
+.arqueo-conteo { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: start; }
+.arqueo-grupo { display: grid; gap: 8px; align-content: start; }
+.arqueo-grupo h4 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ch-texto-suave); }
+
+.arqueo-tabla { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); overflow: hidden; font-size: 14px; }
+.arqueo-tabla th { padding: 8px 10px; background: var(--ch-fondo); font-size: 11.5px; font-weight: 700; color: var(--ch-texto-suave); text-align: left; }
+.arqueo-tabla td { padding: 5px 10px; border-top: 1px solid var(--ch-linea); color: var(--ch-texto); font-variant-numeric: tabular-nums; }
+.arqueo-tabla td:last-child, .arqueo-tabla th:last-child { text-align: right; }
+.arqueo-tabla tfoot td { background: var(--ch-fondo); font-weight: 700; }
+.arqueo-tabla input,
+.arqueo-medio input {
+  width: 100%;
+  max-width: 88px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--ch-linea);
+  border-radius: 8px;
+  background: var(--ch-superficie);
+  color: var(--ch-texto);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.arqueo-medio { display: grid; gap: 4px; font-size: 14px; color: var(--ch-texto); }
+.arqueo-medio input { max-width: none; }
+.arqueo-medio small { font-size: 12.5px; color: var(--ch-texto-suave); }
+
+.arqueo-resumen {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-lg);
+  background: var(--ch-fondo);
+}
+.arqueo-cuentas { display: grid; gap: 6px; margin: 0; }
+.arqueo-cuentas div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.arqueo-cuentas dt { color: var(--ch-texto-suave); }
+.arqueo-cuentas dd { margin: 0; font-variant-numeric: tabular-nums; color: var(--ch-texto); }
+.arqueo-cuentas .is-total { padding-top: 6px; border-top: 1px solid var(--ch-linea); font-weight: 700; }
+.arqueo-cuentas .is-total dt { color: var(--ch-texto); }
+.arqueo-cuentas .is-total dd { font-family: var(--ch-display); font-size: 18px; }
+
+.arqueo-diferencia { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--ch-texto); }
+.arqueo-estado { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.arqueo-estado.is-cuadra { background: var(--ch-ok-suave); color: var(--ch-ok); }
+.arqueo-estado.is-faltante { background: var(--ch-peligro-suave); color: var(--ch-peligro); }
+.arqueo-estado.is-sobrante { background: var(--ch-amarillo-suave); color: var(--ch-texto); }
+
+.arqueo-observaciones { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--ch-texto); }
+.arqueo-observaciones em { font-style: normal; font-weight: 500; color: var(--ch-peligro); }
+.arqueo-observaciones textarea { min-height: 72px; padding: 8px 10px; border: 1px solid var(--ch-linea); border-radius: 8px; background: var(--ch-superficie); font: inherit; font-weight: 400; color: var(--ch-texto); resize: vertical; }
+
+.arqueo-comparacion { width: 100%; border-collapse: collapse; font-size: 14px; }
+.arqueo-comparacion th { padding: 6px 4px; font-size: 11.5px; font-weight: 700; color: var(--ch-texto-suave); text-align: left; }
+.arqueo-comparacion td { padding: 7px 4px; border-top: 1px solid var(--ch-linea); color: var(--ch-texto); font-variant-numeric: tabular-nums; }
+.arqueo-nota { margin: 0; font-size: 14px; color: var(--ch-texto); }
+
+@media (max-width: 900px) {
+  .arqueo { grid-template-columns: 1fr; }
+  .arqueo-resumen { position: static; }
+}
+
 /* Auditoría: registros cargados directamente en la base */
 .soporte-sin-usuario { color: var(--ch-texto-suave); font-style: italic; cursor: help; }
 

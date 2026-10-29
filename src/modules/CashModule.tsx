@@ -71,6 +71,12 @@ type ArqueoCaja = {
   efectivo_esperado: number
   efectivo_contado: number
   diferencia: number
+  // Conteo por denominación ("500.00": 2); null en arqueos anteriores
+  detalle_efectivo: Record<string, number> | null
+  tarjeta_esperado: number | null
+  tarjeta_contado: number | null
+  transferencia_esperado: number | null
+  transferencia_contado: number | null
   observaciones: string | null
   created_at: string
 }
@@ -118,6 +124,33 @@ function dinero(valor: number) {
     currency: 'NIO',
     minimumFractionDigits: 2,
   }).format(valor)
+}
+
+// Billetes y monedas del córdoba para el arqueo (C$10 existe en ambos)
+const BILLETES = [1000, 500, 200, 100, 50, 20, 10]
+const MONEDAS = [10, 5, 1, 0.5, 0.25, 0.1, 0.05]
+
+const claveBillete = (valor: number) => `b${valor}`
+const claveMoneda = (valor: number) => `m${valor}`
+
+function cantidadConteo(texto: string | undefined) {
+  const numero = Number(texto || 0)
+  return Number.isInteger(numero) && numero > 0 ? numero : 0
+}
+
+// Diferencia de un arqueo en palabras: faltante, sobrante o cuadra
+function estadoDiferencia(diferencia: number) {
+  const redondeada = Math.round(diferencia * 100) / 100
+
+  if (redondeada < 0) {
+    return { texto: 'Faltante', clase: 'is-faltante' }
+  }
+
+  if (redondeada > 0) {
+    return { texto: 'Sobrante', clase: 'is-sobrante' }
+  }
+
+  return { texto: 'Cuadra', clase: 'is-cuadra' }
 }
 
 function fecha(valor: string | null) {
@@ -180,7 +213,10 @@ export default function CashModule({
   const [montoMovimiento, setMontoMovimiento] = useState('')
   const [referenciaMovimiento, setReferenciaMovimiento] = useState('')
 
-  const [efectivoContado, setEfectivoContado] = useState('')
+  // Arqueo: cantidad por denominación (claves b1000, m10…) y otros medios
+  const [conteo, setConteo] = useState<Record<string, string>>({})
+  const [tarjetaContado, setTarjetaContado] = useState('')
+  const [transferenciaContado, setTransferenciaContado] = useState('')
   const [obsArqueo, setObsArqueo] = useState('')
   const [obsCierre, setObsCierre] = useState('')
 
@@ -229,6 +265,20 @@ export default function CashModule({
       ingresosEfectivo -
       egresosEfectivo
 
+    // Misma regla que registrar_arqueo_caja(): ingresos − egresos del método
+    const netoMetodo = (metodo: string) =>
+      Math.max(
+        movimientosActuales
+          .filter(m => m.metodo_pago === metodo)
+          .reduce(
+            (a, b) =>
+              a +
+              (b.tipo === 'ingreso' ? b.monto : b.tipo === 'egreso' ? -b.monto : 0),
+            0,
+          ),
+        0,
+      )
+
     return {
       ingresos,
       egresos,
@@ -236,9 +286,41 @@ export default function CashModule({
         (sesionActual?.monto_inicial ?? 0) +
         ingresos -
         egresos,
+      ingresosEfectivo,
+      egresosEfectivo,
       esperadoEfectivo,
+      esperadoTarjeta: netoMetodo('tarjeta'),
+      esperadoTransferencia: netoMetodo('transferencia'),
     }
   }, [movimientosActuales, sesionActual])
+
+  // Totales del conteo mientras la cajera escribe
+  const totalBilletes = BILLETES.reduce(
+    (a, valor) => a + valor * cantidadConteo(conteo[claveBillete(valor)]),
+    0,
+  )
+
+  const totalMonedas = MONEDAS.reduce(
+    (a, valor) => a + valor * cantidadConteo(conteo[claveMoneda(valor)]),
+    0,
+  )
+
+  const totalContado =
+    Math.round((totalBilletes + totalMonedas) * 100) / 100
+
+  const diferenciaEfectivo =
+    Math.round((totalContado - resumenActual.esperadoEfectivo) * 100) / 100
+
+  const diferenciaTarjeta =
+    Math.round((Number(tarjetaContado || 0) - resumenActual.esperadoTarjeta) * 100) / 100
+
+  const diferenciaTransferencia =
+    Math.round((Number(transferenciaContado || 0) - resumenActual.esperadoTransferencia) * 100) / 100
+
+  const hayDiferencias =
+    diferenciaEfectivo !== 0 ||
+    diferenciaTarjeta !== 0 ||
+    diferenciaTransferencia !== 0
 
   async function cargarDatos() {
     if (!puedeConsultar) {
@@ -295,6 +377,11 @@ export default function CashModule({
           efectivo_esperado,
           efectivo_contado,
           diferencia,
+          detalle_efectivo,
+          tarjeta_esperado,
+          tarjeta_contado,
+          transferencia_esperado,
+          transferencia_contado,
           observaciones,
           created_at
         `)
@@ -686,10 +773,30 @@ export default function CashModule({
     limpiarMensajes()
     setProcesando(true)
 
+    // La base recalcula el total a partir de este conteo.
+    // C$10 en billete y en moneda se envían juntos.
+    const pConteo: Record<string, number> = {}
+
+    for (const [valores, clave] of [
+      [BILLETES, claveBillete],
+      [MONEDAS, claveMoneda],
+    ] as const) {
+      for (const valor of valores) {
+        const cantidad = cantidadConteo(conteo[clave(valor)])
+
+        if (cantidad > 0) {
+          const denominacion = valor.toFixed(2)
+          pConteo[denominacion] = (pConteo[denominacion] ?? 0) + cantidad
+        }
+      }
+    }
+
     const { error: rpcError } = await supabase.rpc(
       'registrar_arqueo_caja',
       {
-        p_efectivo_contado: Number(efectivoContado),
+        p_conteo: pConteo,
+        p_tarjeta_contado: Number(tarjetaContado || 0),
+        p_transferencia_contado: Number(transferenciaContado || 0),
         p_observaciones: obsArqueo.trim() || null,
       },
     )
@@ -701,7 +808,9 @@ export default function CashModule({
     }
 
     setExito('Arqueo registrado correctamente.')
-    setEfectivoContado('')
+    setConteo({})
+    setTarjetaContado('')
+    setTransferenciaContado('')
     setObsArqueo('')
     await cargarDatos()
     setProcesando(false)
@@ -1176,67 +1285,227 @@ export default function CashModule({
           <span className="panel-label">ARQUEO</span>
           <h3>Arqueo de caja</h3>
           <p className="cash-help">
-            El sistema calcula el efectivo esperado y lo compara con el efectivo contado.
+            {arqueoActual
+              ? `Arqueo registrado el ${fecha(arqueoActual.created_at)}.`
+              : 'Cuenta los billetes y monedas de la caja y anota los vouchers y transferencias. El sistema suma y compara con lo cobrado.'}
           </p>
 
-          <div className="cash-summary-grid">
-            <div>
-              <span>FONDO INICIAL</span>
-              <strong>{dinero(sesionActual?.monto_inicial ?? 0)}</strong>
-            </div>
-            <div>
-              <span>EFECTIVO ESPERADO</span>
-              <strong>{dinero(resumenActual.esperadoEfectivo)}</strong>
-            </div>
-            <div>
-              <span>ESTADO</span>
-              <strong>{arqueoActual ? 'Arqueado' : 'Pendiente'}</strong>
-            </div>
-          </div>
-
           {arqueoActual ? (
-            <div className="cash-arqueo-result">
-              <div><span>Contado</span><strong>{dinero(arqueoActual.efectivo_contado)}</strong></div>
-              <div><span>Esperado</span><strong>{dinero(arqueoActual.efectivo_esperado)}</strong></div>
-              <div>
-                <span>Diferencia</span>
-                <strong className={arqueoActual.diferencia === 0 ? 'cash-ok' : 'cash-warning'}>
-                  {dinero(arqueoActual.diferencia)}
-                </strong>
-              </div>
+            <div className="arqueo">
+              {arqueoActual.detalle_efectivo && (
+                <div className="arqueo-grupo">
+                  <h4>Efectivo contado</h4>
+                  <table className="arqueo-tabla">
+                    <thead>
+                      <tr>
+                        <th>Cantidad</th>
+                        <th>Denominación</th>
+                        <th>Importe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(arqueoActual.detalle_efectivo)
+                        .sort(([a], [b]) => Number(b) - Number(a))
+                        .map(([denominacion, cantidad]) => (
+                          <tr key={denominacion}>
+                            <td>{cantidad}</td>
+                            <td>{dinero(Number(denominacion))}</td>
+                            <td>{dinero(Number(denominacion) * cantidad)}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <aside className="arqueo-resumen">
+                <table className="arqueo-comparacion">
+                  <thead>
+                    <tr>
+                      <th>Medio</th>
+                      <th>Sistema</th>
+                      <th>Contado</th>
+                      <th>Diferencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ['Efectivo', arqueoActual.efectivo_esperado, arqueoActual.efectivo_contado],
+                      ['Tarjeta', arqueoActual.tarjeta_esperado, arqueoActual.tarjeta_contado],
+                      ['Transferencia', arqueoActual.transferencia_esperado, arqueoActual.transferencia_contado],
+                    ]
+                      .filter(([, esperado, contado]) => esperado !== null && contado !== null)
+                      .map(([medio, esperado, contado]) => {
+                        const diferencia = Number(contado) - Number(esperado)
+                        const estado = estadoDiferencia(diferencia)
+
+                        return (
+                          <tr key={String(medio)}>
+                            <td>{medio}</td>
+                            <td>{dinero(Number(esperado))}</td>
+                            <td>{dinero(Number(contado))}</td>
+                            <td>
+                              <span className={`arqueo-estado ${estado.clase}`}>
+                                {estado.texto}
+                                {diferencia !== 0 && ` ${dinero(Math.abs(diferencia))}`}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+
+                {arqueoActual.observaciones && (
+                  <p className="arqueo-nota">
+                    <strong>Observaciones:</strong> {arqueoActual.observaciones}
+                  </p>
+                )}
+              </aside>
             </div>
           ) : (
-            <form className="cash-form" onSubmit={registrarArqueo}>
-              <label>
-                Efectivo contado físicamente
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={efectivoContado}
-                  onChange={e => setEfectivoContado(e.target.value)}
-                  placeholder="0.00"
-                />
-              </label>
+            <form className="arqueo" onSubmit={registrarArqueo}>
+              <div className="arqueo-conteo">
+                {(
+                  [
+                    ['Billetes', BILLETES, claveBillete, totalBilletes],
+                    ['Monedas', MONEDAS, claveMoneda, totalMonedas],
+                  ] as const
+                ).map(([titulo, valores, clave, total]) => (
+                  <div key={titulo} className="arqueo-grupo">
+                    <h4>{titulo}</h4>
+                    <table className="arqueo-tabla">
+                      <thead>
+                        <tr>
+                          <th>Cantidad</th>
+                          <th>Denominación</th>
+                          <th>Importe</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {valores.map(valor => {
+                          const llave = clave(valor)
 
-              <label className="cash-field-full">
-                Observaciones
-                <textarea
-                  value={obsArqueo}
-                  onChange={e => setObsArqueo(e.target.value)}
-                  placeholder="Opcional"
-                />
-              </label>
+                          return (
+                            <tr key={llave}>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  inputMode="numeric"
+                                  value={conteo[llave] ?? ''}
+                                  onChange={e =>
+                                    setConteo(actual => ({
+                                      ...actual,
+                                      [llave]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="0"
+                                  aria-label={`Cantidad de ${titulo.toLowerCase()} de ${dinero(valor)}`}
+                                />
+                              </td>
+                              <td>{dinero(valor)}</td>
+                              <td>{dinero(valor * cantidadConteo(conteo[llave]))}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td colSpan={2}>Total {titulo.toLowerCase()}</td>
+                          <td>{dinero(total)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ))}
 
-              <div className="cash-actions cash-field-full">
+                <div className="arqueo-grupo">
+                  <h4>Otros medios</h4>
+                  <label className="arqueo-medio">
+                    <span>Vouchers de tarjeta</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={tarjetaContado}
+                      onChange={e => setTarjetaContado(e.target.value)}
+                      placeholder="0.00"
+                    />
+                    <small>Sistema: {dinero(resumenActual.esperadoTarjeta)}</small>
+                  </label>
+
+                  <label className="arqueo-medio">
+                    <span>Transferencias recibidas</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={transferenciaContado}
+                      onChange={e => setTransferenciaContado(e.target.value)}
+                      placeholder="0.00"
+                    />
+                    <small>Sistema: {dinero(resumenActual.esperadoTransferencia)}</small>
+                  </label>
+                </div>
+              </div>
+
+              <aside className="arqueo-resumen">
+                <dl className="arqueo-cuentas">
+                  <div><dt>Fondo inicial</dt><dd>{dinero(sesionActual?.monto_inicial ?? 0)}</dd></div>
+                  <div><dt>+ Cobros en efectivo</dt><dd>{dinero(resumenActual.ingresosEfectivo)}</dd></div>
+                  <div><dt>− Salidas en efectivo</dt><dd>{dinero(resumenActual.egresosEfectivo)}</dd></div>
+                  <div className="is-total"><dt>Efectivo esperado</dt><dd>{dinero(resumenActual.esperadoEfectivo)}</dd></div>
+                  <div className="is-total"><dt>Total contado</dt><dd>{dinero(totalContado)}</dd></div>
+                </dl>
+
+                {(
+                  [
+                    ['Efectivo', diferenciaEfectivo],
+                    ['Tarjeta', diferenciaTarjeta],
+                    ['Transferencia', diferenciaTransferencia],
+                  ] as const
+                ).map(([medio, diferencia]) => {
+                  const estado = estadoDiferencia(diferencia)
+
+                  return (
+                    <div key={medio} className="arqueo-diferencia">
+                      <span>{medio}</span>
+                      <span className={`arqueo-estado ${estado.clase}`}>
+                        {estado.texto}
+                        {diferencia !== 0 && ` ${dinero(Math.abs(diferencia))}`}
+                      </span>
+                    </div>
+                  )
+                })}
+
+                <label className="arqueo-observaciones">
+                  <span>
+                    Observaciones
+                    {hayDiferencias && <em> · obligatorias si hay diferencias</em>}
+                  </span>
+                  <textarea
+                    value={obsArqueo}
+                    onChange={e => setObsArqueo(e.target.value)}
+                    placeholder={hayDiferencias ? 'Explica el motivo de la diferencia' : 'Opcional'}
+                    required={hayDiferencias}
+                  />
+                </label>
+
                 <button
                   className="product-primary-button"
                   type="submit"
-                  disabled={procesando || !sesionActual || !esCaja}
+                  disabled={
+                    procesando ||
+                    !sesionActual ||
+                    !esCaja ||
+                    (hayDiferencias && !obsArqueo.trim())
+                  }
                 >
                   Registrar arqueo
                 </button>
-              </div>
+              </aside>
             </form>
           )}
         </section>
