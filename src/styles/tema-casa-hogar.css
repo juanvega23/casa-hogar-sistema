@@ -1914,23 +1914,71 @@ html .auth-link:hover { text-decoration: underline; }
   box-shadow: var(--ch-sombra);
 }
 
+/* Panel izquierdo: fondo claro con tinte del azul del logo */
 .t-acceso-panel {
-  display: grid;
-  align-content: center;
-  gap: 20px;
-  padding: 40px;
-  background: var(--t-acero);
-  border-right: 1px solid var(--ch-acero-borde);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  padding: 44px 48px;
+  background: linear-gradient(165deg, #e9eefa 0%, var(--ch-fondo) 70%);
+  border-right: 1px solid var(--ch-linea);
 }
 
-.t-acceso-panel h1 { margin: 0; font-family: var(--ch-display); font-size: 30px; font-weight: 800; line-height: 1.08; text-wrap: balance; color: var(--ch-texto); }
-.t-acceso-panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
-.t-acceso-panel li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: start; font-size: 14.5px; }
-.t-acceso-panel li i { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--ch-superficie); color: var(--ch-naranja-hover); font-style: normal; font-weight: 800; }
-.t-acceso-panel li strong { display: block; color: var(--ch-texto); }
-.t-acceso-panel li span span { color: var(--ch-texto-suave); font-size: 13.5px; }
+.t-acceso-logo { width: auto; height: 46px; align-self: flex-start; }
 
-.t-acceso-tarjeta { display: grid; gap: 18px; align-content: center; padding: 40px; }
+.t-acceso-lema { display: grid; gap: 8px; }
+.t-acceso-panel h1 { margin: 0; font-family: var(--ch-display); font-size: clamp(34px, 3.6vw, 44px); font-weight: 800; line-height: 1.02; letter-spacing: -.02em; text-wrap: balance; color: var(--ch-texto); }
+.t-acceso-panel h1 em { font-style: normal; color: var(--ch-naranja); }
+.t-acceso-lema p { margin: 0; font-size: 18px; color: var(--ch-texto-suave); }
+
+.t-acceso-panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+
+.t-acceso-panel li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-lg);
+  background: var(--ch-superficie);
+  box-shadow: var(--ch-sombra-baja);
+  font-size: 15px;
+}
+
+.t-acceso-panel li i { display: grid; place-items: center; width: 40px; height: 40px; color: var(--ch-naranja); }
+.t-acceso-panel li svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.t-acceso-panel li strong { display: block; font-family: var(--ch-display); font-size: 16px; color: var(--ch-texto); }
+.t-acceso-panel li span span { color: var(--ch-texto-suave); font-size: 14px; }
+
+.t-acceso-tarjeta { display: grid; gap: 18px; align-content: center; padding: 44px 48px; }
+
+/* Contraseña con botón para mostrarla */
+.t-clave { position: relative; display: block; }
+.t-form .t-clave input { padding-right: 46px; }
+.t-clave button {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ch-texto-suave);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+.t-clave button:hover { background: var(--ch-fondo); color: var(--ch-texto); }
+.t-clave svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Separador "o" antes del enlace al sistema interno */
+.t-acceso-separador { display: flex; align-items: center; gap: 14px; font-size: 13.5px; color: var(--ch-texto-suave); }
+.t-acceso-separador::before,
+.t-acceso-separador::after { content: ''; flex: 1; height: 1px; background: var(--ch-linea); }
 
 .t-pestanas { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; background: var(--ch-fondo); }
 
@@ -1945,17 +1993,17 @@ html .auth-link:hover { text-decoration: underline; }
   cursor: pointer;
 }
 
-.t-pestanas button.is-activa { background: var(--ch-superficie); color: var(--ch-texto); box-shadow: 0 1px 3px rgba(39, 38, 77, .14); }
+.t-pestanas button.is-activa { background: var(--ch-superficie); color: var(--ch-naranja-hover); box-shadow: 0 0 0 1px rgba(226, 98, 15, .35), 0 1px 3px rgba(39, 38, 77, .1); }
 
-.t-acceso-titulo { display: grid; gap: 4px; }
-.t-acceso-titulo h2 { margin: 0; font-family: var(--ch-display); font-size: 24px; font-weight: 700; color: var(--ch-texto); }
-.t-acceso-titulo p { margin: 0; font-size: 14px; color: var(--ch-texto-suave); }
+.t-acceso-titulo { display: grid; gap: 6px; margin-top: 6px; }
+.t-acceso-titulo h2 { margin: 0; font-family: var(--ch-display); font-size: 32px; font-weight: 800; letter-spacing: -.01em; color: var(--ch-texto); }
+.t-acceso-titulo p { margin: 0; font-size: 15px; color: var(--ch-texto-suave); }
 
 .t-enlace--derecha { justify-self: end; margin-top: -6px; font-size: 13.5px; }
 
+.t-acceso .t-enlace { text-decoration: underline; text-underline-offset: 3px; }
+
 .t-acceso-pie {
-  padding-top: 14px;
-  border-top: 1px solid var(--ch-linea);
   font-size: 13.5px;
   color: var(--ch-texto-suave);
   text-align: center;
@@ -2036,6 +2084,27 @@ html .tienda .store-order-row { border-color: var(--ch-linea) !important; backgr
 html .tienda .store-order-row strong,
 html .tienda .store-order-row b { color: var(--ch-texto) !important; }
 html .tienda .store-order-row em { background: var(--ch-azul-suave) !important; color: var(--ch-azul) !important; }
+
+/* Estados del pedido: un color por estado (Mi cuenta) */
+html .tienda .store-order-row em.t-estado { border: 1px solid transparent; }
+html .tienda .store-order-row em.t-estado--recibido { background: var(--ch-azul-suave) !important; color: var(--ch-azul) !important; border-color: var(--ch-azul-borde); }
+html .tienda .store-order-row em.t-estado--confirmado { background: var(--ch-amarillo-suave) !important; color: var(--ch-alerta) !important; border-color: #f3dc9b; }
+html .tienda .store-order-row em.t-estado--listo { background: var(--ch-amarillo) !important; color: var(--ch-texto) !important; }
+html .tienda .store-order-row em.t-estado--por-pagar { background: var(--ch-superficie) !important; color: var(--ch-ok) !important; border-color: var(--ch-ok); }
+html .tienda .store-order-row em.t-estado--completado { background: var(--ch-ok) !important; color: #fff !important; }
+html .tienda .store-order-row em.t-estado--rechazado { background: var(--ch-peligro-suave) !important; color: var(--ch-peligro) !important; border-color: #f2c4bd; }
+html .tienda .store-order-row em.t-estado--cancelado { background: var(--ch-fondo-2) !important; color: var(--ch-texto-suave) !important; }
+
+/* Cerrar sesión (Mi cuenta): visible, distinto de los demás botones */
+html .tienda .t-cerrar-sesion {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  color: var(--ch-peligro) !important;
+  border-color: #f2c4bd !important;
+}
+html .tienda .t-cerrar-sesion:hover { background: var(--ch-peligro-suave) !important; border-color: var(--ch-peligro) !important; }
+html .tienda .t-cerrar-sesion svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 html .tienda .store-order-row--button:hover,
 html .tienda .store-order-row--button.is-open { border-color: var(--ch-azul-borde) !important; }
 html .tienda .store-order-detail { background: var(--ch-fondo) !important; border-color: var(--ch-azul-borde) !important; color: var(--ch-texto) !important; }
@@ -2061,8 +2130,12 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .t-carrito-grid { grid-template-columns: 1fr; }
   .t-resumen { position: static; }
   .t-acceso { grid-template-columns: 1fr; }
-  .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-acero-borde); padding: 28px; }
+  .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-linea); padding: 28px; }
   .t-acceso-tarjeta { padding: 28px; }
+  /* En celular el encabezado ya muestra el logo: solo queda el lema */
+  .t-acceso-logo,
+  .t-acceso-panel ul { display: none; }
+  .t-acceso-panel h1 { font-size: 30px; }
 }
 
 @media (max-width: 560px) {

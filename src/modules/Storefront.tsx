@@ -246,6 +246,7 @@ type Pedido = {
   observaciones: string | null
   motivo_estado: string | null
   metodo_pago: string | null
+  venta_estado: string | null
 }
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia'
@@ -308,6 +309,37 @@ function fecha(valor: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(valor))
+}
+
+/*
+ * Estado del pedido como lo entiende el cliente, con su propio color.
+ * "Convertido" es interno (el Vendedor lo pasó a venta): se muestra
+ * según el estado de esa venta.
+ */
+function estadoPedido(pedido: Pedido): { texto: string, clase: string } {
+  switch (pedido.estado) {
+    case 'recibido':
+      return { texto: 'Recibido', clase: 'recibido' }
+    case 'confirmado':
+      return { texto: 'Confirmado', clase: 'confirmado' }
+    case 'preparado':
+      return {
+        texto: pedido.modalidad_entrega === 'domicilio' ? 'Listo para entregar' : 'Listo para retirar',
+        clase: 'listo',
+      }
+    case 'convertido':
+      if (pedido.venta_estado === 'anulada') return { texto: 'Anulado', clase: 'cancelado' }
+      if (pedido.venta_estado === 'pagada' || pedido.venta_estado === 'completada') {
+        return { texto: 'Completado', clase: 'completado' }
+      }
+      return { texto: 'Por pagar', clase: 'por-pagar' }
+    case 'rechazado':
+      return { texto: 'Rechazado', clase: 'rechazado' }
+    case 'cancelado':
+      return { texto: 'Cancelado', clase: 'cancelado' }
+    default:
+      return { texto: legible(pedido.estado), clase: 'cancelado' }
+  }
 }
 
 function legible(valor: string) {
@@ -439,13 +471,14 @@ export default function Storefront({ path, navigate }: Props) {
   const [direccionEntrega, setDireccionEntrega] = useState('')
   const [observaciones, setObservaciones] = useState('')
 
-  const [mensaje, setMensaje] = useState('')
+  const [avisoOk, setAvisoOk] = useState({ texto: '', vista: '' })
   const [agregado, setAgregado] = useState<{
     producto: Producto
     cantidad: number
     clave: number
   } | null>(null)
-  const [error, setError] = useState('')
+  const [avisoError, setAvisoError] = useState({ texto: '', vista: '' })
+  const [verClave, setVerClave] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState(false)
 
@@ -459,6 +492,28 @@ export default function Storefront({ path, navigate }: Props) {
           : path === '/tienda/restablecer'
             ? 'restablecer'
             : 'catalogo'
+
+  // Cada aviso pertenece a la pantalla donde se generó (o a la indicada,
+  // si después se navega a otra): al cambiar de pantalla deja de verse.
+  const mensaje = avisoOk.vista === vista ? avisoOk.texto : ''
+  const error = avisoError.vista === vista ? avisoError.texto : ''
+
+  function setMensaje(texto: string, enVista: string = vista) {
+    setAvisoOk({ texto, vista: enVista })
+  }
+
+  function setError(texto: string, enVista: string = vista) {
+    setAvisoError({ texto, vista: enVista })
+  }
+
+  // Los avisos de éxito se quitan solos.
+  useEffect(() => {
+    if (!avisoOk.texto) return
+
+    const temporizador = window.setTimeout(() => setAvisoOk({ texto: '', vista: '' }), 8000)
+
+    return () => window.clearTimeout(temporizador)
+  }, [avisoOk])
 
   async function cargarCatalogo() {
     const { data, error: rpcError } = await supabase.rpc('catalogo_publico')
@@ -543,6 +598,7 @@ export default function Storefront({ path, navigate }: Props) {
         observaciones: item.observaciones ?? null,
         motivo_estado: item.motivo_estado ?? null,
         metodo_pago: item.metodo_pago ?? null,
+        venta_estado: item.venta_estado ?? null,
       })),
     )
   }
@@ -981,7 +1037,7 @@ export default function Storefront({ path, navigate }: Props) {
 
     setNuevaClave('')
     setConfirmarClave('')
-    setMensaje('Tu contraseña fue actualizada correctamente.')
+    setMensaje('Tu contraseña fue actualizada correctamente.', 'cuenta')
     navigate('/tienda/mi-cuenta')
   }
 
@@ -1138,7 +1194,7 @@ export default function Storefront({ path, navigate }: Props) {
 
     const fila = Array.isArray(data) ? data[0] : data
     setCarrito({})
-    setMensaje(`Pedido ${fila?.numero ?? ''} registrado correctamente.`)
+    setMensaje(`Pedido ${fila?.numero ?? ''} registrado correctamente.`, 'cuenta')
     setProcesando(false)
     await cargarCliente(usuario!)
     navigate('/tienda/mi-cuenta')
@@ -1769,11 +1825,32 @@ export default function Storefront({ path, navigate }: Props) {
       {vista === 'login' && (
         <main className="t-contenido t-acceso">
           <div className="t-acceso-panel">
-            <h1>Tu cuenta para comprar en Casa Hogar</h1>
+            <img className="t-acceso-logo" src={logoCasaHogar} alt="Ferretería Casa Hogar" />
+
+            <div className="t-acceso-lema">
+              <h1>Tus <em>proyectos</em> empiezan aquí</h1>
+              <p>Comprá fácil en Casa Hogar.</p>
+            </div>
+
             <ul>
-              <li><i aria-hidden="true">✓</i><span><strong>Seguí tus pedidos</strong><span>Mirá si está recibido, preparado o listo para retirar.</span></span></li>
-              <li><i aria-hidden="true">✓</i><span><strong>Guardamos tu dirección</strong><span>Para que la entrega a domicilio sea más rápida.</span></span></li>
-              <li><i aria-hidden="true">✓</i><span><strong>Retiro sin costo</strong><span>Pasá por tu pedido cuando te avisemos.</span></span></li>
+              <li>
+                <i aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7z" /><path d="m4 7 8 4 8-4" /><path d="M12 11v10" /></svg>
+                </i>
+                <span><strong>Seguí tus pedidos</strong><span>Consultá el estado de tu compra.</span></span>
+              </li>
+              <li>
+                <i aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
+                </i>
+                <span><strong>Guardá tu dirección</strong><span>Agilizá tus próximos pedidos.</span></span>
+              </li>
+              <li>
+                <i aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M3 4h2l2.2 10h10.9l2-7H7" /><circle cx="9" cy="19" r="1.5" /><circle cx="18" cy="19" r="1.5" /></svg>
+                </i>
+                <span><strong>Retirá sin costo</strong><span>Te avisamos cuando esté listo.</span></span>
+              </li>
             </ul>
           </div>
 
@@ -1858,14 +1935,28 @@ export default function Storefront({ path, navigate }: Props) {
 
                     <label>
                       Contraseña
-                      <input
-                        type="password"
-                        minLength={6}
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        autoComplete={modoAuth === 'login' ? 'current-password' : 'new-password'}
-                        required
-                      />
+                      <span className="t-clave">
+                        <input
+                          type={verClave ? 'text' : 'password'}
+                          minLength={6}
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          autoComplete={modoAuth === 'login' ? 'current-password' : 'new-password'}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setVerClave(actual => !actual)}
+                          aria-label={verClave ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                          aria-pressed={verClave}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+                            <circle cx="12" cy="12" r="3" />
+                            {!verClave && <path d="M4 4l16 16" />}
+                          </svg>
+                        </button>
+                      </span>
                     </label>
 
                     {modoAuth === 'login' && (
@@ -1882,6 +1973,8 @@ export default function Storefront({ path, navigate }: Props) {
                     </button>
                   </form>
                 )}
+
+                <div className="t-acceso-separador" aria-hidden="true"><span>o</span></div>
 
                 <div className="t-acceso-pie">
                   {modoAuth === 'recuperar' ? (
@@ -1905,7 +1998,12 @@ export default function Storefront({ path, navigate }: Props) {
               <p>{cliente.correo}</p>
             </div>
 
-            <button className="store-secondary-button" type="button" onClick={cerrarSesionCliente}>
+            <button className="store-secondary-button t-cerrar-sesion" type="button" onClick={cerrarSesionCliente}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+                <path d="M10 8l-4 4 4 4" />
+                <path d="M6 12h10" />
+              </svg>
               Cerrar sesión
             </button>
           </div>
@@ -2027,7 +2125,9 @@ export default function Storefront({ path, navigate }: Props) {
                     </div>
                     <span>{legible(pedido.modalidad_entrega)}</span>
                     <b>{dinero(pedido.total)}</b>
-                    <em>{legible(pedido.estado)}</em>
+                    <em className={`t-estado t-estado--${estadoPedido(pedido).clase}`}>
+                      {estadoPedido(pedido).texto}
+                    </em>
                   </button>
 
                   {pedidoAbierto?.id === pedido.id && (
