@@ -440,6 +440,11 @@ export default function Storefront({ path, navigate }: Props) {
   const [observaciones, setObservaciones] = useState('')
 
   const [mensaje, setMensaje] = useState('')
+  const [agregado, setAgregado] = useState<{
+    producto: Producto
+    cantidad: number
+    clave: number
+  } | null>(null)
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState(false)
@@ -768,11 +773,8 @@ export default function Storefront({ path, navigate }: Props) {
     }))
 
     setCantidadesTarjeta(actual => ({ ...actual, [producto.id]: 1 }))
-    setMensaje(
-      cantidad > 1
-        ? `${cantidad} × ${producto.nombre} agregados al carrito.`
-        : `${producto.nombre} agregado al carrito.`,
-    )
+    // Aviso flotante; la clave nueva reinicia el temporizador y el salto del contador
+    setAgregado({ producto, cantidad, clave: Date.now() })
     setError('')
   }
 
@@ -786,6 +788,15 @@ export default function Storefront({ path, navigate }: Props) {
     agregar(productoDetalle, cantidadDetalle)
     setProductoDetalle(null)
   }
+
+  // El aviso de "agregado al carrito" se cierra solo a los 5 segundos.
+  useEffect(() => {
+    if (!agregado) return
+
+    const temporizador = window.setTimeout(() => setAgregado(null), 5000)
+
+    return () => window.clearTimeout(temporizador)
+  }, [agregado])
 
   // Ventana de detalle: se cierra con Escape y bloquea el desplazamiento de fondo.
   useEffect(() => {
@@ -1212,7 +1223,9 @@ export default function Storefront({ path, navigate }: Props) {
                 <circle cx="18" cy="19" r="1.5" />
               </svg>
               <span>Carrito</span>
-              <b>{cantidadCarrito}</b>
+              <b key={agregado?.clave ?? 0} className={agregado ? 'is-salto' : undefined}>
+                {cantidadCarrito}
+              </b>
             </button>
           </div>
         </div>
@@ -1444,11 +1457,11 @@ export default function Storefront({ path, navigate }: Props) {
                           <button type="button" onClick={() => cambiarCantidadTarjeta(producto.id, 1)} aria-label="Agregar uno">+</button>
                         </div>
                         <button
-                          className="t-agregar"
+                          className={agregado?.producto.id === producto.id ? 't-agregar is-agregado' : 't-agregar'}
                           type="button"
                           onClick={() => agregar(producto, cantidadTarjeta(producto.id))}
                         >
-                          Agregar
+                          {agregado?.producto.id === producto.id ? 'Agregado ✓' : 'Agregar'}
                         </button>
                       </div>
                     ) : (
@@ -1573,6 +1586,49 @@ export default function Storefront({ path, navigate }: Props) {
               <span><strong>Existencia real</strong>Lo que ves es lo que hay en bodega</span>
             </div>
           </section>
+
+          {agregado && (
+            <div className="t-agregado" role="status" aria-live="polite" key={agregado.clave}>
+              <div className="t-agregado-foto">
+                <ProductImage producto={agregado.producto} />
+              </div>
+
+              <div className="t-agregado-texto">
+                <strong>Agregado al carrito</strong>
+                <span>
+                  {agregado.cantidad} × {agregado.producto.nombre}
+                </span>
+                <small>
+                  En tu carrito: {cantidadCarrito} {cantidadCarrito === 1 ? 'unidad' : 'unidades'} · {dinero(totalCarrito)}
+                </small>
+              </div>
+
+              <button
+                type="button"
+                className="t-agregado-cerrar"
+                onClick={() => setAgregado(null)}
+                aria-label="Cerrar aviso"
+              >
+                ×
+              </button>
+
+              <div className="t-agregado-acciones">
+                <button type="button" className="t-agregado-seguir" onClick={() => setAgregado(null)}>
+                  Seguir comprando
+                </button>
+                <button
+                  type="button"
+                  className="t-agregado-ver"
+                  onClick={() => {
+                    setAgregado(null)
+                    navigate('/tienda/carrito')
+                  }}
+                >
+                  Ver carrito
+                </button>
+              </div>
+            </div>
+          )}
         </main>
       )}
 

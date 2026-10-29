@@ -1590,6 +1590,83 @@ html .auth-link:hover { text-decoration: underline; }
 .t-agregar:disabled,
 .t-confirmar:disabled { background: var(--ch-fondo-2); color: var(--ch-texto-suave); cursor: not-allowed; }
 
+/* Confirmación en la tarjeta mientras se ve el aviso */
+.t-agregar.is-agregado,
+.t-agregar.is-agregado:hover:not(:disabled) { background: var(--ch-ok); }
+
+/* Aviso flotante "Agregado al carrito" */
+.t-agregado {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 90;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 12px 14px;
+  width: min(400px, calc(100vw - 32px));
+  padding: 14px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-lg);
+  background: var(--ch-superficie);
+  box-shadow: var(--ch-sombra);
+  animation: t-aviso-entra .22s ease-out;
+}
+
+.t-agregado-foto {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: var(--ch-r-sm);
+  background: var(--ch-fondo);
+}
+.t-agregado-foto .t-foto-vacia { width: 40px; height: 40px; }
+
+.t-agregado-texto { display: grid; align-content: center; gap: 2px; min-width: 0; }
+.t-agregado-texto strong { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--ch-ok); }
+.t-agregado-texto strong::before { content: '✓'; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ch-ok-suave); font-size: 12px; }
+.t-agregado-texto span { overflow: hidden; font-size: 14px; font-weight: 600; color: var(--ch-texto); text-overflow: ellipsis; white-space: nowrap; }
+.t-agregado-texto small { font-size: 13px; color: var(--ch-texto-suave); }
+
+.t-agregado-cerrar {
+  align-self: start;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ch-texto-suave);
+  cursor: pointer;
+}
+.t-agregado-cerrar:hover { background: var(--ch-fondo); color: var(--ch-texto); }
+
+.t-agregado-acciones { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.t-agregado-acciones button { padding: 10px 12px; border-radius: var(--ch-r-md); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.t-agregado-seguir { border: 1px solid var(--ch-linea); background: var(--ch-superficie); color: var(--ch-texto); }
+.t-agregado-seguir:hover { background: var(--ch-fondo); }
+.t-agregado-ver { border: 0; background: var(--ch-naranja); color: #fff; }
+.t-agregado-ver:hover { background: var(--ch-naranja-hover); }
+
+/* El contador del carrito da un salto al agregar */
+.t-carrito-boton b.is-salto { animation: t-salto .45s ease-out; }
+
+@keyframes t-aviso-entra {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes t-salto {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+}
+
+@media (max-width: 640px) {
+  .t-agregado { right: 16px; bottom: 16px; left: 16px; width: auto; }
+}
+
 .t-aviso {
   padding: 11px 14px;
   border-radius: var(--ch-r-md);
