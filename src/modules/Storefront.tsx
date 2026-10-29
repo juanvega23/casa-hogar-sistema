@@ -372,6 +372,18 @@ function IconoDepartamento({ nombre }: { nombre: string }) {
   )
 }
 
+// Mosaico del panel de acceso de clientes (uno por cada ícono de IconoDepartamento)
+const DEPARTAMENTOS_MOSAICO = [
+  'Herramientas',
+  'Electricidad',
+  'Pinturas',
+  'Plomería',
+  'Construcción',
+  'Fijaciones',
+  'Jardín',
+  'Hogar',
+]
+
 function unidadLegible(unidad: string) {
   const u = unidad.trim().toLocaleLowerCase('es')
   return u ? `Por ${u}` : 'Por unidad'
@@ -1769,6 +1781,16 @@ export default function Storefront({ path, navigate }: Props) {
       {vista === 'login' && (
         <main className="t-contenido t-acceso">
           <div className="t-acceso-panel">
+            {/* Decorativo: los mismos íconos de los departamentos de la tienda */}
+            <div className="t-acceso-mosaico" aria-hidden="true">
+              {DEPARTAMENTOS_MOSAICO.map(nombre => (
+                <span key={nombre}>
+                  <IconoDepartamento nombre={nombre} />
+                  <small>{nombre}</small>
+                </span>
+              ))}
+            </div>
+
             <h1>Tu cuenta para comprar en Casa Hogar</h1>
             <ul>
               <li><i aria-hidden="true">✓</i><span><strong>Seguí tus pedidos</strong><span>Mirá si está recibido, preparado o listo para retirar.</span></span></li>

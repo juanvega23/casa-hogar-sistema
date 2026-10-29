@@ -1930,6 +1930,29 @@ html .auth-link:hover { text-decoration: underline; }
 .t-acceso-panel li strong { display: block; color: var(--ch-texto); }
 .t-acceso-panel li span span { color: var(--ch-texto-suave); font-size: 13.5px; }
 
+/* Mosaico decorativo de departamentos; se desvanece hacia el título */
+.t-acceso-mosaico {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 4px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 50%, rgba(0, 0, 0, .45));
+  mask-image: linear-gradient(to bottom, #000 50%, rgba(0, 0, 0, .45));
+}
+
+.t-acceso-mosaico span {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 14px 6px 10px;
+  border: 1px solid var(--ch-acero-borde);
+  border-radius: var(--ch-r-md);
+  background: var(--ch-superficie);
+}
+
+.t-acceso-mosaico svg { width: 28px; height: 28px; fill: none; stroke: var(--ch-naranja-hover); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.t-acceso-mosaico small { max-width: 100%; overflow: hidden; font-size: 12px; font-weight: 600; color: var(--ch-texto-suave); text-overflow: ellipsis; white-space: nowrap; }
+
 .t-acceso-tarjeta { display: grid; gap: 18px; align-content: center; padding: 40px; }
 
 .t-pestanas { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; background: var(--ch-fondo); }
@@ -2062,6 +2085,7 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
   .t-resumen { position: static; }
   .t-acceso { grid-template-columns: 1fr; }
   .t-acceso-panel { border-right: 0; border-bottom: 1px solid var(--ch-acero-borde); padding: 28px; }
+  .t-acceso-mosaico { display: none; }
   .t-acceso-tarjeta { padding: 28px; }
 }
 
