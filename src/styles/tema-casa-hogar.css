@@ -1008,7 +1008,7 @@ html .auth-link:hover { text-decoration: underline; }
   background: var(--t-acero);
 }
 
-.t-diapositiva.t-diapositiva--inicio { padding: 0; }
+.t-diapositiva.t-diapositiva--inicio { align-items: stretch; padding: 0; }
 
 /* Margen lateral para las flechas y abajo para los puntos */
 .t-portada {
@@ -1019,6 +1019,32 @@ html .auth-link:hover { text-decoration: underline; }
   padding: 30px 64px 46px;
   background: var(--t-acero);
 }
+
+/* ---------------------------------------------------------
+   IMAGEN DE FONDO DE LA PORTADA (primera diapositiva)
+   · Cambiarla: reemplazar los archivos de src/assets/portada/
+     fondo-ferreteria.webp (1600 px) y fondo-ferreteria-movil.webp
+     (900 px), o cambiar las rutas de abajo.
+   · Quitarla: borrar este bloque completo (queda el gris liso).
+   El velo gris (linear-gradient) es más fuerte del lado del texto
+   para que se siga leyendo bien.
+   --------------------------------------------------------- */
+.t-portada {
+  background:
+    linear-gradient(90deg, rgba(230, 233, 238, .94) 0%, rgba(230, 233, 238, .86) 45%, rgba(230, 233, 238, .55) 100%),
+    url('../assets/portada/fondo-ferreteria.webp') center / cover no-repeat,
+    var(--t-acero);
+}
+
+@media (max-width: 700px) {
+  .t-portada {
+    background:
+      linear-gradient(rgba(230, 233, 238, .9), rgba(230, 233, 238, .9)),
+      url('../assets/portada/fondo-ferreteria-movil.webp') center / cover no-repeat,
+      var(--t-acero);
+  }
+}
+/* --------------- fin de la imagen de fondo --------------- */
 
 .t-carrusel-pista {
   display: flex;
