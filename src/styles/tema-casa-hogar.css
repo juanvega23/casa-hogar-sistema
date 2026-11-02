@@ -18,15 +18,17 @@
   --ch-acero: #e6e9ee;
   --ch-acero-borde: #d9dde4;
   --ch-texto: #27264d;
-  --ch-texto-suave: #626879;
-  --ch-linea: #dfe3ea;
+  --ch-texto-suave: #50566a;
+  --ch-linea: #d4d9e2;
   --ch-naranja: #e2620f;
   --ch-naranja-hover: #c45307;
   --ch-amarillo: #f8c70f;
   --ch-amarillo-suave: #fdf1d6;
+  /* Amarillo oscuro para bordes e indicadores: el del logo se pierde en proyector */
+  --ch-amarillo-borde: #c99400;
   --ch-azul: #2f3b9c;
-  --ch-azul-suave: #e9edfb;
-  --ch-azul-borde: #d3dbf6;
+  --ch-azul-suave: #e3e8fa;
+  --ch-azul-borde: #c2cdf0;
   --ch-ok: #2c7a4b;
   --ch-ok-suave: #e3f2e8;
   --ch-alerta: #8f5d00;
@@ -313,7 +315,7 @@ html .clients-close-button {
 html .content button:focus-visible,
 html .auth-page button:focus-visible,
 html .content a:focus-visible {
-  outline: 3px solid var(--ch-amarillo) !important;
+  outline: 3px solid var(--ch-azul) !important;
   outline-offset: 2px !important;
 }
 
@@ -770,7 +772,7 @@ html .auth-link:hover { text-decoration: underline; }
 }
 
 .tienda button { font-family: inherit; }
-.tienda :focus-visible { outline: 3px solid var(--ch-amarillo); outline-offset: 2px; }
+.tienda :focus-visible { outline: 3px solid var(--ch-azul); outline-offset: 2px; }
 
 .t-sr {
   position: absolute;
@@ -2495,7 +2497,7 @@ html .inventory-module .productos-th-filtro select {
 .alertas-area:disabled { cursor: default; opacity: .7; }
 .alertas-area.is-activa { border-color: var(--ch-azul-borde); background: var(--ch-azul-suave); }
 .alertas-area--critica { border-left-color: var(--ch-peligro); }
-.alertas-area--alta { border-left-color: var(--ch-amarillo); }
+.alertas-area--alta { border-left-color: var(--ch-amarillo-borde); }
 .alertas-area--media { border-left-color: var(--ch-texto-suave); }
 
 /* Lista (Gerencia) */
@@ -2511,7 +2513,7 @@ html .inventory-module .productos-th-filtro select {
   background: var(--ch-superficie);
 }
 .alerta-item--critica { border-left-color: var(--ch-peligro); }
-.alerta-item--alta { border-left-color: var(--ch-amarillo); }
+.alerta-item--alta { border-left-color: var(--ch-amarillo-borde); }
 .alerta-item--media { border-left-color: var(--ch-texto-suave); }
 
 .alerta-item-cabeza { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
@@ -2547,7 +2549,7 @@ html .inventory-module .productos-th-filtro select {
 .alertas-conteo article { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-superficie); }
 .alertas-conteo strong { font-family: var(--ch-display); font-size: 26px; color: var(--ch-texto); }
 .alertas-conteo span { font-size: 14px; font-weight: 600; color: var(--ch-texto-suave); }
-.alertas-conteo article.is-alta { border-color: var(--ch-amarillo); background: var(--ch-amarillo-suave); }
+.alertas-conteo article.is-alta { border-color: var(--ch-amarillo-borde); background: var(--ch-amarillo-suave); }
 
 /* Tarjetas de tendencia (Propietario) */
 .alertas-tendencias { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
@@ -2563,7 +2565,7 @@ html .inventory-module .productos-th-filtro select {
   background: var(--ch-superficie);
 }
 .alerta-tarjeta.alerta-item--critica { border-top-color: var(--ch-peligro); }
-.alerta-tarjeta.alerta-item--alta { border-top-color: var(--ch-amarillo); }
+.alerta-tarjeta.alerta-item--alta { border-top-color: var(--ch-amarillo-borde); }
 .alerta-tarjeta.alerta-item--media { border-top-color: var(--ch-texto-suave); }
 
 .alerta-tarjeta-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ch-texto-suave); }
@@ -2769,8 +2771,8 @@ html .inventory-module .productos-th-filtro select {
   gap: 10px 16px;
   margin-bottom: 16px;
   padding: 14px 16px;
-  border: 1px solid #f3dc9b;
-  border-left: 4px solid var(--ch-amarillo);
+  border: 1px solid #ecd28a;
+  border-left: 4px solid var(--ch-amarillo-borde);
   border-radius: var(--ch-r-md);
   background: var(--ch-amarillo-suave);
   font-size: 14.5px;
@@ -3093,3 +3095,47 @@ html .inventory-module .productos-th-filtro select {
 .ficha-mover button { width: 30px; height: 30px; border: 1px solid var(--ch-linea); border-radius: 6px; background: var(--ch-superficie); font: inherit; color: var(--ch-texto); cursor: pointer; }
 .ficha-mover button:disabled { opacity: .35; cursor: default; }
 .ficha-mover button:last-child:hover { border-color: var(--ch-peligro); color: var(--ch-peligro); }
+
+/* ===== Menú "Departamentos" (tienda) ===== */
+.t-menu-dep { position: relative; flex: none; display: flex; }
+.t-departamentos .t-menu-dep-boton { display: inline-flex; align-items: center; gap: 8px; margin: 6px 6px 6px 0; padding: 7px 12px; border-radius: var(--ch-r-md); background: var(--ch-azul-suave); color: var(--ch-azul); font-weight: 700; }
+.t-departamentos .t-menu-dep-boton:hover { background: var(--ch-azul-borde); }
+.t-menu-dep-boton svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.t-menu-dep-boton .t-menu-dep-flecha { width: 15px; height: 15px; transition: transform .15s; }
+.t-menu-dep-boton[aria-expanded="true"] .t-menu-dep-flecha { transform: rotate(180deg); }
+
+.t-menu-dep-panel { position: absolute; top: calc(100% + 2px); left: 0; z-index: 30; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; width: min(560px, calc(100vw - 32px)); padding: 10px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); box-shadow: var(--ch-sombra); }
+.t-departamentos .t-menu-dep-panel button { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: var(--ch-r-md); text-align: left; white-space: normal; }
+.t-departamentos .t-menu-dep-panel button:hover { background: var(--ch-fondo); color: var(--ch-texto); }
+.t-menu-dep-panel i { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 10px; background: var(--ch-fondo); }
+.t-menu-dep-panel svg { width: 21px; height: 21px; fill: none; stroke: var(--ch-naranja-hover); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.t-menu-dep-panel span { display: grid; gap: 1px; }
+.t-menu-dep-panel strong { font-size: 14px; color: var(--ch-texto); }
+.t-menu-dep-panel small { font-size: 12.5px; font-weight: 500; color: var(--ch-texto-suave); }
+.t-departamentos .t-menu-dep-panel .t-menu-dep-ofertas strong { color: var(--ch-peligro); }
+.t-menu-dep-ofertas svg { stroke: var(--ch-peligro); }
+
+@media (max-width: 700px) {
+  .t-menu-dep { position: static; }
+  .t-menu-dep-panel { left: 16px; right: 16px; width: auto; grid-template-columns: 1fr; max-height: 70vh; overflow: auto; }
+}
+
+/* ===== Búsqueda por criterios (tienda) ===== */
+.t-filtros { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin-top: -14px; padding: 12px 14px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
+.t-filtros label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; color: var(--ch-texto); }
+.t-filtros select { min-width: 190px; padding: 8px 10px; border: 1px solid var(--ch-linea); border-radius: 8px; background: var(--ch-superficie); font: inherit; font-size: 14px; font-weight: 500; color: var(--ch-texto); }
+.t-filtros .t-filtro-check { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.t-filtro-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--ch-azul); }
+.t-filtros-limpiar { margin-left: auto; margin-bottom: 4px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 14px; font-weight: 700; color: var(--ch-azul); text-decoration: underline; cursor: pointer; }
+
+@media (max-width: 700px) {
+  .t-filtros { display: grid; grid-template-columns: 1fr 1fr; }
+  .t-filtros select { min-width: 0; width: 100%; }
+  .t-filtros-limpiar { margin-left: 0; justify-self: start; }
+}
+
+/* En celular el menú "Departamentos" reemplaza a la barra desplazable */
+@media (max-width: 700px) {
+  .t-departamentos-lista { display: none; }
+  .t-departamentos-interior { justify-content: space-between; }
+}

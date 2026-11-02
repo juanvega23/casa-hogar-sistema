@@ -260,6 +260,14 @@ type Orden = 'destacados' | 'descuento' | 'precio'
 
 const FILTRO_OFERTAS = 'Ofertas'
 
+// Búsqueda por criterios: rangos de precio (precio final con descuento)
+const RANGOS_PRECIO = [
+  { valor: 'hasta100', texto: 'Hasta C$100', min: 0, max: 100 },
+  { valor: '100a500', texto: 'C$100 a C$500', min: 100, max: 500 },
+  { valor: '500a1000', texto: 'C$500 a C$1,000', min: 500, max: 1000 },
+  { valor: 'mas1000', texto: 'Más de C$1,000', min: 1000, max: Infinity },
+]
+
 type ClienteWeb = {
   id: string
   nombre: string
@@ -506,6 +514,11 @@ export default function Storefront({ path, navigate }: Props) {
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState('Todos')
   const [orden, setOrden] = useState<Orden>('destacados')
+  const [area, setArea] = useState('')
+  const [rangoPrecio, setRangoPrecio] = useState('')
+  const [soloDisponibles, setSoloDisponibles] = useState(false)
+  const [menuDepartamentos, setMenuDepartamentos] = useState(false)
+  const menuDepartamentosRef = useRef<HTMLDivElement>(null)
   const [cantidadesTarjeta, setCantidadesTarjeta] = useState<Record<number, number>>({})
   const [productoDetalle, setProductoDetalle] = useState<Producto | null>(null)
   const [cantidadDetalle, setCantidadDetalle] = useState(1)
@@ -826,21 +839,50 @@ export default function Storefront({ path, navigate }: Props) {
   const mostrarDepartamento =
     categoria === 'Todos' || categoria === FILTRO_OFERTAS || busqueda.trim() !== ''
 
+  // Áreas de aplicación que tienen productos (de la ficha)
+  const areasCatalogo = useMemo(() => {
+    const nombres = new Set<string>()
+    for (const detalle of Object.values(detalles)) {
+      for (const nombre of detalle.areas) nombres.add(nombre)
+    }
+    return Array.from(nombres).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [detalles])
+
+  const hayFiltros = Boolean(area || rangoPrecio || soloDisponibles)
+
+  function limpiarFiltros() {
+    setArea('')
+    setRangoPrecio('')
+    setSoloDisponibles(false)
+    setBusqueda('')
+  }
+
   const productosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLocaleLowerCase('es')
+    const rango = RANGOS_PRECIO.find(r => r.valor === rangoPrecio)
 
     const lista = productos.filter(producto => {
+      const detalle = detalles[producto.id]
       const cat =
         categoria === 'Todos' ||
         (categoria === FILTRO_OFERTAS
           ? producto.descuento_porcentaje > 0
           : producto.categoria === categoria)
+      // El texto también busca en la descripción, la ficha y las áreas
       const text = !q ||
-        producto.nombre.toLocaleLowerCase('es').includes(q) ||
-        producto.codigo.toLocaleLowerCase('es').includes(q) ||
-        producto.categoria.toLocaleLowerCase('es').includes(q)
+        [
+          producto.nombre,
+          producto.codigo,
+          producto.categoria,
+          producto.descripcion ?? '',
+          ...(detalle?.caracteristicas ?? []),
+          ...(detalle?.areas ?? []),
+        ].some(valor => valor.toLocaleLowerCase('es').includes(q))
+      const enArea = !area || Boolean(detalle?.areas.includes(area))
+      const enRango = !rango || (producto.precio >= rango.min && producto.precio < rango.max)
+      const disponible = !soloDisponibles || producto.disponible
 
-      return cat && text
+      return cat && text && enArea && enRango && disponible
     })
 
     // Disponibles primero en todos los órdenes.
@@ -850,7 +892,7 @@ export default function Storefront({ path, navigate }: Props) {
       if (orden === 'precio') return a.precio - b.precio
       return 0
     })
-  }, [productos, busqueda, categoria, orden])
+  }, [productos, busqueda, categoria, orden, detalles, area, rangoPrecio, soloDisponibles])
 
   // Producto de la portada: el disponible con mayor descuento.
   const destacado = useMemo(
@@ -877,7 +919,29 @@ export default function Storefront({ path, navigate }: Props) {
       .reduce((max, p) => Math.max(max, p.descuento_porcentaje), 0)
   }
 
+  // Menú "Departamentos": se cierra con clic afuera o Escape
+  useEffect(() => {
+    if (!menuDepartamentos) return
+
+    function alHacerClic(event: MouseEvent) {
+      if (!menuDepartamentosRef.current?.contains(event.target as Node)) setMenuDepartamentos(false)
+    }
+
+    function alPresionar(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMenuDepartamentos(false)
+    }
+
+    document.addEventListener('mousedown', alHacerClic)
+    document.addEventListener('keydown', alPresionar)
+
+    return () => {
+      document.removeEventListener('mousedown', alHacerClic)
+      document.removeEventListener('keydown', alPresionar)
+    }
+  }, [menuDepartamentos])
+
   function elegirDepartamento(nombre: string) {
+    setMenuDepartamentos(false)
     setCategoria(nombre)
     if (vista !== 'catalogo') navigate('/tienda')
     window.setTimeout(() => {
@@ -1619,6 +1683,41 @@ export default function Storefront({ path, navigate }: Props) {
 
         <nav className="t-departamentos" aria-label="Departamentos">
           <div className="t-departamentos-interior">
+            <div className="t-menu-dep" ref={menuDepartamentosRef}>
+              <button
+                type="button"
+                className="t-menu-dep-boton"
+                aria-expanded={menuDepartamentos}
+                aria-controls="t-menu-dep-panel"
+                onClick={() => setMenuDepartamentos(abierto => !abierto)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+                Departamentos
+                <svg className="t-menu-dep-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+
+              {menuDepartamentos && (
+                <div className="t-menu-dep-panel" id="t-menu-dep-panel">
+                  <button type="button" onClick={() => elegirDepartamento('Todos')}>
+                    <i><IconoDepartamento nombre="" /></i>
+                    <span><strong>Todos los productos</strong><small>{productos.length} productos</small></span>
+                  </button>
+                  {departamentos.map(d => (
+                    <button type="button" key={d.nombre} onClick={() => elegirDepartamento(d.nombre)}>
+                      <i><IconoDepartamento nombre={d.nombre} /></i>
+                      <span><strong>{d.nombre}</strong><small>{d.total} producto{d.total === 1 ? '' : 's'}</small></span>
+                    </button>
+                  ))}
+                  {hayOfertas && (
+                    <button type="button" className="t-menu-dep-ofertas" onClick={() => elegirDepartamento(FILTRO_OFERTAS)}>
+                      <i><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z" /><circle cx="7.5" cy="8.5" r="1.5" /></svg></i>
+                      <span><strong>Ofertas de la semana</strong><small>Productos con descuento</small></span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Solo esta lista se desplaza; "Ofertas de la semana" queda fija a la derecha */}
             <div
               ref={listaDepartamentos}
@@ -1783,6 +1882,37 @@ export default function Storefront({ path, navigate }: Props) {
               </div>
             </div>
 
+            <div className="t-filtros" role="group" aria-label="Filtrar productos">
+              {areasCatalogo.length > 0 && (
+                <label>
+                  <span>Área de aplicación</span>
+                  <select value={area} onChange={event => setArea(event.target.value)}>
+                    <option value="">Todas</option>
+                    {areasCatalogo.map(nombre => <option key={nombre} value={nombre}>{nombre}</option>)}
+                  </select>
+                </label>
+              )}
+
+              <label>
+                <span>Precio</span>
+                <select value={rangoPrecio} onChange={event => setRangoPrecio(event.target.value)}>
+                  <option value="">Cualquier precio</option>
+                  {RANGOS_PRECIO.map(r => <option key={r.valor} value={r.valor}>{r.texto}</option>)}
+                </select>
+              </label>
+
+              <label className="t-filtro-check">
+                <input type="checkbox" checked={soloDisponibles} onChange={event => setSoloDisponibles(event.target.checked)} />
+                Solo disponibles
+              </label>
+
+              {(hayFiltros || busqueda.trim()) && (
+                <button type="button" className="t-filtros-limpiar" onClick={limpiarFiltros}>
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+
             {error && <div className="t-aviso t-aviso--error">{error}</div>}
             {mensaje && <div className="t-aviso t-aviso--ok">{mensaje}</div>}
 
@@ -1865,7 +1995,7 @@ export default function Storefront({ path, navigate }: Props) {
                 <button
                   type="button"
                   onClick={() => {
-                    setBusqueda('')
+                    limpiarFiltros()
                     setCategoria('Todos')
                   }}
                 >
