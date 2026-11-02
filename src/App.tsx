@@ -27,6 +27,8 @@ import QuotesModule from './modules/QuotesModule'
 import SalesReturnsModule from './modules/SalesReturnsModule'
 import SalesHistoryModule from './modules/SalesHistoryModule'
 import OnlineOrdersModule from './modules/OnlineOrdersModule'
+import OnlinePaymentsModule from './modules/OnlinePaymentsModule'
+import BankAccountsModule from './modules/BankAccountsModule'
 import AccountsReceivableModule from './modules/AccountsReceivableModule'
 import CashModule from './modules/CashModule'
 import OwnerDashboardModule from './modules/OwnerDashboardModule'
@@ -930,9 +932,10 @@ function InternalSystemApp({
     // PEDIDOS EN LÍNEA
     // -------------------------------------------------
 
+    // Bodega usa la misma pantalla para los despachos
     if (
-      moduloSeleccionado.id ===
-      'pedidos-en-linea'
+      moduloSeleccionado.id === 'pedidos-en-linea' ||
+      moduloSeleccionado.id === 'despachos'
     ) {
       return (
         <OnlineOrdersModule
@@ -942,6 +945,19 @@ function InternalSystemApp({
           }
         />
       )
+    }
+
+
+    // -------------------------------------------------
+    // CAJA: PAGOS EN LÍNEA Y CUENTAS BANCARIAS
+    // -------------------------------------------------
+
+    if (moduloSeleccionado.id === 'caja-pagos-linea') {
+      return <OnlinePaymentsModule />
+    }
+
+    if (moduloSeleccionado.id === 'caja-cuentas') {
+      return <BankAccountsModule />
     }
 
 

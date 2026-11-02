@@ -6,6 +6,20 @@ import {
 
 import { supabase } from '../lib/supabase'
 
+/*
+ * Pedidos de la tienda en línea.
+ *
+ * Flujo (cambiar_estado_pedido_web):
+ *   pendiente_validacion → validado → en_despacho → entregado
+ *
+ * - Vendedor: valida los pedidos en efectivo, rechaza, cancela y pasa
+ *   a despacho (ahí se crea la venta y se descuenta el inventario).
+ *   Los pagos por transferencia los valida Caja; la tarjeta se valida
+ *   sola al aprobarse.
+ * - Bodega (almacen): ve los pedidos en despacho y marca la entrega.
+ * - Responsable Comercial y Gerencia: consulta.
+ */
+
 type OnlineOrdersModuleProps = {
   roleCode: string
 }
@@ -27,6 +41,8 @@ type Pedido = {
   venta_id: number | null
   created_at: string
   gestionado_at: string | null
+  despachado_at: string | null
+  entregado_at: string | null
 }
 
 type DetallePedido = {
@@ -41,10 +57,28 @@ type DetallePedido = {
     | null
 }
 
+type PagoPedido = {
+  id: number
+  metodo: string
+  estado: string
+  monto: number
+  moneda: string
+  monto_moneda: number
+  banco: string | null
+  cuenta_numero: string | null
+  referencia: string | null
+  tarjeta_marca: string | null
+  tarjeta_ultimos4: string | null
+  autorizacion: string | null
+  motivo: string | null
+  created_at: string
+}
+
 type AccionPedido =
-  | 'confirmado'
-  | 'preparado'
+  | 'validado'
   | 'rechazado'
+  | 'en_despacho'
+  | 'entregado'
   | 'cancelado'
 
 function relacion<T>(valor: T | T[] | null): T | null {
@@ -68,12 +102,12 @@ function formatearFecha(valor: string | null) {
   }).format(new Date(valor))
 }
 
-function etiquetaEstado(estado: string) {
+function etiquetaEstado(estado: string, modalidad?: string) {
   const mapa: Record<string, string> = {
-    recibido: 'Recibido',
-    confirmado: 'Confirmado',
-    preparado: 'Preparado',
-    convertido: 'Convertido en venta',
+    pendiente_validacion: 'Por validar',
+    validado: 'Validado',
+    en_despacho: 'En despacho',
+    entregado: modalidad === 'retiro' ? 'Retirado' : 'Entregado',
     rechazado: 'Rechazado',
     cancelado: 'Cancelado',
   }
@@ -89,32 +123,55 @@ function etiquetaMetodoPago(metodo: string | null) {
   return metodo ? mapa[metodo] ?? metodo : 'No indicada'
 }
 
+const ESTADOS_PAGO: Record<string, string> = {
+  pendiente: 'En revisión por Caja',
+  aprobado: 'Aprobado',
+  rechazado: 'Rechazado',
+  por_reembolsar: 'Por reembolsar',
+  reembolsado: 'Reembolsado',
+}
+
 function claseEstado(estado: string) {
-  if (estado === 'convertido') {
-    return 'history-status history-status--ok'
-  }
-  if (estado === 'rechazado' || estado === 'cancelado') {
-    return 'history-status history-status--danger'
-  }
+  if (estado === 'entregado') return 'history-status history-status--ok'
+  if (estado === 'rechazado' || estado === 'cancelado') return 'history-status history-status--danger'
   return 'history-status history-status--pending'
 }
 
 /*
- * Transiciones permitidas. Deben coincidir con
+ * Transiciones permitidas por rol. Deben coincidir con
  * cambiar_estado_pedido_web() en la base de datos.
  */
-function accionesDisponibles(estado: string): AccionPedido[] {
-  if (estado === 'recibido') return ['confirmado', 'rechazado']
-  if (estado === 'confirmado') return ['preparado', 'cancelado']
-  if (estado === 'preparado') return ['cancelado']
+function accionesDisponibles(pedido: Pedido, roleCode: string): AccionPedido[] {
+  if (roleCode === 'almacen') {
+    return pedido.estado === 'en_despacho' ? ['entregado'] : []
+  }
+
+  if (roleCode !== 'vendedor') return []
+
+  if (pedido.estado === 'pendiente_validacion') {
+    return pedido.metodo_pago === 'efectivo'
+      ? ['validado', 'rechazado', 'cancelado']
+      : ['rechazado', 'cancelado']
+  }
+
+  if (pedido.estado === 'validado') return ['en_despacho', 'cancelado']
+
   return []
 }
 
-const etiquetaAccion: Record<AccionPedido, string> = {
-  confirmado: 'Confirmar pedido',
-  preparado: 'Marcar como preparado',
-  rechazado: 'Rechazar',
-  cancelado: 'Cancelar pedido',
+function etiquetaAccion(accion: AccionPedido, pedido: Pedido | null) {
+  const mapa: Record<AccionPedido, string> = {
+    validado: 'Validar pedido',
+    rechazado: 'Rechazar',
+    en_despacho: 'Pasar a despacho',
+    entregado: pedido?.modalidad_entrega === 'retiro' ? 'Marcar como retirado' : 'Marcar como entregado',
+    cancelado: 'Cancelar pedido',
+  }
+  return mapa[accion]
+}
+
+const FILTROS_POR_ROL: Record<string, string> = {
+  almacen: 'en_despacho',
 }
 
 export default function OnlineOrdersModule({
@@ -124,20 +181,22 @@ export default function OnlineOrdersModule({
     'vendedor',
     'responsable_comercial',
     'gerencia',
+    'almacen',
   ].includes(roleCode)
 
-  const puedeGestionar =
-    roleCode === 'vendedor'
+  const esBodega = roleCode === 'almacen'
+  const puedeGestionar = roleCode === 'vendedor' || esBodega
 
-  const puedeConvertir =
-    roleCode === 'vendedor'
+  // Bodega no lee pagos: solo despacha
+  const vePagos = !esBodega
 
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [pedidoSeleccionado, setPedidoSeleccionado] =
     useState<Pedido | null>(null)
   const [detalle, setDetalle] = useState<DetallePedido[]>([])
+  const [pagos, setPagos] = useState<PagoPedido[]>([])
   const [busqueda, setBusqueda] = useState('')
-  const [estado, setEstado] = useState('pendientes')
+  const [estado, setEstado] = useState(FILTROS_POR_ROL[roleCode] ?? 'pendientes')
   const [motivo, setMotivo] = useState('')
   const [accionConMotivo, setAccionConMotivo] =
     useState<AccionPedido | null>(null)
@@ -162,7 +221,7 @@ export default function OnlineOrdersModule({
       const coincideEstado =
         estado === 'todos' ||
         (estado === 'pendientes'
-          ? ['recibido', 'confirmado', 'preparado'].includes(pedido.estado)
+          ? ['pendiente_validacion', 'validado', 'en_despacho'].includes(pedido.estado)
           : pedido.estado === estado)
 
       return coincideBusqueda && coincideEstado
@@ -171,14 +230,10 @@ export default function OnlineOrdersModule({
 
   const resumen = useMemo(
     () => ({
-      recibidos: pedidos.filter(p => p.estado === 'recibido').length,
-      enProceso: pedidos.filter(
-        p => p.estado === 'confirmado' || p.estado === 'preparado',
-      ).length,
-      convertidos: pedidos.filter(p => p.estado === 'convertido').length,
-      cerrados: pedidos.filter(
-        p => p.estado === 'rechazado' || p.estado === 'cancelado',
-      ).length,
+      porValidar: pedidos.filter(p => p.estado === 'pendiente_validacion').length,
+      validados: pedidos.filter(p => p.estado === 'validado').length,
+      enDespacho: pedidos.filter(p => p.estado === 'en_despacho').length,
+      entregados: pedidos.filter(p => p.estado === 'entregado').length,
     }),
     [pedidos],
   )
@@ -211,7 +266,9 @@ export default function OnlineOrdersModule({
           motivo_estado,
           venta_id,
           created_at,
-          gestionado_at
+          gestionado_at,
+          despachado_at,
+          entregado_at
         `)
         .order('created_at', { ascending: false })
 
@@ -247,14 +304,15 @@ export default function OnlineOrdersModule({
   async function verDetalle(pedido: Pedido) {
     setPedidoSeleccionado(pedido)
     setDetalle([])
+    setPagos([])
     setAccionConMotivo(null)
     setMotivo('')
     setCargandoDetalle(true)
     setError('')
     setExito('')
 
-    const { data, error: detalleError } =
-      await supabase
+    const [detalleResp, pagosResp] = await Promise.all([
+      supabase
         .from('detalle_pedidos_en_linea')
         .select(`
           id,
@@ -268,15 +326,25 @@ export default function OnlineOrdersModule({
           )
         `)
         .eq('pedido_id', pedido.id)
-        .order('id', { ascending: true })
+        .order('id', { ascending: true }),
 
-    if (detalleError) {
-      setError(detalleError.message)
+      vePagos
+        ? supabase
+            .from('pagos_pedido_web')
+            .select('id, metodo, estado, monto, moneda, monto_moneda, banco, cuenta_numero, referencia, tarjeta_marca, tarjeta_ultimos4, autorizacion, motivo, created_at')
+            .eq('pedido_id', pedido.id)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+    ])
+
+    if (detalleResp.error || pagosResp.error) {
+      setError((detalleResp.error ?? pagosResp.error)!.message)
       setCargandoDetalle(false)
       return
     }
 
-    setDetalle((data ?? []) as unknown as DetallePedido[])
+    setDetalle((detalleResp.data ?? []) as unknown as DetallePedido[])
+    setPagos((pagosResp.data ?? []) as PagoPedido[])
     setCargandoDetalle(false)
   }
 
@@ -316,38 +384,19 @@ export default function OnlineOrdersModule({
       return
     }
 
+    const numero = pedidoSeleccionado.numero
+
     setExito(
-      `Pedido ${pedidoSeleccionado.numero}: ${etiquetaEstado(accion).toLowerCase()}.`,
+      accion === 'en_despacho'
+        ? `Pedido ${numero} en despacho: se registró la venta y se descontó el inventario.${
+            pedidoSeleccionado.metodo_pago === 'efectivo' ? ' El cobro queda pendiente en Caja.' : ' La venta ya quedó pagada.'
+          }`
+        : accion === 'cancelado' && pagos.some(p => p.estado === 'aprobado')
+          ? `Pedido ${numero} cancelado. El pago queda por reembolsar en Caja.`
+          : `Pedido ${numero}: ${etiquetaEstado(accion, pedidoSeleccionado.modalidad_entrega).toLowerCase()}.`,
     )
     setAccionConMotivo(null)
     setMotivo('')
-    await cargarPedidos()
-    setProcesando(false)
-  }
-
-  async function convertirEnVenta() {
-    if (!pedidoSeleccionado || !puedeConvertir) return
-
-    setProcesando(true)
-    setError('')
-    setExito('')
-
-    const { data, error: rpcError } = await supabase.rpc(
-      'convertir_pedido_web_en_venta',
-      { p_pedido_id: pedidoSeleccionado.id },
-    )
-
-    if (rpcError) {
-      setError(rpcError.message)
-      setProcesando(false)
-      return
-    }
-
-    const fila = Array.isArray(data) ? data[0] : data
-
-    setExito(
-      `Pedido ${pedidoSeleccionado.numero} convertido en la venta ${fila?.venta_numero ?? ''}. Queda pendiente de cobro en Caja.`,
-    )
     await cargarPedidos()
     setProcesando(false)
   }
@@ -370,25 +419,27 @@ export default function OnlineOrdersModule({
   }
 
   const acciones = pedidoSeleccionado
-    ? accionesDisponibles(pedidoSeleccionado.estado)
+    ? accionesDisponibles(pedidoSeleccionado, roleCode)
     : []
 
-  const sePuedeConvertir =
-    puedeConvertir &&
-    pedidoSeleccionado !== null &&
-    pedidoSeleccionado.venta_id === null &&
-    ['confirmado', 'preparado'].includes(pedidoSeleccionado.estado)
+  // Aviso de qué falta cuando el Vendedor no puede validar a mano
+  const esperaPago =
+    roleCode === 'vendedor' &&
+    pedidoSeleccionado?.estado === 'pendiente_validacion' &&
+    pedidoSeleccionado.metodo_pago !== 'efectivo'
 
   return (
     <div className="history-module">
       <section className="history-toolbar">
         <div>
-          <span className="panel-label">TIENDA EN LÍNEA</span>
-          <h2>Pedidos en línea</h2>
+          <span className="panel-label">{esBodega ? 'BODEGA' : 'TIENDA EN LÍNEA'}</span>
+          <h2>{esBodega ? 'Despachos' : 'Pedidos en línea'}</h2>
           <p>
-            {puedeGestionar
-              ? 'Atiende los pedidos realizados desde la tienda: confirma, prepara y conviértelos en venta.'
-              : 'Consulta los pedidos realizados desde la tienda en línea y su estado de atención.'}
+            {esBodega
+              ? 'Pedidos validados que ya pasaron a despacho: prepáralos y marca la entrega o el retiro.'
+              : puedeGestionar
+                ? 'Valida los pedidos de la tienda y pásalos a despacho. Al pasar a despacho se registra la venta y se descuenta el inventario.'
+                : 'Consulta los pedidos realizados desde la tienda en línea y su estado de atención.'}
           </p>
         </div>
 
@@ -403,27 +454,27 @@ export default function OnlineOrdersModule({
 
       <div className="history-summary-grid">
         <article className="history-summary-card">
-          <span>RECIBIDOS</span>
-          <strong>{resumen.recibidos}</strong>
-          <p>esperando atención</p>
+          <span>POR VALIDAR</span>
+          <strong>{resumen.porValidar}</strong>
+          <p>esperando pago o confirmación</p>
         </article>
 
         <article className="history-summary-card">
-          <span>EN PROCESO</span>
-          <strong>{resumen.enProceso}</strong>
-          <p>confirmados o preparados</p>
+          <span>VALIDADOS</span>
+          <strong>{resumen.validados}</strong>
+          <p>listos para despacho</p>
         </article>
 
         <article className="history-summary-card">
-          <span>CONVERTIDOS</span>
-          <strong>{resumen.convertidos}</strong>
-          <p>pasaron a venta</p>
+          <span>EN DESPACHO</span>
+          <strong>{resumen.enDespacho}</strong>
+          <p>por entregar o retirar</p>
         </article>
 
         <article className="history-summary-card">
-          <span>CERRADOS</span>
-          <strong>{resumen.cerrados}</strong>
-          <p>rechazados o cancelados</p>
+          <span>ENTREGADOS</span>
+          <strong>{resumen.entregados}</strong>
+          <p>completados</p>
         </article>
       </div>
 
@@ -458,6 +509,7 @@ export default function OnlineOrdersModule({
               onClick={() => {
                 setPedidoSeleccionado(null)
                 setDetalle([])
+                setPagos([])
                 setAccionConMotivo(null)
               }}
             >
@@ -468,7 +520,7 @@ export default function OnlineOrdersModule({
           <div className="history-detail-summary history-detail-summary--seis">
             <div>
               <span>ESTADO</span>
-              <strong>{etiquetaEstado(pedidoSeleccionado.estado)}</strong>
+              <strong>{etiquetaEstado(pedidoSeleccionado.estado, pedidoSeleccionado.modalidad_entrega)}</strong>
             </div>
 
             <div>
@@ -491,8 +543,14 @@ export default function OnlineOrdersModule({
             </div>
 
             <div>
-              <span>ÚLTIMA GESTIÓN</span>
-              <strong>{formatearFecha(pedidoSeleccionado.gestionado_at)}</strong>
+              <span>{pedidoSeleccionado.entregado_at ? 'ENTREGADO' : pedidoSeleccionado.despachado_at ? 'DESPACHADO' : 'ÚLTIMA GESTIÓN'}</span>
+              <strong>
+                {formatearFecha(
+                  pedidoSeleccionado.entregado_at ??
+                    pedidoSeleccionado.despachado_at ??
+                    pedidoSeleccionado.gestionado_at,
+                )}
+              </strong>
             </div>
 
             <div>
@@ -519,6 +577,45 @@ export default function OnlineOrdersModule({
           {pedidoSeleccionado.motivo_estado && (
             <div className="history-cancel-note">
               Motivo: <strong>{pedidoSeleccionado.motivo_estado}</strong>
+            </div>
+          )}
+
+          {vePagos && pagos.length > 0 && (
+            <div className="pedido-pagos">
+              <span className="panel-label">PAGOS</span>
+              <ul>
+                {pagos.map(pago => (
+                  <li key={pago.id}>
+                    <span>
+                      <strong>
+                        {pago.metodo === 'tarjeta'
+                          ? `${pago.tarjeta_marca} ****${pago.tarjeta_ultimos4}`
+                          : `${pago.banco} · ${pago.cuenta_numero}`}
+                      </strong>
+                      <small>
+                        {formatearFecha(pago.created_at)}
+                        {pago.moneda === 'USD' && ` · US$ ${Number(pago.monto_moneda).toFixed(2)}`}
+                        {pago.autorizacion && ` · aut. ${pago.autorizacion}`}
+                        {pago.referencia && ` · ref. ${pago.referencia}`}
+                        {pago.motivo && ` · ${pago.motivo}`}
+                      </small>
+                    </span>
+                    <em className={`pedido-pago pedido-pago--${pago.estado}`}>
+                      {ESTADOS_PAGO[pago.estado] ?? pago.estado}
+                    </em>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {esperaPago && (
+            <div className="history-origin-note">
+              {pedidoSeleccionado.metodo_pago === 'transferencia'
+                ? pagos.some(p => p.estado === 'pendiente')
+                  ? 'El comprobante está en revisión por Caja. El pedido se valida cuando Caja lo apruebe.'
+                  : 'Falta que el cliente adjunte el comprobante de la transferencia.'
+                : 'El cliente todavía no completa el pago con tarjeta.'}
             </div>
           )}
 
@@ -568,12 +665,12 @@ export default function OnlineOrdersModule({
             </div>
           )}
 
-          {puedeGestionar && (acciones.length > 0 || sePuedeConvertir) && (
+          {puedeGestionar && acciones.length > 0 && (
             <>
               {accionConMotivo && (
                 <div className="cash-form">
                   <label className="cash-field-full">
-                    Motivo ({etiquetaAccion[accionConMotivo].toLowerCase()})
+                    Motivo ({etiquetaAccion(accionConMotivo, pedidoSeleccionado).toLowerCase()})
                     <textarea
                       value={motivo}
                       onChange={event => setMotivo(event.target.value)}
@@ -597,21 +694,10 @@ export default function OnlineOrdersModule({
                     onClick={() => void cambiarEstado(accion)}
                   >
                     {accionConMotivo === accion
-                      ? `Confirmar: ${etiquetaAccion[accion].toLowerCase()}`
-                      : etiquetaAccion[accion]}
+                      ? `Confirmar: ${etiquetaAccion(accion, pedidoSeleccionado).toLowerCase()}`
+                      : etiquetaAccion(accion, pedidoSeleccionado)}
                   </button>
                 ))}
-
-                {sePuedeConvertir && (
-                  <button
-                    type="button"
-                    className="product-primary-button"
-                    disabled={procesando}
-                    onClick={() => void convertirEnVenta()}
-                  >
-                    {procesando ? 'Procesando...' : 'Convertir en venta'}
-                  </button>
-                )}
               </div>
             </>
           )}
@@ -622,7 +708,7 @@ export default function OnlineOrdersModule({
         <div className="history-list-head">
           <div>
             <span className="panel-label">REGISTRO</span>
-            <h3>Pedidos recibidos</h3>
+            <h3>{esBodega ? 'Pedidos para despachar' : 'Pedidos recibidos'}</h3>
           </div>
 
           <span className="sales-result-count">
@@ -648,10 +734,10 @@ export default function OnlineOrdersModule({
           >
             <option value="pendientes">Pendientes de atención</option>
             <option value="todos">Todos los estados</option>
-            <option value="recibido">Recibido</option>
-            <option value="confirmado">Confirmado</option>
-            <option value="preparado">Preparado</option>
-            <option value="convertido">Convertido en venta</option>
+            <option value="pendiente_validacion">Por validar</option>
+            <option value="validado">Validado</option>
+            <option value="en_despacho">En despacho</option>
+            <option value="entregado">Entregado o retirado</option>
             <option value="rechazado">Rechazado</option>
             <option value="cancelado">Cancelado</option>
           </select>
@@ -664,6 +750,7 @@ export default function OnlineOrdersModule({
                 <th>Pedido</th>
                 <th>Cliente</th>
                 <th>Entrega</th>
+                <th>Pago</th>
                 <th>Total</th>
                 <th>Estado</th>
                 <th>Fecha</th>
@@ -674,7 +761,7 @@ export default function OnlineOrdersModule({
             <tbody>
               {pedidosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="inventory-empty">
+                  <td colSpan={8} className="inventory-empty">
                     No se encontraron pedidos.
                   </td>
                 </tr>
@@ -702,13 +789,15 @@ export default function OnlineOrdersModule({
                       </span>
                     </td>
 
+                    <td>{etiquetaMetodoPago(pedido.metodo_pago)}</td>
+
                     <td>
                       <strong>{formatearCordobas(pedido.total)}</strong>
                     </td>
 
                     <td>
                       <span className={claseEstado(pedido.estado)}>
-                        {etiquetaEstado(pedido.estado)}
+                        {etiquetaEstado(pedido.estado, pedido.modalidad_entrega)}
                       </span>
                     </td>
 
@@ -721,7 +810,7 @@ export default function OnlineOrdersModule({
                         onClick={() => void verDetalle(pedido)}
                       >
                         {puedeGestionar &&
-                        accionesDisponibles(pedido.estado).length > 0
+                        accionesDisponibles(pedido, roleCode).length > 0
                           ? 'Atender'
                           : 'Ver detalle'}
                       </button>

@@ -291,6 +291,10 @@ export const menusByRole: Record<
           nombre: 'Cobros',
         },
         {
+          id: 'caja-pagos-linea',
+          nombre: 'Pagos en línea',
+        },
+        {
           id: 'caja-movimientos',
           nombre: 'Movimientos de caja',
         },
@@ -309,6 +313,10 @@ export const menusByRole: Record<
         {
           id: 'caja-historial',
           nombre: 'Historial de caja',
+        },
+        {
+          id: 'caja-cuentas',
+          nombre: 'Cuentas bancarias',
         },
       ],
     },
@@ -415,6 +423,10 @@ export const menusByRole: Record<
         {
           id: 'recepciones',
           nombre: 'Recepción de productos',
+        },
+        {
+          id: 'despachos',
+          nombre: 'Despachos',
         },
         {
           id: 'inventario',

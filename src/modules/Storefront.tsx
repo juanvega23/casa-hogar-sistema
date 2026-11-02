@@ -20,6 +20,25 @@ import {
   normalizarTelefono,
 } from '../lib/identidad'
 import { ReglasClave } from '../lib/ReglasClave'
+import {
+  enviarComprobante,
+  errorComprobante,
+  errorTarjeta,
+  pagarConTarjeta,
+  TARJETA_VACIA,
+  useCuentasBancarias,
+  type DatosTarjeta,
+} from '../lib/pagosTienda'
+import {
+  guardarDireccion,
+  textoDireccion,
+  useDirecciones,
+} from '../lib/direccionesTienda'
+import {
+  FormularioTarjeta,
+  LibretaDirecciones,
+  SelectorTransferencia,
+} from './StorePayments'
 import { formatearFechaOferta } from '../lib/descuentos'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
 import fotoObra from '../assets/portada/obra.webp'
@@ -259,20 +278,19 @@ type Pedido = {
   motivo_estado: string | null
   metodo_pago: string | null
   venta_estado: string | null
+  pago_estado: string | null
+  pago_motivo: string | null
+  pago_detalle: string | null
 }
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia'
 
 const METODOS_PAGO: { valor: MetodoPago; titulo: string; detalle: string }[] = [
   { valor: 'efectivo', titulo: 'Efectivo', detalle: 'Al recibir o al retirar tu pedido' },
-  { valor: 'tarjeta', titulo: 'Tarjeta', detalle: 'Con POS al recibir o al retirar' },
-  { valor: 'transferencia', titulo: 'Transferencia', detalle: 'Antes de la entrega o del retiro' },
+  { valor: 'tarjeta', titulo: 'Tarjeta', detalle: 'Visa o Mastercard, ahora en línea' },
+  { valor: 'transferencia', titulo: 'Transferencia', detalle: 'Elegís el banco y adjuntás el comprobante' },
 ]
 
-/*
- * Cuenta FICTICIA para la demostración del proyecto.
- * Reemplazar por la cuenta real de la ferretería antes de usarla.
- */
 // Contacto de la ferretería: pie de la tienda, pedidos y confirmación.
 const CONTACTO_TIENDA = {
   telefono: '7887 2746',
@@ -285,27 +303,6 @@ const CONTACTO_TIENDA = {
 function enlaceWhatsApp(mensaje?: string) {
   const base = `https://wa.me/${CONTACTO_TIENDA.whatsapp}`
   return mensaje ? `${base}?text=${encodeURIComponent(mensaje)}` : base
-}
-
-const CUENTA_TRANSFERENCIA = {
-  banco: 'Banco Ejemplo de Nicaragua',
-  titular: 'Ferretería Casa Hogar, S.A.',
-  cuenta: '1002-0034-5678 (córdobas)',
-}
-
-function DatosTransferencia({ referencia }: { referencia?: string }) {
-  return (
-    <div className="t-banco">
-      <strong>Datos para transferir</strong>
-      <dl>
-        <dt>Banco</dt><dd>{CUENTA_TRANSFERENCIA.banco}</dd>
-        <dt>Titular</dt><dd>{CUENTA_TRANSFERENCIA.titular}</dd>
-        <dt>Cuenta</dt><dd className="t-sku">{CUENTA_TRANSFERENCIA.cuenta}</dd>
-        <dt>Referencia</dt><dd>{referencia ?? 'El número de tu pedido'}</dd>
-      </dl>
-      <small>Cuenta de demostración. Caja confirma el pago antes de entregar el pedido.</small>
-    </div>
-  )
 }
 
 type DetallePedido = {
@@ -339,26 +336,23 @@ function fecha(valor: string) {
 
 /*
  * Estado del pedido como lo entiende el cliente, con su propio color.
- * "Convertido" es interno (el Vendedor lo pasó a venta): se muestra
- * según el estado de esa venta.
+ * Flujo: pendiente_validacion → validado → en_despacho → entregado.
  */
 function estadoPedido(pedido: Pedido): { texto: string, clase: string } {
   switch (pedido.estado) {
-    case 'recibido':
-      return { texto: 'Recibido', clase: 'recibido' }
-    case 'confirmado':
+    case 'pendiente_validacion':
+      if (pedido.metodo_pago === 'efectivo') return { texto: 'Por confirmar', clase: 'recibido' }
+      if (pedido.pago_estado === 'pendiente') return { texto: 'Pago en revisión', clase: 'recibido' }
+      return { texto: 'Esperando pago', clase: 'por-pagar' }
+    case 'validado':
       return { texto: 'Confirmado', clase: 'confirmado' }
-    case 'preparado':
+    case 'en_despacho':
       return {
-        texto: pedido.modalidad_entrega === 'domicilio' ? 'Listo para entregar' : 'Listo para retirar',
+        texto: pedido.modalidad_entrega === 'domicilio' ? 'En camino' : 'Listo para retirar',
         clase: 'listo',
       }
-    case 'convertido':
-      if (pedido.venta_estado === 'anulada') return { texto: 'Anulado', clase: 'cancelado' }
-      if (pedido.venta_estado === 'pagada' || pedido.venta_estado === 'completada') {
-        return { texto: 'Completado', clase: 'completado' }
-      }
-      return { texto: 'Por pagar', clase: 'por-pagar' }
+    case 'entregado':
+      return { texto: pedido.modalidad_entrega === 'domicilio' ? 'Entregado' : 'Retirado', clase: 'completado' }
     case 'rechazado':
       return { texto: 'Rechazado', clase: 'rechazado' }
     case 'cancelado':
@@ -366,6 +360,14 @@ function estadoPedido(pedido: Pedido): { texto: string, clase: string } {
     default:
       return { texto: legible(pedido.estado), clase: 'cancelado' }
   }
+}
+
+const ESTADOS_PAGO: Record<string, string> = {
+  pendiente: 'Comprobante en revisión',
+  aprobado: 'Pago aprobado',
+  rechazado: 'Pago rechazado',
+  por_reembolsar: 'Reembolso en proceso',
+  reembolsado: 'Reembolsado',
 }
 
 function legible(valor: string) {
@@ -499,6 +501,24 @@ export default function Storefront({ path, navigate }: Props) {
   const [direccionEntrega, setDireccionEntrega] = useState('')
   const [observaciones, setObservaciones] = useState('')
 
+  // Dirección del pedido: 'perfil', el id de una guardada o 'nueva'
+  const [direccionElegida, setDireccionElegida] = useState('perfil')
+  const [guardarNuevaDireccion, setGuardarNuevaDireccion] = useState(false)
+  const [aliasNuevaDireccion, setAliasNuevaDireccion] = useState('')
+
+  // Pago (carrito y "completar pago" en Mi cuenta)
+  const [cuentaId, setCuentaId] = useState<number | null>(null)
+  const [comprobante, setComprobante] = useState<File | null>(null)
+  const [referenciaPago, setReferenciaPago] = useState('')
+  const [tarjeta, setTarjeta] = useState<DatosTarjeta>(TARJETA_VACIA)
+
+  const { cuentas, tipoCambio } = useCuentasBancarias(tipoSesion === 'cliente_web')
+  const { direcciones, recargar: recargarDirecciones } = useDirecciones(tipoSesion === 'cliente_web')
+
+  // Sin dirección en el perfil, la opción por defecto es escribir una nueva
+  const opcionDireccion =
+    direccionElegida === 'perfil' && !cliente?.direccion ? 'nueva' : direccionElegida
+
   const [avisoOk, setAvisoOk] = useState({ texto: '', vista: '' })
   const [agregado, setAgregado] = useState<{
     producto: Producto
@@ -603,7 +623,7 @@ export default function Storefront({ path, navigate }: Props) {
 
     const perfil = data as ClienteWeb
     setCliente(perfil)
-    setDireccionEntrega(perfil.direccion ?? '')
+    setDireccionEntrega('')
     setPerfilNombre(perfil.nombre)
     setPerfilTelefono(perfil.telefono ?? '')
     setPerfilDireccion(perfil.direccion ?? '')
@@ -627,6 +647,9 @@ export default function Storefront({ path, navigate }: Props) {
         motivo_estado: item.motivo_estado ?? null,
         metodo_pago: item.metodo_pago ?? null,
         venta_estado: item.venta_estado ?? null,
+        pago_estado: item.pago_estado ?? null,
+        pago_motivo: item.pago_motivo ?? null,
+        pago_detalle: item.pago_detalle ?? null,
       })),
     )
   }
@@ -1168,7 +1191,7 @@ export default function Storefront({ path, navigate }: Props) {
 
     const perfil = data as ClienteWeb
     setCliente(perfil)
-    setDireccionEntrega(perfil.direccion ?? '')
+    setDireccionEntrega('')
     setEditandoPerfil(false)
     setMensaje('Tus datos fueron actualizados.')
   }
@@ -1266,6 +1289,38 @@ export default function Storefront({ path, navigate }: Props) {
       return
     }
 
+    // Dirección: la del perfil, una guardada o una nueva
+    const opcion = opcionDireccion
+    const direccionPedido =
+      modalidad !== 'domicilio'
+        ? null
+        : opcion === 'perfil'
+          ? cliente.direccion
+          : opcion === 'nueva'
+            ? direccionEntrega.trim()
+            : (() => {
+                const guardada = direcciones.find(d => String(d.id) === opcion)
+                return guardada ? textoDireccion(guardada) : null
+              })()
+
+    if (modalidad === 'domicilio' && (!direccionPedido || direccionPedido.length < 5)) {
+      setError('Indicá a qué dirección enviamos el pedido.')
+      return
+    }
+
+    // El pago se revisa antes de crear el pedido
+    const problemaPago =
+      metodoPago === 'transferencia'
+        ? (cuentaId ? null : 'Elegí el banco y la cuenta a la que vas a transferir.') ?? errorComprobante(comprobante)
+        : metodoPago === 'tarjeta'
+          ? errorTarjeta(tarjeta)
+          : null
+
+    if (problemaPago) {
+      setError(problemaPago)
+      return
+    }
+
     setProcesando(true)
 
     const { data, error: rpcError } = await supabase.rpc('registrar_pedido_web', {
@@ -1274,7 +1329,7 @@ export default function Storefront({ path, navigate }: Props) {
         cantidad: item.cantidad,
       })),
       p_modalidad_entrega: modalidad,
-      p_direccion_entrega: modalidad === 'domicilio' ? direccionEntrega : null,
+      p_direccion_entrega: direccionPedido,
       p_observaciones: observaciones.trim() || null,
       p_metodo_pago: metodoPago,
     })
@@ -1285,12 +1340,86 @@ export default function Storefront({ path, navigate }: Props) {
       return
     }
 
-    const fila = Array.isArray(data) ? data[0] : data
+    const fila = (Array.isArray(data) ? data[0] : data) as { pedido_id: number, numero: string }
+
+    if (modalidad === 'domicilio' && opcion === 'nueva' && guardarNuevaDireccion) {
+      await guardarDireccion(aliasNuevaDireccion || 'Dirección', direccionEntrega, '')
+      void recargarDirecciones()
+    }
+
+    // El pedido ya existe; si el pago falla, se completa desde Mi cuenta
+    let resultadoPago = ''
+
+    if (metodoPago === 'transferencia' && cuentaId && comprobante) {
+      const problema = await enviarComprobante(usuario!.id, fila.pedido_id, fila.numero, cuentaId, comprobante, referenciaPago)
+      resultadoPago = problema
+        ? ` ${problema} Podés adjuntarlo de nuevo desde este pedido.`
+        : ' Recibimos tu comprobante: Caja lo revisará para validar el pedido.'
+    }
+
+    if (metodoPago === 'tarjeta') {
+      const pago = await pagarConTarjeta(fila.pedido_id, tarjeta)
+      resultadoPago = pago.aprobado
+        ? ` ${pago.mensaje}`
+        : ` ${pago.mensaje} Podés intentar con otra tarjeta desde este pedido.`
+    }
+
     setCarrito({})
-    setMensaje(`Pedido ${fila?.numero ?? ''} registrado correctamente. Si tenés alguna duda, escribinos al WhatsApp o llamanos al ${CONTACTO_TIENDA.telefono}.`, 'cuenta')
+    setComprobante(null)
+    setReferenciaPago('')
+    setTarjeta(TARJETA_VACIA)
+    setMensaje(
+      `Pedido ${fila.numero} registrado.${resultadoPago} Si tenés alguna duda, escribinos al WhatsApp o llamanos al ${CONTACTO_TIENDA.telefono}.`,
+      'cuenta',
+    )
     setProcesando(false)
     await cargarCliente(usuario!)
     navigate('/tienda/mi-cuenta')
+  }
+
+  // Completar el pago de un pedido que lo tiene pendiente (Mi cuenta)
+  async function completarPago(pedido: Pedido) {
+    setError('')
+    setMensaje('')
+
+    const problema =
+      pedido.metodo_pago === 'transferencia'
+        ? (cuentaId ? null : 'Elegí el banco y la cuenta a la que transferiste.') ?? errorComprobante(comprobante)
+        : errorTarjeta(tarjeta)
+
+    if (problema) {
+      setError(problema)
+      return
+    }
+
+    setProcesando(true)
+
+    let texto: string
+    let fallo: boolean
+
+    if (pedido.metodo_pago === 'transferencia' && cuentaId && comprobante) {
+      const problemaEnvio = await enviarComprobante(usuario!.id, pedido.id, pedido.numero, cuentaId, comprobante, referenciaPago)
+      fallo = Boolean(problemaEnvio)
+      texto = problemaEnvio ?? 'Recibimos tu comprobante: Caja lo revisará para validar el pedido.'
+    } else {
+      const pago = await pagarConTarjeta(pedido.id, tarjeta)
+      fallo = !pago.aprobado
+      texto = pago.mensaje
+    }
+
+    setProcesando(false)
+
+    if (fallo) {
+      setError(texto)
+      return
+    }
+
+    setComprobante(null)
+    setReferenciaPago('')
+    setTarjeta(TARJETA_VACIA)
+    setMensaje(texto)
+    await cargarPedidos()
+    setPedidoAbierto(null)
   }
 
   if (cargando) {
@@ -1880,11 +2009,60 @@ export default function Storefront({ path, navigate }: Props) {
                       </label>
                     </fieldset>
 
-                    {modalidad === 'domicilio' && (
-                      <label>
-                        Dirección de entrega
-                        <textarea value={direccionEntrega} onChange={event => setDireccionEntrega(event.target.value)} required />
-                      </label>
+                    {modalidad === 'domicilio' ? (
+                      <fieldset className="t-entrega">
+                        <legend>¿A dónde lo enviamos?</legend>
+
+                        {cliente?.direccion && (
+                          <label className={opcionDireccion === 'perfil' ? 't-opcion is-activa' : 't-opcion'}>
+                            <input type="radio" name="direccion" checked={opcionDireccion === 'perfil'} onChange={() => setDireccionElegida('perfil')} />
+                            <span><strong>Mi dirección</strong><small>{cliente.direccion}</small></span>
+                          </label>
+                        )}
+
+                        {direcciones.map(d => (
+                          <label key={d.id} className={opcionDireccion === String(d.id) ? 't-opcion is-activa' : 't-opcion'}>
+                            <input type="radio" name="direccion" checked={opcionDireccion === String(d.id)} onChange={() => setDireccionElegida(String(d.id))} />
+                            <span><strong>{d.alias}</strong><small>{textoDireccion(d)}</small></span>
+                          </label>
+                        ))}
+
+                        <label className={opcionDireccion === 'nueva' ? 't-opcion is-activa' : 't-opcion'}>
+                          <input type="radio" name="direccion" checked={opcionDireccion === 'nueva'} onChange={() => setDireccionElegida('nueva')} />
+                          <span><strong>Otra dirección</strong><small>Para este pedido</small></span>
+                        </label>
+
+                        {opcionDireccion === 'nueva' && (
+                          <div className="t-direccion-nueva">
+                            <textarea
+                              value={direccionEntrega}
+                              onChange={event => setDireccionEntrega(event.target.value)}
+                              placeholder="Barrio, calle, señas y punto de referencia"
+                              aria-label="Dirección de entrega"
+                            />
+                            <label className="t-check">
+                              <input type="checkbox" checked={guardarNuevaDireccion} onChange={event => setGuardarNuevaDireccion(event.target.checked)} />
+                              Guardar en mis direcciones
+                            </label>
+                            {guardarNuevaDireccion && (
+                              <input
+                                value={aliasNuevaDireccion}
+                                onChange={event => setAliasNuevaDireccion(event.target.value)}
+                                placeholder='Nombre: "Casa de mi hija", "Obra"...'
+                                maxLength={40}
+                                aria-label="Nombre de la dirección"
+                              />
+                            )}
+                          </div>
+                        )}
+                      </fieldset>
+                    ) : (
+                      <div className="t-retiro-info">
+                        <strong>Retirás en la ferretería</strong>
+                        <span>{CONTACTO_TIENDA.direccion}</span>
+                        <a href={CONTACTO_TIENDA.mapa} target="_blank" rel="noopener noreferrer">Cómo llegar</a>
+                        <small>Te avisamos cuando tu pedido esté listo para retirar.</small>
+                      </div>
                     )}
 
                     <fieldset className="t-entrega">
@@ -1898,7 +2076,23 @@ export default function Storefront({ path, navigate }: Props) {
                       ))}
                     </fieldset>
 
-                    {metodoPago === 'transferencia' && <DatosTransferencia />}
+                    {metodoPago === 'transferencia' && (
+                      <SelectorTransferencia
+                        cuentas={cuentas}
+                        tipoCambio={tipoCambio}
+                        total={totalCarrito}
+                        cuentaId={cuentaId}
+                        onCuenta={setCuentaId}
+                        archivo={comprobante}
+                        onArchivo={setComprobante}
+                        referencia={referenciaPago}
+                        onReferencia={setReferenciaPago}
+                      />
+                    )}
+
+                    {metodoPago === 'tarjeta' && (
+                      <FormularioTarjeta datos={tarjeta} onCambio={setTarjeta} />
+                    )}
 
                     <label>
                       Observaciones
@@ -1908,15 +2102,21 @@ export default function Storefront({ path, navigate }: Props) {
                     <div className="t-total"><span>Total</span><b>{dinero(totalCarrito)}</b></div>
 
                     <button className="t-confirmar" type="submit" disabled={procesando}>
-                      {procesando ? 'Registrando pedido...' : 'Confirmar pedido'}
+                      {procesando
+                        ? 'Registrando pedido...'
+                        : metodoPago === 'tarjeta'
+                          ? `Pagar ${dinero(totalCarrito)} y confirmar`
+                          : 'Confirmar pedido'}
                     </button>
                   </form>
                 )}
 
                 <p className="t-nota">
                   {esCliente && metodoPago === 'transferencia'
-                    ? 'Usá el número de tu pedido como referencia de la transferencia.'
-                    : 'Pagás al recibir o al retirar tu pedido, con la forma de pago que elijas.'}
+                    ? 'Tu pedido se confirma cuando Caja valida el comprobante.'
+                    : esCliente && metodoPago === 'tarjeta'
+                      ? 'Tu pedido se confirma en cuanto se aprueba el pago.'
+                      : 'Pagás al recibir o al retirar tu pedido. Lo confirmamos revisando las existencias.'}
                 </p>
               </aside>
             </div>
@@ -2260,6 +2460,17 @@ export default function Storefront({ path, navigate }: Props) {
           <section className="store-account-card store-account-card--stitch">
             <div className="store-section-heading">
               <div>
+                <span className="store-eyebrow store-eyebrow--dark">ENTREGAS</span>
+                <h2>Mis direcciones</h2>
+              </div>
+            </div>
+
+            <LibretaDirecciones direcciones={direcciones} onCambio={() => void recargarDirecciones()} />
+          </section>
+
+          <section className="store-account-card store-account-card--stitch">
+            <div className="store-section-heading">
+              <div>
                 <span className="store-eyebrow store-eyebrow--dark">PEDIDOS</span>
                 <h2>Mis pedidos</h2>
               </div>
@@ -2302,12 +2513,57 @@ export default function Storefront({ path, navigate }: Props) {
                       )}
 
                       {pedido.metodo_pago && (
-                        <p><strong>Forma de pago:</strong> {legible(pedido.metodo_pago)}</p>
+                        <p>
+                          <strong>Forma de pago:</strong> {legible(pedido.metodo_pago)}
+                          {pedido.pago_detalle && ` · ${pedido.pago_detalle}`}
+                          {pedido.pago_estado && ` · ${ESTADOS_PAGO[pedido.pago_estado] ?? legible(pedido.pago_estado)}`}
+                        </p>
                       )}
 
-                      {pedido.metodo_pago === 'transferencia'
-                        && ['recibido', 'confirmado', 'preparado'].includes(pedido.estado) && (
-                        <DatosTransferencia referencia={pedido.numero} />
+                      {pedido.pago_estado === 'rechazado' && pedido.pago_motivo && pedido.estado === 'pendiente_validacion' && (
+                        <div className="store-error">Pago rechazado: {pedido.pago_motivo}</div>
+                      )}
+
+                      {/* Pago anticipado aún sin aprobar: el cliente lo completa aquí */}
+                      {pedido.estado === 'pendiente_validacion'
+                        && pedido.metodo_pago !== 'efectivo'
+                        && pedido.pago_estado !== 'pendiente' && (
+                        <div className="t-completar-pago">
+                          <strong>
+                            {pedido.metodo_pago === 'transferencia'
+                              ? 'Adjuntá el comprobante de la transferencia'
+                              : 'Completá el pago con tarjeta'}
+                          </strong>
+
+                          {pedido.metodo_pago === 'transferencia' ? (
+                            <SelectorTransferencia
+                              cuentas={cuentas}
+                              tipoCambio={tipoCambio}
+                              total={pedido.total}
+                              cuentaId={cuentaId}
+                              onCuenta={setCuentaId}
+                              archivo={comprobante}
+                              onArchivo={setComprobante}
+                              referencia={referenciaPago}
+                              onReferencia={setReferenciaPago}
+                            />
+                          ) : (
+                            <FormularioTarjeta datos={tarjeta} onCambio={setTarjeta} />
+                          )}
+
+                          <button
+                            className="store-primary store-primary--small"
+                            type="button"
+                            disabled={procesando}
+                            onClick={() => void completarPago(pedido)}
+                          >
+                            {procesando
+                              ? 'Enviando...'
+                              : pedido.metodo_pago === 'transferencia'
+                                ? 'Enviar comprobante'
+                                : `Pagar ${dinero(pedido.total)}`}
+                          </button>
+                        </div>
                       )}
 
                       {pedido.observaciones && (
@@ -2340,7 +2596,7 @@ export default function Storefront({ path, navigate }: Props) {
                           Consultar por WhatsApp
                         </a>
 
-                        {pedido.estado === 'recibido' && (
+                        {pedido.estado === 'pendiente_validacion' && (
                           <button
                             className="store-secondary-button"
                             type="button"

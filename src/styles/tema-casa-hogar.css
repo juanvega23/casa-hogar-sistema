@@ -2799,3 +2799,180 @@ html .inventory-module .productos-th-filtro select {
   text-decoration: none;
 }
 .t-whatsapp:hover { background: var(--ch-fondo); border-color: var(--ch-texto-suave); }
+
+/* =========================================================
+   TIENDA: direcciones, transferencia y tarjeta (carrito y Mi cuenta)
+   ========================================================= */
+
+.t-direccion-nueva { display: grid; gap: 8px; }
+.t-direccion-nueva textarea,
+.t-direccion-nueva input:not([type="checkbox"]) {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-md);
+  background: var(--ch-superficie);
+  font: inherit;
+  color: var(--ch-texto);
+}
+.t-direccion-nueva textarea { min-height: 72px; resize: vertical; }
+.t-check { display: flex !important; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ch-texto); cursor: pointer; }
+.t-check input { width: 18px; height: 18px; accent-color: var(--ch-azul); }
+
+.t-retiro-info {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--ch-azul-borde);
+  border-radius: var(--ch-r-md);
+  background: var(--ch-azul-suave);
+  font-size: 14px;
+  color: var(--ch-texto);
+}
+.t-retiro-info a { justify-self: start; font-weight: 700; color: var(--ch-azul); }
+.t-retiro-info small { color: var(--ch-texto-suave); }
+
+.t-transferencia { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-fondo); }
+.t-paso-titulo { font-size: 13px; font-weight: 800; letter-spacing: .02em; color: var(--ch-texto); }
+
+.t-bancos { display: flex; flex-wrap: wrap; gap: 8px; }
+.t-bancos button {
+  min-width: 92px;
+  padding: 10px 16px;
+  border: 2px solid var(--ch-linea);
+  border-radius: var(--ch-r-md);
+  background: var(--ch-superficie);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ch-texto);
+  cursor: pointer;
+}
+.t-bancos button.is-activo { border-color: var(--ch-azul); background: var(--ch-azul-suave); color: var(--ch-azul); }
+
+.t-cuentas { display: grid; gap: 8px; }
+.t-cuenta {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--ch-linea);
+  border-radius: var(--ch-r-md);
+  background: var(--ch-superficie);
+  cursor: pointer;
+}
+.t-cuenta input { width: 18px; height: 18px; margin: 0; accent-color: var(--ch-azul); }
+.t-cuenta > span { display: grid; gap: 1px; min-width: 0; font-size: 13.5px; }
+.t-cuenta small { color: var(--ch-texto-suave); }
+.t-cuenta b { font-family: var(--ch-display); font-size: 16px; color: var(--ch-texto); white-space: nowrap; }
+.t-cuenta.is-activa { border-color: var(--ch-azul); background: var(--ch-azul-suave); }
+
+.t-archivo {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 2px dashed var(--ch-azul-borde);
+  border-radius: var(--ch-r-md);
+  background: var(--ch-superficie);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ch-azul);
+  text-align: center;
+  cursor: pointer;
+}
+.t-archivo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.t-tarjeta { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-fondo); }
+.t-tarjeta label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--ch-texto); }
+.t-tarjeta input { width: 100%; padding: 10px 12px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-superficie); font: inherit; font-size: 15px; letter-spacing: .02em; color: var(--ch-texto); }
+.t-tarjeta-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.t-tarjeta-demo { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid #f3dc9b; border-radius: var(--ch-r-md); background: var(--ch-amarillo-suave); font-size: 13px; color: var(--ch-texto); }
+.t-marca { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--ch-azul-suave); font-style: normal; font-size: 12px; font-weight: 800; color: var(--ch-azul); }
+
+.t-completar-pago { display: grid; gap: 10px; margin: 8px 0; padding: 14px; border: 1px solid var(--ch-azul-borde); border-radius: var(--ch-r-md); background: var(--ch-superficie); }
+.t-completar-pago > strong { font-size: 15px; color: var(--ch-texto); }
+.t-completar-pago label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; }
+.t-completar-pago .store-primary { justify-self: start; }
+
+.t-libreta { display: grid; gap: 12px; }
+.t-libreta ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.t-libreta li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-fondo); }
+.t-libreta li > span { display: grid; gap: 2px; min-width: 0; font-size: 14px; }
+.t-libreta li strong { color: var(--ch-texto); }
+.t-libreta li small { color: var(--ch-texto-suave); }
+.t-libreta > .store-secondary-button { justify-self: start; }
+.t-libreta-form { display: grid; gap: 10px; }
+
+@media (max-width: 560px) {
+  .t-cuenta { grid-template-columns: 18px minmax(0, 1fr); }
+  .t-cuenta b { grid-column: 2; }
+}
+
+/* =========================================================
+   PAGOS EN LÍNEA (Caja), CUENTAS BANCARIAS y pagos del pedido
+   ========================================================= */
+
+.pedido-pagos { display: grid; gap: 8px; margin: 12px 0; }
+.pedido-pagos ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.pedido-pagos li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--ch-linea); border-radius: 8px; background: var(--ch-superficie); }
+.pedido-pagos li > span { display: grid; gap: 2px; min-width: 0; font-size: 14px; }
+.pedido-pagos small { color: var(--ch-texto-suave); }
+
+.pedido-pago { display: inline-block; padding: 3px 10px; border-radius: 999px; font-style: normal; font-size: 12.5px; font-weight: 700; white-space: nowrap; background: var(--ch-fondo-2); color: var(--ch-texto-suave); }
+.pedido-pago--pendiente { background: var(--ch-amarillo-suave); color: var(--ch-alerta); }
+.pedido-pago--aprobado { background: var(--ch-ok-suave); color: var(--ch-ok); }
+.pedido-pago--rechazado { background: var(--ch-peligro-suave); color: var(--ch-peligro); }
+.pedido-pago--por_reembolsar { background: var(--ch-peligro-suave); color: var(--ch-peligro); }
+.pedido-pago--reembolsado { background: var(--ch-azul-suave); color: var(--ch-azul); }
+
+.pagos-pestanas { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.pagos-pestanas button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid var(--ch-linea);
+  border-radius: 999px;
+  background: var(--ch-superficie);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ch-texto);
+  cursor: pointer;
+}
+.pagos-pestanas button b { min-width: 22px; padding: 0 6px; border-radius: 999px; background: var(--ch-fondo-2); font-size: 12.5px; text-align: center; }
+.pagos-pestanas button.is-activa { border-color: var(--ch-azul-borde); background: var(--ch-azul-suave); color: var(--ch-azul); }
+
+.pagos-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.pago-tarjeta { display: grid; gap: 10px; align-content: start; padding: 16px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
+.pago-cabeza { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pago-cabeza > div { display: grid; gap: 2px; }
+.pago-cabeza strong { font-family: var(--ch-datos); font-size: 15px; color: var(--ch-texto); }
+.pago-cabeza span { font-size: 13.5px; color: var(--ch-texto-suave); }
+.pago-cabeza b { font-family: var(--ch-display); font-size: 16px; text-align: right; color: var(--ch-texto); }
+.pago-datos { display: grid; gap: 4px; margin: 0; font-size: 13.5px; }
+.pago-datos div { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 8px; }
+.pago-datos dt { color: var(--ch-texto-suave); }
+.pago-datos dd { margin: 0; color: var(--ch-texto); }
+.pago-comprobante { display: block; width: 100%; max-height: 320px; object-fit: contain; border: 1px solid var(--ch-linea); border-radius: 8px; background: var(--ch-fondo); }
+.pago-comprobante-enlace { font-weight: 700; color: var(--ch-azul); }
+.pago-motivo { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--ch-texto); }
+.pago-motivo input { padding: 9px 11px; border: 1px solid var(--ch-linea); border-radius: 8px; font: inherit; font-weight: 400; }
+
+.cuentas-tipo-cambio { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin-bottom: 16px; padding: 14px 16px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
+.cuentas-tipo-cambio label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--ch-texto); }
+.cuentas-tipo-cambio input { width: 180px; padding: 9px 11px; border: 1px solid var(--ch-linea); border-radius: 8px; font: inherit; }
+.cuentas-tipo-cambio small { flex-basis: 100%; font-size: 13px; color: var(--ch-texto-suave); }
+.cuentas-acciones { display: flex; gap: 6px; }
+
+@media (max-width: 560px) {
+  .pagos-lista { grid-template-columns: 1fr; }
+}
+.pago-cabeza b { display: grid; justify-items: end; gap: 2px; white-space: nowrap; }
+.pago-cabeza b small { font-family: var(--ch-cuerpo); font-size: 12.5px; font-weight: 500; color: var(--ch-texto-suave); }
+.t-tarjeta-etiqueta { display: flex !important; align-items: center; gap: 6px; }
+.t-tarjeta-etiqueta .t-marca { display: inline-block !important; width: auto !important; margin-left: 0; }
