@@ -42,6 +42,8 @@ import {
 import { formatearFechaOferta } from '../lib/descuentos'
 import { crearOrdenTienda, guardarOrden, leerOrdenGuardada, type OrdenTienda } from '../lib/ordenTienda'
 import { PanelOrdenTienda } from './StoreOrderCode'
+import { useDetallesCatalogo } from '../lib/fichasTienda'
+import { FichaProducto } from './StoreProductSheet'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
 import fotoObra from '../assets/portada/obra.webp'
 import fotoObraMovil from '../assets/portada/obra-movil.webp'
@@ -410,6 +412,43 @@ function ProductImage({ producto }: { producto: Producto }) {
   )
 }
 
+// Fila de productos relacionados (detalle del producto y carrito)
+function TarjetasRelacionadas({
+  titulo,
+  productos,
+  onVer,
+  onAgregar,
+}: {
+  titulo: string
+  productos: Producto[]
+  onVer: (producto: Producto) => void
+  onAgregar: (producto: Producto) => void
+}) {
+  if (!productos.length) return null
+
+  return (
+    <section className="t-relacionados">
+      <h3>{titulo}</h3>
+      <div className="t-relacionados-fila">
+        {productos.map(producto => (
+          <article key={producto.id} className="t-relacionado">
+            <button type="button" className="t-relacionado-ver" onClick={() => onVer(producto)}>
+              <span className="t-relacionado-foto"><ProductImage producto={producto} /></span>
+              <span className="t-relacionado-nombre">{producto.nombre}</span>
+            </button>
+            <div className="t-relacionado-pie">
+              <b>{dinero(producto.precio)}</b>
+              <button type="button" onClick={() => onAgregar(producto)} aria-label={`Agregar ${producto.nombre}`}>
+                Agregar
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /*
  * Ícono de línea según el nombre del departamento (categoría).
  * Las categorías vienen del catálogo interno; si no coincide
@@ -470,6 +509,7 @@ export default function Storefront({ path, navigate }: Props) {
   const [cantidadesTarjeta, setCantidadesTarjeta] = useState<Record<number, number>>({})
   const [productoDetalle, setProductoDetalle] = useState<Producto | null>(null)
   const [cantidadDetalle, setCantidadDetalle] = useState(1)
+  const detalles = useDetallesCatalogo()
   const [carrito, setCarrito] = useState<Record<number, number>>(leerCarritoGuardado)
 
   const [usuario, setUsuario] = useState<User | null>(null)
@@ -864,6 +904,36 @@ export default function Storefront({ path, navigate }: Props) {
       })
       .filter(Boolean) as { producto: Producto; cantidad: number }[],
     [carrito, productos],
+  )
+
+  // Productos relacionados (los elige el Responsable Comercial)
+  const productosPorId = useMemo(
+    () => new Map(productos.map(p => [p.id, p])),
+    [productos],
+  )
+
+  function relacionadosDe(ids: number[], excluir: Set<number>, limite: number) {
+    const lista: Producto[] = []
+
+    for (const id of ids) {
+      const producto = productosPorId.get(id)
+      if (!producto || !producto.disponible || excluir.has(id) || lista.includes(producto)) continue
+      lista.push(producto)
+      if (lista.length === limite) break
+    }
+
+    return lista
+  }
+
+  const relacionadosDetalle = productoDetalle
+    ? relacionadosDe(detalles[productoDetalle.id]?.relacionados ?? [], new Set([productoDetalle.id]), 4)
+    : []
+
+  // "Completá tu compra": complementarios de lo que ya está en el carrito
+  const sugeridosCarrito = relacionadosDe(
+    itemsCarrito.flatMap(item => detalles[item.producto.id]?.relacionados ?? []),
+    new Set(itemsCarrito.map(item => item.producto.id)),
+    4,
   )
 
   const cantidadCarrito = itemsCarrito.reduce((t, i) => t + i.cantidad, 0)
@@ -1881,6 +1951,18 @@ export default function Storefront({ path, navigate }: Props) {
                     <button className="t-agregar" type="button" disabled>Sin existencias</button>
                   )}
                 </div>
+
+                {(detalles[productoDetalle.id] || relacionadosDetalle.length > 0) && (
+                  <div className="t-detalle-extra">
+                    <FichaProducto detalle={detalles[productoDetalle.id]} />
+                    <TarjetasRelacionadas
+                      titulo="Combinalo con"
+                      productos={relacionadosDetalle}
+                      onVer={abrirDetalle}
+                      onAgregar={producto => agregar(producto)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2008,6 +2090,16 @@ export default function Storefront({ path, navigate }: Props) {
                 <button className="t-volver" type="button" onClick={() => navigate('/tienda')}>
                   ← Seguir comprando
                 </button>
+
+                <TarjetasRelacionadas
+                  titulo="Completá tu compra"
+                  productos={sugeridosCarrito}
+                  onVer={producto => {
+                    navigate('/tienda')
+                    abrirDetalle(producto)
+                  }}
+                  onAgregar={producto => agregar(producto)}
+                />
               </div>
 
               <aside className="t-resumen">

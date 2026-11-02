@@ -11,6 +11,7 @@ import {
   formatearFechaOferta,
   hoyManagua,
 } from '../lib/descuentos'
+import { ProductSheetEditor } from './ProductSheetEditor'
 
 
 // ==========================================================
@@ -651,6 +652,17 @@ export default function ProductsModule({
     setExito,
   ] =
     useState('')
+
+
+  // Ficha (Encargado de Compras) o relacionados (Responsable Comercial)
+  const [
+    fichaAbierta,
+    setFichaAbierta,
+  ] =
+    useState<{
+      modo: 'ficha' | 'relacionados'
+      producto: Producto
+    } | null>(null)
 
 
   const [
@@ -3049,6 +3061,24 @@ export default function ProductsModule({
 
 
       {/* ====================================================
+          FICHA / PRODUCTOS RELACIONADOS
+      ==================================================== */}
+
+      {fichaAbierta && (
+        <ProductSheetEditor
+          key={`${fichaAbierta.modo}-${fichaAbierta.producto.id}`}
+          modo={fichaAbierta.modo}
+          producto={fichaAbierta.producto}
+          catalogo={productos}
+          onCerrar={() => setFichaAbierta(null)}
+          onGuardado={mensaje => {
+            setFichaAbierta(null)
+            setExito(mensaje)
+          }}
+        />
+      )}
+
+      {/* ====================================================
           PRECIO Y DESCUENTO
           SOLO RESPONSABLE COMERCIAL
       ==================================================== */}
@@ -3560,6 +3590,29 @@ export default function ProductsModule({
                             {puedeCambiarPrecios
                               ? 'Precio'
                               : 'Editar'}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="product-edit-button"
+                            onClick={() => {
+                              setError('')
+                              setExito('')
+                              setFichaAbierta({
+                                modo: puedeCambiarPrecios
+                                  ? 'relacionados'
+                                  : 'ficha',
+                                producto,
+                              })
+                              window.scrollTo({
+                                top: 0,
+                                behavior: 'smooth',
+                              })
+                            }}
+                          >
+                            {puedeCambiarPrecios
+                              ? 'Relacionados'
+                              : 'Ficha'}
                           </button>
                         </td>
                       )}
