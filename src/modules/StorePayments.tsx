@@ -91,7 +91,7 @@ export function SelectorTransferencia({
               const monto = cuenta.moneda === 'USD' && tipoCambio ? Math.round((total / tipoCambio) * 100) / 100 : total
 
               return (
-                <label key={cuenta.id} className={cuentaId === cuenta.id ? 't-cuenta is-activa' : 't-cuenta'}>
+                <label key={cuenta.id} className={cuentaId === cuenta.id ? 't-cuenta-banco is-activa' : 't-cuenta-banco'}>
                   <input type="radio" name="cuenta_bancaria" checked={cuentaId === cuenta.id} onChange={() => onCuenta(cuenta.id)} />
                   <span>
                     <strong>{cuenta.moneda === 'USD' ? 'Dólares' : 'Córdobas'} · {cuenta.tipo_cuenta}</strong>
@@ -153,7 +153,7 @@ export function FormularioTarjeta({ datos, onCambio }: FormularioTarjetaProps) {
       </label>
 
       <label>
-        <span className="t-tarjeta-etiqueta">Número de tarjeta {marca && <em className="t-marca">{marca}</em>}</span>
+        <span className="t-tarjeta-etiqueta">Número de tarjeta {marca && <em className="t-marca-tarjeta">{marca}</em>}</span>
         <input
           value={datos.numero}
           onChange={event => onCambio({ ...datos, numero: formatearNumeroTarjeta(event.target.value) })}

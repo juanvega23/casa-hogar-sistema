@@ -2853,7 +2853,7 @@ html .inventory-module .productos-th-filtro select {
 .t-bancos button.is-activo { border-color: var(--ch-azul); background: var(--ch-azul-suave); color: var(--ch-azul); }
 
 .t-cuentas { display: grid; gap: 8px; }
-.t-cuenta {
+.t-cuenta-banco {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
@@ -2864,11 +2864,11 @@ html .inventory-module .productos-th-filtro select {
   background: var(--ch-superficie);
   cursor: pointer;
 }
-.t-cuenta input { width: 18px; height: 18px; margin: 0; accent-color: var(--ch-azul); }
-.t-cuenta > span { display: grid; gap: 1px; min-width: 0; font-size: 13.5px; }
-.t-cuenta small { color: var(--ch-texto-suave); }
-.t-cuenta b { font-family: var(--ch-display); font-size: 16px; color: var(--ch-texto); white-space: nowrap; }
-.t-cuenta.is-activa { border-color: var(--ch-azul); background: var(--ch-azul-suave); }
+.t-cuenta-banco input { width: 18px; height: 18px; margin: 0; accent-color: var(--ch-azul); }
+.t-cuenta-banco > span { display: grid; gap: 1px; min-width: 0; font-size: 13.5px; }
+.t-cuenta-banco small { color: var(--ch-texto-suave); }
+.t-cuenta-banco b { font-family: var(--ch-display); font-size: 16px; color: var(--ch-texto); white-space: nowrap; }
+.t-cuenta-banco.is-activa { border-color: var(--ch-azul); background: var(--ch-azul-suave); }
 
 .t-archivo {
   position: relative;
@@ -2893,7 +2893,7 @@ html .inventory-module .productos-th-filtro select {
 .t-tarjeta input { width: 100%; padding: 10px 12px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-superficie); font: inherit; font-size: 15px; letter-spacing: .02em; color: var(--ch-texto); }
 .t-tarjeta-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .t-tarjeta-demo { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid #f3dc9b; border-radius: var(--ch-r-md); background: var(--ch-amarillo-suave); font-size: 13px; color: var(--ch-texto); }
-.t-marca { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--ch-azul-suave); font-style: normal; font-size: 12px; font-weight: 800; color: var(--ch-azul); }
+.t-marca-tarjeta { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--ch-azul-suave); font-style: normal; font-size: 12px; font-weight: 800; color: var(--ch-azul); }
 
 .t-completar-pago { display: grid; gap: 10px; margin: 8px 0; padding: 14px; border: 1px solid var(--ch-azul-borde); border-radius: var(--ch-r-md); background: var(--ch-superficie); }
 .t-completar-pago > strong { font-size: 15px; color: var(--ch-texto); }
@@ -2910,8 +2910,8 @@ html .inventory-module .productos-th-filtro select {
 .t-libreta-form { display: grid; gap: 10px; }
 
 @media (max-width: 560px) {
-  .t-cuenta { grid-template-columns: 18px minmax(0, 1fr); }
-  .t-cuenta b { grid-column: 2; }
+  .t-cuenta-banco { grid-template-columns: 18px minmax(0, 1fr); }
+  .t-cuenta-banco b { grid-column: 2; }
 }
 
 /* =========================================================
@@ -2977,7 +2977,7 @@ html .inventory-module .productos-th-filtro select {
 .pago-cabeza b { display: grid; justify-items: end; gap: 2px; white-space: nowrap; }
 .pago-cabeza b small { font-family: var(--ch-cuerpo); font-size: 12.5px; font-weight: 500; color: var(--ch-texto-suave); }
 .t-tarjeta-etiqueta { display: flex !important; align-items: center; gap: 6px; }
-.t-tarjeta-etiqueta .t-marca { display: inline-block !important; width: auto !important; margin-left: 0; }
+.t-tarjeta-etiqueta .t-marca-tarjeta { display: inline-block !important; width: auto !important; margin-left: 0; }
 
 /* ===== Orden en tienda (cliente en la ferretería, paga en caja) ===== */
 .t-en-tienda { display: grid; gap: 8px; padding: 14px; border: 1px dashed var(--ch-azul-borde); border-radius: var(--ch-r-md); background: var(--ch-azul-suave); font-size: 14px; color: var(--ch-texto); }
