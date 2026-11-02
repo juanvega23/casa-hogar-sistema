@@ -40,6 +40,8 @@ import {
   SelectorTransferencia,
 } from './StorePayments'
 import { formatearFechaOferta } from '../lib/descuentos'
+import { crearOrdenTienda, guardarOrden, leerOrdenGuardada, type OrdenTienda } from '../lib/ordenTienda'
+import { PanelOrdenTienda } from './StoreOrderCode'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
 import fotoObra from '../assets/portada/obra.webp'
 import fotoObraMovil from '../assets/portada/obra-movil.webp'
@@ -511,6 +513,10 @@ export default function Storefront({ path, navigate }: Props) {
   const [comprobante, setComprobante] = useState<File | null>(null)
   const [referenciaPago, setReferenciaPago] = useState('')
   const [tarjeta, setTarjeta] = useState<DatosTarjeta>(TARJETA_VACIA)
+
+  // Orden en tienda: el cliente está en la ferretería y paga en caja (sin cuenta)
+  const [ordenTienda, setOrdenTienda] = useState<OrdenTienda | null>(leerOrdenGuardada)
+  const [nombreOrden, setNombreOrden] = useState('')
 
   const { cuentas, tipoCambio } = useCuentasBancarias(tipoSesion === 'cliente_web')
   const { direcciones, recargar: recargarDirecciones } = useDirecciones(tipoSesion === 'cliente_web')
@@ -1377,6 +1383,39 @@ export default function Storefront({ path, navigate }: Props) {
     navigate('/tienda/mi-cuenta')
   }
 
+  // Orden en tienda: genera el código que el vendedor carga en el mostrador
+  async function generarOrdenTienda() {
+    setError('')
+    setMensaje('')
+
+    if (!itemsCarrito.length) {
+      setError('Tu carrito está vacío.')
+      return
+    }
+
+    setProcesando(true)
+    const { orden, error: problema } = await crearOrdenTienda(
+      itemsCarrito.map(item => ({ producto_id: item.producto.id, nombre: item.producto.nombre, cantidad: item.cantidad })),
+      nombreOrden || cliente?.nombre || '',
+    )
+    setProcesando(false)
+
+    if (!orden) {
+      setError(problema)
+      return
+    }
+
+    guardarOrden(orden)
+    setOrdenTienda(orden)
+    setCarrito({})
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function cerrarOrdenTienda() {
+    guardarOrden(null)
+    setOrdenTienda(null)
+  }
+
   // Completar el pago de un pedido que lo tiene pendiente (Mi cuenta)
   async function completarPago(pedido: Pedido) {
     setError('')
@@ -1929,11 +1968,15 @@ export default function Storefront({ path, navigate }: Props) {
 
           {error && <div className="t-aviso t-aviso--error">{error}</div>}
 
+          {ordenTienda && <PanelOrdenTienda orden={ordenTienda} onCerrar={cerrarOrdenTienda} />}
+
           {!itemsCarrito.length ? (
+            !ordenTienda && (
             <div className="t-vacio">
               Tu carrito está vacío.{' '}
               <button type="button" onClick={() => navigate('/tienda')}>Ver productos</button>
             </div>
+            )
           ) : (
             <div className="t-carrito-grid">
               <div className="t-lineas">
@@ -2118,6 +2161,23 @@ export default function Storefront({ path, navigate }: Props) {
                       ? 'Tu pedido se confirma en cuanto se aprueba el pago.'
                       : 'Pagás al recibir o al retirar tu pedido. Lo confirmamos revisando las existencias.'}
                 </p>
+
+                <div className="t-en-tienda">
+                  <strong>¿Estás en la ferretería?</strong>
+                  <span>Generá un código y pagá en caja: el vendedor carga tu lista. No necesitás cuenta.</span>
+                  {!esCliente && (
+                    <input
+                      value={nombreOrden}
+                      onChange={event => setNombreOrden(event.target.value)}
+                      placeholder="Tu nombre (opcional)"
+                      maxLength={80}
+                      aria-label="Tu nombre"
+                    />
+                  )}
+                  <button type="button" onClick={() => void generarOrdenTienda()} disabled={procesando}>
+                    {procesando ? 'Generando...' : 'Generar código para pagar en caja'}
+                  </button>
+                </div>
               </aside>
             </div>
           )}

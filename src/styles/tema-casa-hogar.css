@@ -2976,3 +2976,57 @@ html .inventory-module .productos-th-filtro select {
 .pago-cabeza b small { font-family: var(--ch-cuerpo); font-size: 12.5px; font-weight: 500; color: var(--ch-texto-suave); }
 .t-tarjeta-etiqueta { display: flex !important; align-items: center; gap: 6px; }
 .t-tarjeta-etiqueta .t-marca { display: inline-block !important; width: auto !important; margin-left: 0; }
+
+/* ===== Orden en tienda (cliente en la ferretería, paga en caja) ===== */
+.t-en-tienda { display: grid; gap: 8px; padding: 14px; border: 1px dashed var(--ch-azul-borde); border-radius: var(--ch-r-md); background: var(--ch-azul-suave); font-size: 14px; color: var(--ch-texto); }
+.t-en-tienda strong { font-family: var(--ch-display); font-size: 16px; }
+.t-en-tienda span { color: var(--ch-texto-suave); }
+.t-en-tienda input { padding: 10px 12px; border: 1px solid var(--ch-linea); border-radius: 8px; font: inherit; background: var(--ch-superficie); }
+.t-en-tienda button { padding: 11px 12px; border: 1.5px solid var(--ch-naranja); border-radius: var(--ch-r-md); background: var(--ch-superficie); color: var(--ch-naranja-hover); font: inherit; font-weight: 800; cursor: pointer; }
+.t-en-tienda button:hover:not(:disabled) { background: var(--ch-naranja); color: #fff; }
+.t-en-tienda button:disabled { opacity: .6; cursor: wait; }
+
+.t-orden-tienda { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-bottom: 20px; padding: 20px; border: 1px solid var(--ch-linea); border-radius: 16px; background: var(--ch-superficie); box-shadow: var(--ch-sombra); }
+.t-orden-codigo { display: grid; align-content: center; justify-items: center; gap: 8px; padding: 22px 16px; border-radius: var(--ch-r-lg); background: var(--ch-azul-suave); text-align: center; color: var(--ch-texto); }
+.t-orden-codigo > span { font-size: 14px; font-weight: 700; }
+.t-orden-codigo strong { font-size: clamp(40px, 9vw, 58px); font-weight: 700; letter-spacing: .08em; line-height: 1; color: var(--ch-texto); }
+.t-orden-codigo small { max-width: 34ch; font-size: 14px; color: var(--ch-texto-suave); }
+.t-orden-lista { display: grid; align-content: start; gap: 10px; }
+.t-orden-lista ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.t-orden-lista li { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--ch-linea); font-size: 14.5px; color: var(--ch-texto); }
+.t-orden-lista li b { white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .t-orden-tienda { grid-template-columns: 1fr; padding: 16px; }
+}
+
+/* ===== Orden en tienda en "Registrar venta" ===== */
+.sales-orden-tienda { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--ch-azul-borde); border-radius: var(--ch-r-lg); background: var(--ch-azul-suave); }
+.sales-orden-form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.sales-orden-form label { display: grid; gap: 2px; margin-right: auto; font-size: 14px; font-weight: 600; color: var(--ch-texto); }
+.sales-orden-form input { width: 160px; padding: 10px 12px; border: 1px solid var(--ch-linea); border-radius: 8px; background: var(--ch-superficie); font-family: var(--ch-datos); font-size: 16px; letter-spacing: .08em; text-transform: uppercase; }
+.sales-orden-form .sales-confirm-button { width: auto; min-width: 140px; }
+.sales-orden-cargada { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sales-orden-cargada > div { display: grid; gap: 2px; }
+.sales-orden-cargada strong { font-family: var(--ch-datos); font-size: 22px; letter-spacing: .08em; color: var(--ch-texto); }
+.sales-orden-cargada small { font-size: 13.5px; color: var(--ch-texto-suave); }
+
+@media (max-width: 650px) {
+  .sales-orden-form input,
+  .sales-orden-form .sales-confirm-button { flex: 1 1 140px; width: auto; }
+}
+
+/* ===== Venta con tablet: controles táctiles más grandes ===== */
+@media (pointer: coarse) {
+  .sales-qty { height: 44px; grid-template-columns: 44px 1fr 44px; }
+  .sales-qty button { font-size: 20px; }
+  .sales-qty input { font-size: 16px; }
+  .sales-add-button,
+  .sales-clear-button,
+  .sales-confirm-button { min-height: 44px; }
+  .sales-remove-button { min-width: 40px; min-height: 40px; }
+  .sales-search input,
+  .sales-field input,
+  .sales-field select { min-height: 44px; font-size: 16px; }
+  .sales-product-row { padding-top: 12px; padding-bottom: 12px; }
+}

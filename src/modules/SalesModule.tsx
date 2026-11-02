@@ -74,6 +74,18 @@ type ResultadoVenta = {
     | string
 }
 
+type OrdenCargada = {
+  codigo: string
+  cliente: string | null
+}
+
+type LineaOrdenTienda = {
+  codigo: string
+  cliente_nombre: string | null
+  producto_id: number
+  cantidad: number
+}
+
 type TipoVenta =
   | 'contado'
   | 'credito'
@@ -342,6 +354,25 @@ export default function SalesModule({
     useState<ResultadoVenta | null>(
       null,
     )
+
+  // Orden en tienda: código que el cliente generó desde su
+  // celular en la tienda en línea (crear_orden_tienda).
+  const [
+    codigoOrden,
+    setCodigoOrden,
+  ] = useState('')
+
+  const [
+    ordenCargada,
+    setOrdenCargada,
+  ] = useState<OrdenCargada | null>(
+    null,
+  )
+
+  const [
+    cargandoOrden,
+    setCargandoOrden,
+  ] = useState(false)
 
 
   // ==========================================================
@@ -967,6 +998,130 @@ export default function SalesModule({
     setError('')
     setExito('')
     setUltimaVenta(null)
+    setOrdenCargada(null)
+    setCodigoOrden('')
+  }
+
+
+  // ==========================================================
+  // CARGAR ORDEN EN TIENDA
+  // Reemplaza el carrito con la lista del cliente. Precio y
+  // existencia son los actuales; la venta se registra con
+  // facturar_orden_tienda(), que además cierra la orden.
+  // ==========================================================
+
+  async function cargarOrdenTienda(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault()
+    setError('')
+    setExito('')
+    setUltimaVenta(null)
+
+    const codigo =
+      codigoOrden
+        .replace(/[^a-z0-9]/gi, '')
+        .toUpperCase()
+
+    if (codigo.length !== 6) {
+      setError(
+        'El código de la orden tiene 6 letras y números.',
+      )
+
+      return
+    }
+
+    setCargandoOrden(true)
+
+    const { data, error } =
+      await supabase.rpc(
+        'orden_tienda_para_venta',
+        {
+          p_codigo: codigo,
+        },
+      )
+
+    setCargandoOrden(false)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    const lineas =
+      (data ?? []) as LineaOrdenTienda[]
+
+    const avisos: string[] = []
+    const items: ItemCarrito[] = []
+
+    for (const linea of lineas) {
+      const producto =
+        productos.find(
+          (p) =>
+            p.id ===
+            linea.producto_id,
+        )
+
+      if (!producto) {
+        avisos.push(
+          'un producto de la orden ya no está disponible',
+        )
+
+        continue
+      }
+
+      const cantidad =
+        Math.min(
+          Number(linea.cantidad),
+          producto.existencia,
+        )
+
+      if (cantidad <= 0) {
+        avisos.push(
+          `${producto.nombre} está agotado`,
+        )
+
+        continue
+      }
+
+      if (cantidad < Number(linea.cantidad)) {
+        avisos.push(
+          `de ${producto.nombre} solo hay ${producto.existencia}`,
+        )
+      }
+
+      items.push({
+        producto,
+        cantidad,
+      })
+    }
+
+    if (items.length === 0) {
+      setError(
+        'Ningún producto de la orden tiene existencia disponible.',
+      )
+
+      return
+    }
+
+    setCarrito(items)
+    setCodigoOrden('')
+    setOrdenCargada({
+      codigo,
+      cliente:
+        lineas[0]?.cliente_nombre ??
+        null,
+    })
+
+    if (avisos.length > 0) {
+      setError(
+        `Orden ${codigo} cargada con cambios: ${avisos.join('; ')}. Avísale al cliente.`,
+      )
+    } else {
+      setExito(
+        `Orden ${codigo} cargada. Revisa la lista con el cliente y registra la venta.`,
+      )
+    }
   }
 
 
@@ -1047,10 +1202,44 @@ export default function SalesModule({
         }),
       )
 
+    // Con una orden en tienda cargada, la venta y el cierre de
+    // la orden van juntos en facturar_orden_tienda().
     const {
       data,
       error,
-    } = await supabase.rpc(
+    } = ordenCargada
+      ? await supabase.rpc(
+          'facturar_orden_tienda',
+          {
+            p_codigo:
+              ordenCargada.codigo,
+
+            p_items:
+              items,
+
+            p_tipo_venta:
+              tipoVenta,
+
+            p_cliente_id:
+              clienteId
+                ? Number(
+                    clienteId,
+                  )
+                : null,
+
+            p_cliente_nombre:
+              clienteSeleccionado
+                ?.nombre ??
+              null,
+
+            p_fecha_vencimiento:
+              tipoVenta ===
+              'credito'
+                ? fechaVencimiento
+                : null,
+          },
+        )
+      : await supabase.rpc(
       'registrar_venta',
       {
         p_items:
@@ -1147,6 +1336,7 @@ export default function SalesModule({
     setClienteId('')
     setReferencia('')
     setFechaVencimiento('')
+    setOrdenCargada(null)
 
     await cargarProductos()
 
@@ -1707,6 +1897,95 @@ export default function SalesModule({
 
 
       {/* =============================================
+          ORDEN EN TIENDA
+      ============================================= */}
+
+      <section className="sales-orden-tienda">
+        {ordenCargada ? (
+          <div className="sales-orden-cargada">
+            <div>
+              <span className="panel-label">
+                ORDEN EN TIENDA
+              </span>
+
+              <strong>
+                {ordenCargada.codigo}
+              </strong>
+
+              <small>
+                {ordenCargada.cliente ??
+                  'Cliente sin nombre'}
+                {' · '}
+                {carrito.length} producto
+                {carrito.length === 1
+                  ? ''
+                  : 's'}
+              </small>
+            </div>
+
+            <button
+              type="button"
+              className="sales-clear-button"
+              onClick={
+                limpiarVenta
+              }
+            >
+              Quitar orden
+            </button>
+          </div>
+        ) : (
+          <form
+            className="sales-orden-form"
+            onSubmit={(event) =>
+              void cargarOrdenTienda(
+                event,
+              )
+            }
+          >
+            <label htmlFor="venta-orden">
+              <span className="panel-label">
+                ORDEN EN TIENDA
+              </span>
+              ¿El cliente trae un código de la tienda en línea?
+            </label>
+
+            <input
+              id="venta-orden"
+              type="text"
+              value={
+                codigoOrden
+              }
+              onChange={(
+                event,
+              ) =>
+                setCodigoOrden(
+                  event.target
+                    .value,
+                )
+              }
+              placeholder="Ej. T7K 4Q9"
+              maxLength={8}
+              autoComplete="off"
+              autoCapitalize="characters"
+            />
+
+            <button
+              type="submit"
+              className="sales-confirm-button"
+              disabled={
+                cargandoOrden
+              }
+            >
+              {cargandoOrden
+                ? 'Cargando...'
+                : 'Cargar orden'}
+            </button>
+          </form>
+        )}
+      </section>
+
+
+      {/* =============================================
           PRODUCTOS Y CARRITO
       ============================================= */}
 
@@ -2252,8 +2531,13 @@ export default function SalesModule({
             <input
               id="venta-referencia"
               type="text"
+              disabled={
+                Boolean(ordenCargada)
+              }
               value={
-                referencia
+                ordenCargada
+                  ? `Orden en tienda ${ordenCargada.codigo}`
+                  : referencia
               }
               onChange={(
                 event,
