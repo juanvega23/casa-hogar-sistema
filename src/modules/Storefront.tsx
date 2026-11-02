@@ -44,6 +44,7 @@ import { crearOrdenTienda, guardarOrden, leerOrdenGuardada, type OrdenTienda } f
 import { PanelOrdenTienda } from './StoreOrderCode'
 import { useDetallesCatalogo } from '../lib/fichasTienda'
 import { FichaProducto } from './StoreProductSheet'
+import { StoreAbout } from './StoreAbout'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
 import fotoObra from '../assets/portada/obra.webp'
 import fotoObraMovil from '../assets/portada/obra-movil.webp'
@@ -598,7 +599,9 @@ export default function Storefront({ path, navigate }: Props) {
           ? 'cuenta'
           : path === '/tienda/restablecer'
             ? 'restablecer'
-            : 'catalogo'
+            : path === '/tienda/nosotros'
+              ? 'nosotros'
+              : 'catalogo'
 
   // Cada aviso pertenece a la pantalla donde se generó (o a la indicada,
   // si después se navega a otra): al cambiar de pantalla deja de verse.
@@ -2972,11 +2975,32 @@ export default function Storefront({ path, navigate }: Props) {
         </main>
       )}
 
+      {vista === 'nosotros' && (
+        <StoreAbout
+          direccion={CONTACTO_TIENDA.direccion}
+          mapa={CONTACTO_TIENDA.mapa}
+          telefono={CONTACTO_TIENDA.telefono}
+          telefonoEnlace={CONTACTO_TIENDA.telefonoEnlace}
+          whatsappEnlace={enlaceWhatsApp()}
+          onVerProductos={() => elegirDepartamento('Todos')}
+        />
+      )}
+
       <footer className="t-pie">
         <div className="t-pie-interior">
           <div className="t-pie-marca">
             <img src={logoCasaHogar} alt="Ferretería Casa Hogar" />
             <p>Managua, Nicaragua. Soluciones para construir, reparar y mejorar.</p>
+            <button
+              type="button"
+              className="t-pie-nosotros"
+              onClick={() => {
+                navigate('/tienda/nosotros')
+                window.scrollTo({ top: 0 })
+              }}
+            >
+              Quiénes somos
+            </button>
           </div>
 
           <div>

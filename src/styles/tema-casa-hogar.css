@@ -3139,3 +3139,27 @@ html .inventory-module .productos-th-filtro select {
   .t-departamentos-lista { display: none; }
   .t-departamentos-interior { justify-content: space-between; }
 }
+
+/* ===== Quiénes somos (tienda) ===== */
+.t-pie-marca .t-pie-nosotros { margin-top: 10px; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--ch-azul); text-decoration: underline; cursor: pointer; }
+.t-nosotros-portada { display: grid; gap: 10px; padding: 34px 32px; border-radius: 20px; background: var(--ch-acero); }
+.t-nosotros-portada h1 { margin: 0; font-family: var(--ch-display); font-size: clamp(30px, 5vw, 44px); line-height: 1.05; color: var(--ch-texto); }
+.t-nosotros-portada p { max-width: 62ch; margin: 0; font-size: 16.5px; line-height: 1.55; color: var(--ch-texto); }
+.t-nosotros-par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.t-nosotros-tarjeta { display: grid; align-content: start; gap: 10px; padding: 24px; border: 1px solid var(--ch-linea); border-top: 4px solid var(--ch-azul); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
+.t-nosotros-tarjeta h2 { margin: 0; font-family: var(--ch-display); font-size: 22px; color: var(--ch-texto); }
+.t-nosotros-tarjeta p { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--ch-texto); }
+.t-valores { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.t-valores li { display: grid; align-content: start; gap: 6px; padding: 18px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
+.t-valores strong { font-family: var(--ch-display); font-size: 17px; color: var(--ch-texto); }
+.t-valores span { font-size: 14.5px; line-height: 1.5; color: var(--ch-texto-suave); }
+.t-nosotros-ubicacion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 24px; border: 1px solid var(--ch-azul-borde); border-radius: var(--ch-r-lg); background: var(--ch-azul-suave); }
+.t-nosotros-ubicacion h2 { margin: 0 0 6px; font-family: var(--ch-display); font-size: 20px; color: var(--ch-texto); }
+.t-nosotros-ubicacion p { margin: 0 0 10px; font-size: 15px; color: var(--ch-texto); }
+.t-nosotros-enlaces { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.t-nosotros-enlaces a { font-weight: 700; color: var(--ch-azul); }
+
+@media (max-width: 700px) {
+  .t-nosotros-portada { padding: 24px 20px; }
+  .t-nosotros-par { grid-template-columns: 1fr; }
+}
