@@ -959,23 +959,8 @@ html .auth-link:hover { text-decoration: underline; }
   gap: 8px;
 }
 
-/* Lista desplazable de departamentos; si no cabe, se esfuma en el
-   borde derecho para indicar que hay más (se desliza con el dedo
-   o la rueda del mouse). */
-.t-departamentos-lista {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.t-departamentos-lista::-webkit-scrollbar { display: none; }
-
-.t-departamentos-lista.hay-mas {
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
-  mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
-}
+/* Accesos fijos de la barra (los departamentos están en el menú) */
+.t-nav-enlaces { display: flex; flex: 1; min-width: 0; gap: 4px; margin-left: 10px; }
 
 .t-departamentos button {
   flex: none;
@@ -3134,9 +3119,9 @@ html .inventory-module .productos-th-filtro select {
   .t-filtros-limpiar { margin-left: 0; justify-self: start; }
 }
 
-/* En celular el menú "Departamentos" reemplaza a la barra desplazable */
+/* En celular la barra queda con el menú y Ofertas */
 @media (max-width: 700px) {
-  .t-departamentos-lista { display: none; }
+  .t-nav-enlaces { display: none; }
   .t-departamentos-interior { justify-content: space-between; }
 }
 
