@@ -1659,9 +1659,9 @@ export default function Storefront({ path, navigate }: Props) {
 
           <div className="t-acciones">
             <button
-              className="t-accion t-contacto"
+              className="t-accion t-ferreteria"
               type="button"
-              aria-label="Contacto"
+              aria-label="Conocenos"
               aria-current={vista === 'nosotros' ? 'page' : undefined}
               onClick={() => {
                 navigate('/tienda/nosotros')
@@ -1670,12 +1670,11 @@ export default function Storefront({ path, navigate }: Props) {
             >
               <i>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6.6 3.5h2.7l1.3 4-2 1.5a12 12 0 0 0 5.9 5.9l1.5-2 4 1.3v2.7a2 2 0 0 1-2.2 2A17 17 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z" />
+                  <path d="M4 10.5 5.5 4h13L20 10.5M4 10.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0M5.5 13.5V20h13v-6.5M10 20v-4h4v4" />
                 </svg>
               </i>
               <span className="t-accion-texto">
-                <small>¿Dudas?</small>
-                <strong>Contacto</strong>
+                <strong>Conocenos</strong>
               </span>
             </button>
 

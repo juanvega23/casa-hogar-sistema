@@ -3160,7 +3160,7 @@ html .tienda .store-primary:hover:not(:disabled) { background: var(--ch-amarillo
 
 @media (max-width: 560px) {
   .tienda .t-accion { padding-right: 5px; }
-  .tienda .t-contacto .t-accion-texto,
+  .tienda .t-ferreteria .t-accion-texto,
   .tienda .t-carrito-boton .t-accion-texto { display: none; }
   .tienda .t-cuenta .t-accion-texto small { display: none; }
 }

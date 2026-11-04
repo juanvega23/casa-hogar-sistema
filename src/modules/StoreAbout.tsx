@@ -36,6 +36,21 @@ export function StoreAbout({ direccion, mapa, telefono, telefonoEnlace, whatsapp
         </p>
       </section>
 
+      <section className="t-nosotros-ubicacion" aria-labelledby="t-titulo-ubicacion">
+        <div>
+          <h2 id="t-titulo-ubicacion">Contacto y ubicación</h2>
+          <p>{direccion}</p>
+          <div className="t-nosotros-enlaces">
+            <a href={mapa} target="_blank" rel="noopener noreferrer">Cómo llegar</a>
+            <a href={telefonoEnlace}>Llamar al {telefono}</a>
+            <a href={whatsappEnlace} target="_blank" rel="noopener noreferrer">WhatsApp {telefono}</a>
+          </div>
+        </div>
+        <button type="button" className="t-boton t-boton--primario" onClick={onVerProductos}>
+          Ver productos
+        </button>
+      </section>
+
       <div className="t-nosotros-par">
         <section className="t-nosotros-tarjeta">
           <h2>Misión</h2>
@@ -62,21 +77,6 @@ export function StoreAbout({ direccion, mapa, telefono, telefonoEnlace, whatsapp
             </li>
           ))}
         </ul>
-      </section>
-
-      <section className="t-nosotros-ubicacion" aria-labelledby="t-titulo-ubicacion">
-        <div>
-          <h2 id="t-titulo-ubicacion">Dónde estamos</h2>
-          <p>{direccion}</p>
-          <div className="t-nosotros-enlaces">
-            <a href={mapa} target="_blank" rel="noopener noreferrer">Cómo llegar</a>
-            <a href={telefonoEnlace}>Llamar al {telefono}</a>
-            <a href={whatsappEnlace} target="_blank" rel="noopener noreferrer">WhatsApp {telefono}</a>
-          </div>
-        </div>
-        <button type="button" className="t-boton t-boton--primario" onClick={onVerProductos}>
-          Ver productos
-        </button>
       </section>
     </main>
   )
