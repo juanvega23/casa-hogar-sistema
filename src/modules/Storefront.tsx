@@ -310,7 +310,8 @@ const CONTACTO_TIENDA = {
   telefonoEnlace: 'tel:+50578872746',
   whatsapp: '50578872746',
   direccion: 'Del Instituto Rigoberto López Pérez 2 c. al norte, barrio Hialeah, Managua',
-  mapa: 'https://www.google.com/maps/search/?api=1&query=Instituto+Rigoberto+L%C3%B3pez+P%C3%A9rez+Managua',
+  mapa: 'https://www.google.com/maps/search/?api=1&query=12.121472,-86.276222',
+  mapaEmbebido: 'https://www.google.com/maps?q=12.121472,-86.276222&z=17&hl=es&output=embed',
 }
 
 function enlaceWhatsApp(mensaje?: string) {
@@ -467,10 +468,13 @@ function IconoDepartamento({ nombre }: { nombre: string }) {
   const n = nombre.toLocaleLowerCase('es')
   let trazo = 'M4 8 12 4l8 4v8l-8 4-8-4z M4 8l8 4 8-4 M12 12v8'
 
-  if (n.includes('herramient')) trazo = 'M4 8h9l3-3h4v6h-4l-3-3 M9 8v12'
+  if (n.includes('herramient')) trazo = 'M14.5 6.5a4 4 0 0 0-5.3 5L4 16.7 7.3 20l5.2-5.2a4 4 0 0 0 5-5.3l-2.6 2.6-2.4-.6-.6-2.4z'
+  else if (n.includes('abrasiv')) trazo = 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z'
+  else if (n.includes('carpint')) trazo = 'M3 7h5l2 2h11v5l-2 2-2-2-2 2-2-2-2 2-2-2v-2H5a2 2 0 0 1-2-2z'
+  else if (n.includes('hogar')) trazo = 'M3 11.5 12 4l9 7.5 M5.5 10v10h13V10 M10 20v-6h4v6'
   else if (n.includes('eléctr') || n.includes('electr')) trazo = 'M13 3 5 14h6l-1 7 8-11h-6z'
   else if (n.includes('fijac') || n.includes('tornill')) trazo = 'M9 4h6v4H9z M12 8v12 M9 11l6 2 M9 14l6 2 M9 17l6 2'
-  else if (n.includes('plomer')) trazo = 'M4 10h9a3 3 0 0 1 3 3v2 M8 10V7h4 M6 7h8 M16 18v2'
+  else if (n.includes('plomer')) trazo = 'M3 9h10a6 6 0 0 1 6 6v1 M3 14h9a2 2 0 0 1 2 2 M9 9V5 M6 5h6 M19 19v1.5 M14 19v1.5'
   else if (n.includes('pintur')) trazo = 'M4 4h13v5H4z M17 6h3v6h-8v3 M11 15h2v6h-2z'
   else if (n.includes('constru')) trazo = 'M3 6h18v12H3z M3 12h18 M9 6v6 M15 12v6'
   else if (n.includes('jard')) trazo = 'M12 21V9 M12 9c0-3 2-5 6-5 0 4-2 6-6 6z M12 13c0-3-2-5-6-5 0 4 2 6 6 6z'
@@ -1591,140 +1595,130 @@ export default function Storefront({ path, navigate }: Props) {
             <img src={logoCasaHogar} alt="Ferretería Casa Hogar" />
           </button>
 
+          <div className="t-menu-dep" ref={menuDepartamentosRef}>
+            <button
+              type="button"
+              className="t-menu-dep-boton"
+              aria-expanded={menuDepartamentos}
+              aria-controls="t-menu-dep-panel"
+              onClick={() => setMenuDepartamentos(abierto => !abierto)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+              Departamentos
+              <svg className="t-menu-dep-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+
+            {menuDepartamentos && (
+              <div className="t-menu-dep-panel" id="t-menu-dep-panel">
+                <button type="button" onClick={() => elegirDepartamento('Todos')}>
+                  <i><IconoDepartamento nombre="" /></i>
+                  <span><strong>Todos los productos</strong><small>{productos.length} productos</small></span>
+                </button>
+                {departamentos.map(d => (
+                  <button type="button" key={d.nombre} onClick={() => elegirDepartamento(d.nombre)}>
+                    <i><IconoDepartamento nombre={d.nombre} /></i>
+                    <span><strong>{d.nombre}</strong><small>{d.total} producto{d.total === 1 ? '' : 's'}</small></span>
+                  </button>
+                ))}
+                {hayOfertas && (
+                  <button type="button" className="t-menu-dep-ofertas" onClick={() => elegirDepartamento(FILTRO_OFERTAS)}>
+                    <i><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z" /><circle cx="7.5" cy="8.5" r="1.5" /></svg></i>
+                    <span><strong>Ofertas de la semana</strong><small>Productos con descuento</small></span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* El buscador busca en toda la tienda; para acotar está el menú de departamentos */}
           <form
             className="t-buscador"
             role="search"
             onSubmit={event => {
               event.preventDefault()
-              elegirDepartamento(categoria)
+              elegirDepartamento('Todos')
             }}
           >
-            <label className="t-sr" htmlFor="t-buscador-categoria">Departamento</label>
-            <select
-              id="t-buscador-categoria"
-              value={categoria}
-              onChange={event => setCategoria(event.target.value)}
-            >
-              <option value="Todos">Todos</option>
-              {hayOfertas && <option value={FILTRO_OFERTAS}>Ofertas</option>}
-              {departamentos.map(d => (
-                <option key={d.nombre} value={d.nombre}>{d.nombre}</option>
-              ))}
-            </select>
-
             <label className="t-sr" htmlFor="t-buscador-texto">Buscar productos</label>
             <input
               id="t-buscador-texto"
               type="search"
               value={busqueda}
-              onChange={event => setBusqueda(event.target.value)}
+              onChange={event => {
+                setBusqueda(event.target.value)
+                if (event.target.value.trim()) setCategoria('Todos')
+              }}
               placeholder="Buscar martillos, cable, tubería, pintura…"
             />
 
-            <button type="submit">Buscar</button>
+            <button type="submit" aria-label="Buscar">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+              <span>Buscar</span>
+            </button>
           </form>
 
           <div className="t-acciones">
             <button
-              className="t-cuenta"
+              className="t-accion t-contacto"
               type="button"
-              onClick={() => navigate(esCliente ? '/tienda/mi-cuenta' : '/tienda/login')}
+              aria-label="Contacto"
+              aria-current={vista === 'nosotros' ? 'page' : undefined}
+              onClick={() => {
+                navigate('/tienda/nosotros')
+                window.scrollTo({ top: 0 })
+              }}
             >
-              <small>{esCliente && cliente ? `Hola, ${cliente.nombre.split(' ')[0]}` : 'Hola, ingresá'}</small>
-              <strong>Mi cuenta</strong>
+              <i>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6.6 3.5h2.7l1.3 4-2 1.5a12 12 0 0 0 5.9 5.9l1.5-2 4 1.3v2.7a2 2 0 0 1-2.2 2A17 17 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z" />
+                </svg>
+              </i>
+              <span className="t-accion-texto">
+                <small>¿Dudas?</small>
+                <strong>Contacto</strong>
+              </span>
             </button>
 
             <button
-              className="t-carrito-boton"
+              className="t-accion t-cuenta"
               type="button"
+              onClick={() => navigate(esCliente ? '/tienda/mi-cuenta' : '/tienda/login')}
+            >
+              <i>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="8" r="3.6" />
+                  <path d="M5 20a7 7 0 0 1 14 0" />
+                </svg>
+              </i>
+              <span className="t-accion-texto">
+                <small>{esCliente && cliente ? `Hola, ${cliente.nombre.split(' ')[0]}` : 'Hola, ingresá'}</small>
+                <strong>Mi cuenta</strong>
+              </span>
+            </button>
+
+            <button
+              className="t-accion t-carrito-boton"
+              type="button"
+              aria-label="Carrito"
               onClick={() => navigate('/tienda/carrito')}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 4h2l2.2 10h10.9l2-7H7" />
-                <circle cx="9" cy="19" r="1.5" />
-                <circle cx="18" cy="19" r="1.5" />
-              </svg>
-              <span>Carrito</span>
+              <i>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 4h2l2.2 10h10.9l2-7H7" />
+                  <circle cx="9" cy="19" r="1.5" />
+                  <circle cx="18" cy="19" r="1.5" />
+                </svg>
+              </i>
+              <span className="t-accion-texto">
+                <small>Tu compra</small>
+                <strong>Carrito</strong>
+              </span>
               <b key={agregado?.clave ?? 0} className={agregado ? 'is-salto' : undefined}>
                 {cantidadCarrito}
               </b>
             </button>
           </div>
         </div>
-
-        <nav className="t-departamentos" aria-label="Departamentos">
-          <div className="t-departamentos-interior">
-            <div className="t-menu-dep" ref={menuDepartamentosRef}>
-              <button
-                type="button"
-                className="t-menu-dep-boton"
-                aria-expanded={menuDepartamentos}
-                aria-controls="t-menu-dep-panel"
-                onClick={() => setMenuDepartamentos(abierto => !abierto)}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-                Departamentos
-                <svg className="t-menu-dep-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-              </button>
-
-              {menuDepartamentos && (
-                <div className="t-menu-dep-panel" id="t-menu-dep-panel">
-                  <button type="button" onClick={() => elegirDepartamento('Todos')}>
-                    <i><IconoDepartamento nombre="" /></i>
-                    <span><strong>Todos los productos</strong><small>{productos.length} productos</small></span>
-                  </button>
-                  {departamentos.map(d => (
-                    <button type="button" key={d.nombre} onClick={() => elegirDepartamento(d.nombre)}>
-                      <i><IconoDepartamento nombre={d.nombre} /></i>
-                      <span><strong>{d.nombre}</strong><small>{d.total} producto{d.total === 1 ? '' : 's'}</small></span>
-                    </button>
-                  ))}
-                  {hayOfertas && (
-                    <button type="button" className="t-menu-dep-ofertas" onClick={() => elegirDepartamento(FILTRO_OFERTAS)}>
-                      <i><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z" /><circle cx="7.5" cy="8.5" r="1.5" /></svg></i>
-                      <span><strong>Ofertas de la semana</strong><small>Productos con descuento</small></span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Los departamentos van solo en el menú: la barra queda con pocos accesos */}
-            <div className="t-nav-enlaces">
-              <button
-                type="button"
-                onClick={() => {
-                  if (vista !== 'catalogo') navigate('/tienda')
-                  window.setTimeout(() => {
-                    document.getElementById('como-comprar')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                  }, 60)
-                }}
-              >
-                Cómo comprar
-              </button>
-              <button
-                type="button"
-                className={vista === 'nosotros' ? 'is-activo' : ''}
-                onClick={() => {
-                  navigate('/tienda/nosotros')
-                  window.scrollTo({ top: 0 })
-                }}
-              >
-                Quiénes somos
-              </button>
-            </div>
-
-            {hayOfertas && (
-              <button
-                type="button"
-                className={categoria === FILTRO_OFERTAS ? 't-dep-ofertas is-activo' : 't-dep-ofertas'}
-                onClick={() => elegirDepartamento(FILTRO_OFERTAS)}
-              >
-                Ofertas de la semana
-              </button>
-            )}
-          </div>
-        </nav>
       </header>
 
       {vista === 'catalogo' && (
@@ -1737,7 +1731,6 @@ export default function Storefront({ path, navigate }: Props) {
             inicio={
           <div className="t-portada">
             <div className="t-portada-texto">
-              <span className="t-etiqueta">{hayOfertas ? 'Ofertas de la semana' : 'Pedidos en línea'}</span>
               <h1>Todo para tu obra, <em>listo para retirar</em></h1>
               <p>Armá tu pedido desde la casa o el trabajo. Lo preparamos en bodega y te avisamos cuando puedas pasar por él, o te lo llevamos.</p>
               <div className="t-botones">
@@ -1753,13 +1746,8 @@ export default function Storefront({ path, navigate }: Props) {
                   type="button"
                   onClick={() => document.getElementById('como-comprar')?.scrollIntoView({ behavior: 'smooth' })}
                 >
-                  Cómo funciona el retiro
+                  Cómo comprar
                 </button>
-              </div>
-              <div className="t-garantias">
-                <span>Precios del sistema</span>
-                <span>Existencia real</span>
-                <span>Pagás al retirar</span>
               </div>
             </div>
 
@@ -1809,7 +1797,6 @@ export default function Storefront({ path, navigate }: Props) {
               <div className="t-bloque-cabeza">
                 <div>
                   <h2 id="t-titulo-departamentos">Comprá por departamento</h2>
-                  <p>Elegí un departamento para ver solo sus productos.</p>
                 </div>
               </div>
 
@@ -1846,42 +1833,44 @@ export default function Storefront({ path, navigate }: Props) {
                 </p>
               </div>
 
-              <div className="t-chips" role="group" aria-label="Ordenar productos">
-                <button type="button" className={orden === 'destacados' ? 'is-activo' : ''} onClick={() => setOrden('destacados')}>Destacados</button>
-                <button type="button" className={orden === 'descuento' ? 'is-activo' : ''} onClick={() => setOrden('descuento')}>Mayor descuento</button>
-                <button type="button" className={orden === 'precio' ? 'is-activo' : ''} onClick={() => setOrden('precio')}>Menor precio</button>
+              <div className="t-herramientas">
+                <div className="t-filtros" role="group" aria-label="Filtrar productos">
+                  {(hayFiltros || busqueda.trim()) && (
+                    <button type="button" className="t-filtros-limpiar" onClick={limpiarFiltros}>
+                      Limpiar filtros
+                    </button>
+                  )}
+
+                  {areasCatalogo.length > 0 && (
+                    <label>
+                      <span className="t-sr">Área de aplicación</span>
+                      <select value={area} onChange={event => setArea(event.target.value)}>
+                        <option value="">Todas las áreas</option>
+                        {areasCatalogo.map(nombre => <option key={nombre} value={nombre}>{nombre}</option>)}
+                      </select>
+                    </label>
+                  )}
+
+                  <label>
+                    <span className="t-sr">Precio</span>
+                    <select value={rangoPrecio} onChange={event => setRangoPrecio(event.target.value)}>
+                      <option value="">Cualquier precio</option>
+                      {RANGOS_PRECIO.map(r => <option key={r.valor} value={r.valor}>{r.texto}</option>)}
+                    </select>
+                  </label>
+
+                  <label className="t-filtro-check">
+                    <input type="checkbox" checked={soloDisponibles} onChange={event => setSoloDisponibles(event.target.checked)} />
+                    Solo disponibles
+                  </label>
+                </div>
+
+                <div className="t-chips" role="group" aria-label="Ordenar productos">
+                  <button type="button" className={orden === 'destacados' ? 'is-activo' : ''} onClick={() => setOrden('destacados')}>Destacados</button>
+                  <button type="button" className={orden === 'descuento' ? 'is-activo' : ''} onClick={() => setOrden('descuento')}>Mayor descuento</button>
+                  <button type="button" className={orden === 'precio' ? 'is-activo' : ''} onClick={() => setOrden('precio')}>Menor precio</button>
+                </div>
               </div>
-            </div>
-
-            <div className="t-filtros" role="group" aria-label="Filtrar productos">
-              {areasCatalogo.length > 0 && (
-                <label>
-                  <span>Área de aplicación</span>
-                  <select value={area} onChange={event => setArea(event.target.value)}>
-                    <option value="">Todas</option>
-                    {areasCatalogo.map(nombre => <option key={nombre} value={nombre}>{nombre}</option>)}
-                  </select>
-                </label>
-              )}
-
-              <label>
-                <span>Precio</span>
-                <select value={rangoPrecio} onChange={event => setRangoPrecio(event.target.value)}>
-                  <option value="">Cualquier precio</option>
-                  {RANGOS_PRECIO.map(r => <option key={r.valor} value={r.valor}>{r.texto}</option>)}
-                </select>
-              </label>
-
-              <label className="t-filtro-check">
-                <input type="checkbox" checked={soloDisponibles} onChange={event => setSoloDisponibles(event.target.checked)} />
-                Solo disponibles
-              </label>
-
-              {(hayFiltros || busqueda.trim()) && (
-                <button type="button" className="t-filtros-limpiar" onClick={limpiarFiltros}>
-                  Limpiar filtros
-                </button>
-              )}
             </div>
 
             {error && <div className="t-aviso t-aviso--error">{error}</div>}
@@ -1899,17 +1888,12 @@ export default function Storefront({ path, navigate }: Props) {
                     >
                       <ProductImage producto={producto} />
                     </button>
-                    <span
-                      className={
-                        !producto.disponible
-                          ? 't-stock t-stock--agotado'
-                          : producto.pocas_unidades
-                            ? 't-stock t-stock--bajo'
-                            : 't-stock'
-                      }
-                    >
-                      {!producto.disponible ? 'Agotado' : producto.pocas_unidades ? 'Últimas unidades' : 'Disponible'}
-                    </span>
+                    {/* En la tarjeta solo se avisa lo que se sale de lo normal */}
+                    {(!producto.disponible || producto.pocas_unidades) && (
+                      <span className={producto.disponible ? 't-stock t-stock--bajo' : 't-stock t-stock--agotado'}>
+                        {producto.disponible ? 'Últimas unidades' : 'Agotado'}
+                      </span>
+                    )}
                     {producto.descuento_porcentaje > 0 && (
                       <span className="t-descuento">−{producto.descuento_porcentaje}%</span>
                     )}
@@ -2079,7 +2063,7 @@ export default function Storefront({ path, navigate }: Props) {
             </div>
             <div>
               <i><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18" /></svg></i>
-              <span><strong>Pagás en caja</strong>Efectivo, tarjeta o transferencia</span>
+              <span><strong>Pagá como prefieras</strong>Transferencia, tarjeta o efectivo</span>
             </div>
             <div>
               <i><svg viewBox="0 0 24 24"><path d="m5 12 4 4 10-10" /></svg></i>
@@ -2955,6 +2939,14 @@ export default function Storefront({ path, navigate }: Props) {
       )}
 
       <footer className="t-pie">
+        <iframe
+          className="t-pie-mapa"
+          src={CONTACTO_TIENDA.mapaEmbebido}
+          title="Ubicación de Ferretería Casa Hogar en el mapa"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+
         <div className="t-pie-interior">
           <div className="t-pie-marca">
             <img src={logoCasaHogar} alt="Ferretería Casa Hogar" />
@@ -2996,7 +2988,7 @@ export default function Storefront({ path, navigate }: Props) {
             <ul>
               <li>Retiro en tienda</li>
               <li>Entrega a domicilio</li>
-              <li>Pago en caja: efectivo, tarjeta o transferencia</li>
+              <li>Pago con transferencia, tarjeta o efectivo</li>
             </ul>
           </div>
 

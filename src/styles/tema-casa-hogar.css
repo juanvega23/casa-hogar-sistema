@@ -27,6 +27,7 @@
   /* Amarillo oscuro para bordes e indicadores: el del logo se pierde en proyector */
   --ch-amarillo-borde: #c99400;
   --ch-azul: #2f3b9c;
+  --ch-azul-medio: #4f5fc4;
   --ch-azul-suave: #e3e8fa;
   --ch-azul-borde: #c2cdf0;
   --ch-ok: #2c7a4b;
@@ -812,9 +813,9 @@ html .auth-link:hover { text-decoration: underline; }
   flex-wrap: wrap;
   gap: 6px 28px;
   padding: 7px max(16px, env(safe-area-inset-left, 0px));
-  background: var(--ch-amarillo);
-  color: var(--ch-texto);
-  font-size: 13px;
+  background: var(--ch-azul-medio);
+  color: #fff;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -828,7 +829,6 @@ html .auth-link:hover { text-decoration: underline; }
 }
 
 .t-cabeza-interior,
-.t-departamentos-interior,
 .t-pie-interior {
   width: min(var(--t-ancho), calc(100% - 32px));
   margin: 0 auto;
@@ -836,9 +836,9 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-cabeza-interior {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   padding-block: 14px;
 }
 
@@ -857,28 +857,17 @@ html .auth-link:hover { text-decoration: underline; }
   align-items: stretch;
   min-width: 0;
   border: 1.5px solid var(--ch-linea);
-  border-radius: 999px;
+  border-radius: var(--ch-r-md);
   overflow: hidden;
   background: var(--ch-superficie);
 }
 
-.t-buscador:focus-within { border-color: var(--ch-naranja); box-shadow: 0 0 0 3px var(--ch-azul-suave); }
+.t-buscador:focus-within { border-color: var(--ch-azul); box-shadow: 0 0 0 3px var(--ch-azul-suave); }
 
 /* El buscador completo ya marca el foco (borde y halo de arriba): sin
-   esto, el contorno amarillo del selector y del campo quedaba recortado
-   por las esquinas redondeadas y se veía como una línea suelta. */
-.t-buscador select:focus-visible,
+   esto, el contorno del campo quedaba recortado por las esquinas
+   redondeadas y se veía como una línea suelta. */
 .t-buscador input:focus-visible { outline: none; }
-
-.t-buscador select {
-  max-width: 190px;
-  padding: 0 12px;
-  border: 0;
-  border-right: 1px solid var(--ch-linea);
-  background: var(--ch-fondo);
-  color: var(--ch-texto);
-  font: 600 13.5px var(--ch-cuerpo);
-}
 
 .t-buscador input {
   flex: 1;
@@ -902,6 +891,7 @@ html .auth-link:hover { text-decoration: underline; }
 }
 
 .t-buscador button:hover { background: var(--ch-naranja-hover); }
+.t-buscador button svg { display: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
 
 .t-acciones { display: flex; align-items: center; gap: 16px; }
 
@@ -927,7 +917,7 @@ html .auth-link:hover { text-decoration: underline; }
   gap: 8px;
   padding: 10px 16px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--ch-r-md);
   background: var(--ch-naranja);
   color: #fff;
   font-size: 14.5px;
@@ -949,38 +939,6 @@ html .auth-link:hover { text-decoration: underline; }
   color: var(--ch-naranja-hover);
   font-size: 12px;
 }
-
-/* Departamentos */
-.t-departamentos { border-top: 1px solid var(--ch-linea); }
-
-.t-departamentos-interior {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-}
-
-/* Accesos fijos de la barra (los departamentos están en el menú) */
-.t-nav-enlaces { display: flex; flex: 1; min-width: 0; gap: 4px; margin-left: 10px; }
-
-.t-departamentos button {
-  flex: none;
-  padding: 12px 10px;
-  border: 0;
-  background: none;
-  color: var(--ch-texto);
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.t-departamentos button:hover { color: var(--ch-azul); }
-.t-departamentos button.is-activo { color: var(--ch-azul); box-shadow: inset 0 -3px 0 var(--ch-azul); }
-.t-departamentos .t-dep-ofertas { color: var(--ch-peligro); }
-
-/* El contorno de foco va hacia adentro: la barra recorta lo que sale */
-.t-departamentos button:focus-visible { outline-offset: -3px; }
-.t-departamentos .t-dep-ofertas.is-activo { color: var(--ch-peligro); box-shadow: inset 0 -3px 0 var(--ch-peligro); }
 
 /* Contenido */
 .t-contenido {
@@ -1186,9 +1144,6 @@ html .auth-link:hover { text-decoration: underline; }
 .t-boton--secundario { background: var(--ch-superficie); color: var(--ch-texto); border-color: var(--ch-acero-borde); }
 .t-boton--secundario:hover { border-color: var(--ch-texto-suave); }
 
-.t-garantias { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13.5px; font-weight: 600; }
-.t-garantias span::before { content: "✓"; margin-right: 6px; color: var(--ch-ok); font-weight: 800; }
-
 .t-collage {
   display: grid;
   grid-template-columns: 1.25fr 1fr;
@@ -1256,7 +1211,7 @@ html .auth-link:hover { text-decoration: underline; }
 .t-precio-colgante b { font-family: var(--ch-display); font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* Bloques */
-.t-bloque { display: grid; gap: 16px; scroll-margin-top: 150px; }
+.t-bloque { display: grid; gap: 16px; scroll-margin-top: 100px; }
 .t-bloque-cabeza { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 12px; }
 .t-bloque-cabeza h2 { margin: 0; font-family: var(--ch-display); font-size: 24px; font-weight: 700; color: var(--ch-texto); }
 .t-bloque-cabeza p { margin: 4px 0 0; font-size: 14px; color: var(--ch-texto-suave); }
@@ -1265,7 +1220,7 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-chips button {
   padding: 7px 14px;
-  border-radius: 999px;
+  border-radius: var(--ch-r-md);
   border: 1px solid var(--ch-linea);
   background: var(--ch-superficie);
   color: var(--ch-texto);
@@ -1288,7 +1243,7 @@ html .auth-link:hover { text-decoration: underline; }
   justify-items: center;
   gap: 8px;
   padding: 18px 10px;
-  border-radius: 16px;
+  border-radius: var(--ch-r-lg);
   border: 1px solid var(--ch-linea);
   background: var(--ch-superficie);
   color: var(--ch-texto);
@@ -1343,7 +1298,7 @@ html .auth-link:hover { text-decoration: underline; }
   max-width: 100%;
   display: grid;
   place-items: center;
-  padding: 40px 18px 14px;
+  padding: 28px 18px 14px;
   background: var(--ch-superficie);
   border-bottom: 1px solid var(--ch-linea);
 }
@@ -1399,16 +1354,14 @@ html .auth-link:hover { text-decoration: underline; }
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  font-size: 12.5px;
+  font-weight: 600;
   color: var(--ch-texto-suave);
 }
 
 .t-producto-meta > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.t-sku { font-family: var(--ch-datos); font-weight: 500; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+.t-sku { font-family: var(--ch-datos); font-weight: 500; white-space: nowrap; }
 
 .t-producto-info h3 {
   margin: 2px 0 0;
@@ -1720,10 +1673,16 @@ html .auth-link:hover { text-decoration: underline; }
 /* Pie claro */
 .t-pie {
   margin-top: auto;
-  padding-block: 30px;
+  padding-bottom: 30px;
   background: var(--ch-fondo-2);
   border-top: 1px solid var(--ch-linea);
   font-size: 14px;
+}
+
+.t-pie-mapa { display: block; width: 100%; height: 340px; margin-bottom: 30px; border: 0; }
+
+@media (max-width: 700px) {
+  .t-pie-mapa { height: 260px; }
 }
 
 .t-pie-interior {
@@ -1734,7 +1693,7 @@ html .auth-link:hover { text-decoration: underline; }
 
 .t-pie-marca img { display: block; height: 46px; width: auto; }
 .t-pie-marca p { margin: 10px 0 0; max-width: 32ch; color: var(--ch-texto-suave); }
-.t-pie h2 { margin: 0 0 10px; font-family: var(--ch-cuerpo); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ch-texto-suave); }
+.t-pie h2 { margin: 0 0 10px; font-family: var(--ch-cuerpo); font-size: 14.5px; font-weight: 700; color: var(--ch-texto); }
 .t-pie ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; color: var(--ch-texto); }
 .t-pie li button { padding: 0; border: 0; background: none; color: var(--ch-texto); font: inherit; text-align: left; cursor: pointer; }
 .t-pie li button:hover { color: var(--ch-naranja-hover); text-decoration: underline; }
@@ -2101,9 +2060,12 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
 
 /* Adaptación a pantallas angostas */
 @media (max-width: 960px) {
-  .t-cabeza-interior { grid-template-columns: auto auto; }
-  .t-buscador { grid-column: 1 / -1; order: 3; }
-  .t-acciones { justify-self: end; }
+  /* Logo y cuenta arriba; departamentos y buscador en la segunda fila */
+  .t-cabeza-interior { grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+  .t-acciones { order: 1; justify-self: end; }
+  .t-menu-dep,
+  .t-buscador { order: 2; }
+  .t-bloque { scroll-margin-top: 150px; }
   /* En pantallas angostas la primera diapositiva lleva solo el texto */
   .t-portada { grid-template-columns: 1fr; align-content: center; }
   .t-collage { display: none; }
@@ -2123,11 +2085,14 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
 }
 
 @media (max-width: 560px) {
-  .t-avisos { justify-content: flex-start; font-size: 12px; }
+  .t-avisos { justify-content: flex-start; gap: 4px 16px; font-size: 13px; }
   .t-marca img { height: 40px; }
   .t-cuenta small { display: none; }
   .t-carrito-boton span { display: none; }
-  .t-buscador select { display: none; }
+  .t-buscador button { padding: 0 12px; }
+  .t-buscador button span { display: none; }
+  .t-buscador button svg { display: block; }
+  .t-menu-dep-boton .t-menu-dep-flecha { display: none; }
   .t-collage { min-height: 220px; }
   .t-confianza { grid-template-columns: 1fr; }
   .t-confianza > div { border-left: 0; border-top: 1px solid var(--ch-linea); }
@@ -2153,7 +2118,7 @@ html .tienda .store-back { color: var(--ch-naranja-hover) !important; }
 /* Carrusel en celular: foto arriba y texto debajo (sin tapar la foto) */
 @media (max-width: 700px) {
   .t-carrusel { height: auto; background: var(--ch-superficie); border-color: var(--ch-linea); }
-  .t-portada { padding: 22px 20px 48px; }
+  .t-portada { flex: 1; padding: 22px 20px 48px; }
   .t-diapositiva { flex-direction: column; align-items: stretch; padding: 0; }
   .t-diapositiva > picture { position: static; display: block; height: 200px; }
   .t-diapositiva-tarjeta { width: auto; padding: 16px 16px 44px; border-radius: 0; box-shadow: none; }
@@ -3040,7 +3005,7 @@ html .inventory-module .productos-th-filtro select {
 .t-relacionados-fila { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .t-relacionado { display: grid; grid-template-rows: 1fr auto; gap: 8px; padding: 10px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-superficie); }
 .t-relacionado-ver { display: grid; gap: 8px; padding: 0; border: 0; background: none; text-align: left; font: inherit; color: var(--ch-texto); cursor: pointer; }
-.t-relacionado-foto { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px; background: var(--ch-fondo); }
+.t-relacionado-foto { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px; background: var(--ch-superficie); }
 .t-relacionado-foto .t-foto { width: 100%; height: 100%; object-fit: contain; }
 .t-relacionado-nombre { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
 .t-relacionado-ver:hover .t-relacionado-nombre { color: var(--ch-azul); }
@@ -3082,22 +3047,22 @@ html .inventory-module .productos-th-filtro select {
 .ficha-mover button:last-child:hover { border-color: var(--ch-peligro); color: var(--ch-peligro); }
 
 /* ===== Menú "Departamentos" (tienda) ===== */
-.t-menu-dep { position: relative; flex: none; display: flex; }
-.t-departamentos .t-menu-dep-boton { display: inline-flex; align-items: center; gap: 8px; margin: 6px 6px 6px 0; padding: 7px 12px; border-radius: var(--ch-r-md); background: var(--ch-azul-suave); color: var(--ch-azul); font-weight: 700; }
-.t-departamentos .t-menu-dep-boton:hover { background: var(--ch-azul-borde); }
+.t-menu-dep { position: relative; display: flex; }
+.t-menu-dep-boton { display: inline-flex; align-items: center; gap: 8px; padding: 12px 14px; border: 0; border-radius: var(--ch-r-md); background: var(--ch-azul-suave); color: var(--ch-azul); font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.t-menu-dep-boton:hover { background: var(--ch-azul-borde); }
 .t-menu-dep-boton svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .t-menu-dep-boton .t-menu-dep-flecha { width: 15px; height: 15px; transition: transform .15s; }
 .t-menu-dep-boton[aria-expanded="true"] .t-menu-dep-flecha { transform: rotate(180deg); }
 
 .t-menu-dep-panel { position: absolute; top: calc(100% + 2px); left: 0; z-index: 30; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; width: min(560px, calc(100vw - 32px)); padding: 10px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); box-shadow: var(--ch-sombra); }
-.t-departamentos .t-menu-dep-panel button { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: var(--ch-r-md); text-align: left; white-space: normal; }
-.t-departamentos .t-menu-dep-panel button:hover { background: var(--ch-fondo); color: var(--ch-texto); }
+.t-menu-dep-panel button { display: flex; align-items: center; gap: 10px; padding: 8px; border: 0; border-radius: var(--ch-r-md); background: none; color: var(--ch-texto); text-align: left; cursor: pointer; }
+.t-menu-dep-panel button:hover { background: var(--ch-fondo); }
 .t-menu-dep-panel i { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 10px; background: var(--ch-fondo); }
 .t-menu-dep-panel svg { width: 21px; height: 21px; fill: none; stroke: var(--ch-naranja-hover); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .t-menu-dep-panel span { display: grid; gap: 1px; }
 .t-menu-dep-panel strong { font-size: 14px; color: var(--ch-texto); }
 .t-menu-dep-panel small { font-size: 12.5px; font-weight: 500; color: var(--ch-texto-suave); }
-.t-departamentos .t-menu-dep-panel .t-menu-dep-ofertas strong { color: var(--ch-peligro); }
+.t-menu-dep-panel .t-menu-dep-ofertas strong { color: var(--ch-peligro); }
 .t-menu-dep-ofertas svg { stroke: var(--ch-peligro); }
 
 @media (max-width: 700px) {
@@ -3106,32 +3071,29 @@ html .inventory-module .productos-th-filtro select {
 }
 
 /* ===== Búsqueda por criterios (tienda) ===== */
-.t-filtros { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin-top: -14px; padding: 12px 14px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
-.t-filtros label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; color: var(--ch-texto); }
-.t-filtros select { min-width: 190px; padding: 8px 10px; border: 1px solid var(--ch-linea); border-radius: 8px; background: var(--ch-superficie); font: inherit; font-size: 14px; font-weight: 500; color: var(--ch-texto); }
-.t-filtros .t-filtro-check { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
-.t-filtro-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--ch-azul); }
-.t-filtros-limpiar { margin-left: auto; margin-bottom: 4px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 14px; font-weight: 700; color: var(--ch-azul); text-decoration: underline; cursor: pointer; }
+/* Filtros y orden van en una sola fila junto al título, sin recuadro */
+.t-herramientas { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.t-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.t-filtros label { display: block; }
+.t-filtros select { padding: 7px 10px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-md); background: var(--ch-superficie); font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ch-texto); cursor: pointer; }
+.t-filtros .t-filtro-check { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; color: var(--ch-texto); cursor: pointer; }
+.t-filtro-check input { width: 17px; height: 17px; margin: 0; accent-color: var(--ch-azul); }
+.t-filtros-limpiar { padding: 0; border: 0; background: none; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--ch-azul); text-decoration: underline; cursor: pointer; }
 
 @media (max-width: 700px) {
-  .t-filtros { display: grid; grid-template-columns: 1fr 1fr; }
-  .t-filtros select { min-width: 0; width: 100%; }
-  .t-filtros-limpiar { margin-left: 0; justify-self: start; }
-}
-
-/* En celular la barra queda con el menú y Ofertas */
-@media (max-width: 700px) {
-  .t-nav-enlaces { display: none; }
-  .t-departamentos-interior { justify-content: space-between; }
+  .t-herramientas { width: 100%; }
+  .t-filtros { width: 100%; }
+  .t-filtros label:not(.t-filtro-check) { flex: 1; min-width: 0; }
+  .t-filtros select { width: 100%; }
 }
 
 /* ===== Quiénes somos (tienda) ===== */
 .t-pie-marca .t-pie-nosotros { margin-top: 10px; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--ch-azul); text-decoration: underline; cursor: pointer; }
-.t-nosotros-portada { display: grid; gap: 10px; padding: 34px 32px; border-radius: 20px; background: var(--ch-acero); }
+.t-nosotros-portada { display: grid; gap: 10px; padding: 34px 32px; border-radius: var(--ch-r-lg); background: var(--ch-acero); }
 .t-nosotros-portada h1 { margin: 0; font-family: var(--ch-display); font-size: clamp(30px, 5vw, 44px); line-height: 1.05; color: var(--ch-texto); }
 .t-nosotros-portada p { max-width: 62ch; margin: 0; font-size: 16.5px; line-height: 1.55; color: var(--ch-texto); }
 .t-nosotros-par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.t-nosotros-tarjeta { display: grid; align-content: start; gap: 10px; padding: 24px; border: 1px solid var(--ch-linea); border-top: 4px solid var(--ch-azul); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
+.t-nosotros-tarjeta { display: grid; align-content: start; gap: 10px; padding: 24px; border: 1px solid var(--ch-linea); border-radius: var(--ch-r-lg); background: var(--ch-superficie); }
 .t-nosotros-tarjeta h2 { margin: 0; font-family: var(--ch-display); font-size: 22px; color: var(--ch-texto); }
 .t-nosotros-tarjeta p { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--ch-texto); }
 .t-valores { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
@@ -3148,3 +3110,72 @@ html .inventory-module .productos-th-filtro select {
   .t-nosotros-portada { padding: 24px 20px; }
   .t-nosotros-par { grid-template-columns: 1fr; }
 }
+
+/* ===== Tienda: amarillo en lugar de naranja =====
+   Botones de acción: relleno amarillo del logo con texto marino.
+   Letras e íconos pasan a azul: el amarillo no se lee sobre fondo claro. */
+.tienda {
+  --ch-amarillo: #ffc233;
+  --ch-amarillo-hover: #f5b21a;
+  --ch-naranja: var(--ch-amarillo);
+  --ch-naranja-hover: var(--ch-azul);
+  --accent: var(--ch-azul);
+  --accent-hover: var(--ch-azul);
+}
+
+.tienda .t-buscador button,
+.tienda .t-boton--primario,
+.tienda .t-agregar:not(:disabled),
+.tienda .t-confirmar:not(:disabled),
+.tienda .t-agregado-ver,
+.tienda .t-pasos .hecho b,
+.tienda .t-pasos .actual b,
+.tienda .t-relacionado-pie button { color: var(--ch-texto); }
+
+.tienda .t-agregar.is-agregado { color: #fff; }
+html .tienda .store-primary,
+html .tienda .store-primary--full { color: var(--ch-texto) !important; }
+
+.tienda .t-buscador button:hover,
+.tienda .t-boton--primario:hover,
+.tienda .t-agregar:not(.is-agregado):hover:not(:disabled),
+.tienda .t-confirmar:hover:not(:disabled),
+.tienda .t-agregado-ver:hover,
+.tienda .t-relacionado-pie button:hover { background: var(--ch-amarillo-hover); }
+html .tienda .store-primary:hover:not(:disabled) { background: var(--ch-amarillo-hover) !important; }
+
+/* Contacto, Mi cuenta y Carrito: misma forma (ícono y dos líneas) y el número sobre el ícono */
+.tienda .t-acciones { gap: 4px; }
+.tienda .t-accion { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 4px 10px 4px 6px; border: 0; border-radius: var(--ch-r-md); background: none; color: var(--ch-texto); text-align: left; line-height: 1.2; cursor: pointer; }
+.tienda .t-accion:hover { background: var(--ch-fondo); }
+.tienda .t-accion i { display: grid; place-items: center; flex: none; color: var(--ch-azul); }
+.tienda .t-accion svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.tienda .t-accion-texto { display: grid; white-space: nowrap; }
+.tienda .t-accion-texto small { font-size: 12px; font-weight: 500; color: var(--ch-texto-suave); }
+.tienda .t-accion-texto strong { font-size: 14.5px; font-weight: 700; }
+.tienda .t-carrito-boton { gap: 13px; }
+.tienda .t-carrito-boton b { position: absolute; top: 1px; left: 21px; min-width: 19px; height: 19px; padding: 0 5px; background: var(--ch-amarillo); color: var(--ch-texto); font-size: 11.5px; }
+.tienda .t-depto i { background: var(--ch-amarillo); }
+.tienda .t-depto svg { stroke: var(--ch-texto); }
+
+@media (max-width: 560px) {
+  .tienda .t-accion { padding-right: 5px; }
+  .tienda .t-contacto .t-accion-texto,
+  .tienda .t-carrito-boton .t-accion-texto { display: none; }
+  .tienda .t-cuenta .t-accion-texto small { display: none; }
+}
+/* La etiqueta de oferta es lo único naranja de la tienda */
+.tienda .t-precio-colgante { background: #d4570a; color: #fff; }
+.tienda .t-precio-colgante small { font-size: 11.5px; }
+.tienda .t-acceso-panel h1 em,
+.tienda .t-acceso-panel li i { color: var(--ch-azul); }
+.tienda .t-pestanas button.is-activa { box-shadow: 0 0 0 1px var(--ch-azul-borde), 0 1px 3px rgba(39, 38, 77, .1); }
+.tienda .t-form input:focus,
+.tienda .t-form select:focus,
+.tienda .t-form textarea:focus { border-color: var(--ch-azul); }
+html .tienda .store-form input:focus,
+html .tienda .store-form textarea:focus { border-color: var(--ch-azul) !important; }
+.tienda .t-en-tienda button { border-color: var(--ch-amarillo-borde); }
+.tienda .t-en-tienda button:hover:not(:disabled) { color: var(--ch-texto); }
+.tienda .t-ficha-lista li::marker { color: var(--ch-amarillo-borde); }
+.t-cargando-anillo { border-top-color: var(--ch-amarillo-borde); }
