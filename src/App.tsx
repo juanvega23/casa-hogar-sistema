@@ -34,10 +34,18 @@ import CashModule from './modules/CashModule'
 import OwnerDashboardModule from './modules/OwnerDashboardModule'
 import OwnerReportsModule from './modules/OwnerReportsModule'
 import OwnerAlertsModule from './modules/OwnerAlertsModule'
+import OwnerAnalysisModule from './modules/OwnerAnalysisModule'
+import SupportPanelModule from './modules/SupportPanelModule'
+import IncidentsModule from './modules/IncidentsModule'
+import ItEquipmentModule from './modules/ItEquipmentModule'
+import BackupsModule from './modules/BackupsModule'
+import ReportProblemModule from './modules/ReportProblemModule'
+import { DESCRIPCIONES_SOPORTE } from './lib/soporteTi'
 import SupervisionModule from './modules/SupervisionModule'
 import SupportModule from './modules/SupportModule'
 import AccountPasswordModule from './modules/AccountPasswordModule'
 import Storefront from './modules/Storefront'
+import { useMostrarAvisos } from './lib/avisosVisibles'
 import logoCasaHogar from './assets/casa-hogar-logo-horizontal.png'
 import SuppliersModule from './modules/SuppliersModule'
 import PurchasesModule from './modules/PurchasesModule'
@@ -143,11 +151,24 @@ function getMenuIcon(id: string) {
 
     configuracion:
       'M12 3v2 M12 19v2 M3 12h2 M19 12h2 M5.6 5.6 7 7 M17 17l1.4 1.4 M18.4 5.6 17 7 M7 17l-1.4 1.4 M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z',
+
+    soporte:
+      'M4 13a8 8 0 0 1 16 0 M4 13v4h3v-4z M20 13v4h-3v-4z M20 17a4 4 0 0 1-4 4h-3',
+
+    incidencias:
+      'M4 4h16v12H8l-4 4z M12 7v4 M12 14h.01',
+
+    'equipos-ti':
+      'M5 5h14v10H5z M2 19h20 M9 15l-1 4 M15 15l1 4',
+
+    respaldos:
+      'M4 6c0-1.7 3.6-3 8-3s8 1.300 8 3-3.600 3-8 3-8-1.300-8-3z M4 6v12c0 1.700 3.600 3 8 3s8-1.300 8-3V6 M4 12c0 1.700 3.600 3 8 3s8-1.300 8-3',
   }
 
   const key = id
     .replace('-consulta', '')
     .replace('-modulo', '')
+    .replace('soporte-panel', 'dashboard')
 
   return (
     <svg
@@ -224,6 +245,11 @@ function InternalSystemApp({
   const [
     cambiandoClave,
     setCambiandoClave,
+  ] = useState(false)
+
+  const [
+    reportandoProblema,
+    setReportandoProblema,
   ] = useState(false)
 
 
@@ -397,6 +423,8 @@ function InternalSystemApp({
   // ===================================================
   // RECUPERAR SESIÓN
   // ===================================================
+
+  useMostrarAvisos()
 
   useEffect(() => {
     async function obtenerSesionInicial() {
@@ -751,6 +779,7 @@ function InternalSystemApp({
     setModuloActivo('')
     setGruposAbiertos({})
     setCambiandoClave(false)
+    setReportandoProblema(false)
     setMensaje(
       'Tu sesión se cerró porque pasó 1 hora sin actividad. Vuelve a ingresar.',
     )
@@ -1141,7 +1170,7 @@ function InternalSystemApp({
       'reportes-analisis'
     ) {
       return (
-        <OwnerReportsModule />
+        <OwnerAnalysisModule />
       )
     }
 
@@ -1168,8 +1197,8 @@ function InternalSystemApp({
 
     // -------------------------------------------------
     // REPORTES OPERATIVOS (GERENCIA)
-    // Mismo análisis de solo consulta que el Propietario;
-    // reportes_propietario() admite ambos roles.
+    // Solo consulta, por área. El Propietario tiene su propio
+    // análisis (OwnerAnalysisModule).
     // -------------------------------------------------
 
     if (
@@ -1178,6 +1207,60 @@ function InternalSystemApp({
     ) {
       return (
         <OwnerReportsModule />
+      )
+    }
+
+
+    // -------------------------------------------------
+    // SOPORTE TI: PANEL, INCIDENCIAS, EQUIPOS Y RESPALDOS
+    // Gerencia entra con los ids "-consulta", solo lectura.
+    // -------------------------------------------------
+
+    if (
+      moduloSeleccionado.id === 'soporte-panel' ||
+      moduloSeleccionado.id === 'soporte-panel-consulta'
+    ) {
+      return (
+        <SupportPanelModule
+          soloConsulta={moduloSeleccionado.id.endsWith('-consulta')}
+          onAbrirModulo={id => {
+            setModuloActivo(id)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+        />
+      )
+    }
+
+    if (
+      moduloSeleccionado.id === 'incidencias' ||
+      moduloSeleccionado.id === 'incidencias-consulta'
+    ) {
+      return (
+        <IncidentsModule
+          soloConsulta={moduloSeleccionado.id.endsWith('-consulta')}
+        />
+      )
+    }
+
+    if (
+      moduloSeleccionado.id === 'equipos-ti' ||
+      moduloSeleccionado.id === 'equipos-ti-consulta'
+    ) {
+      return (
+        <ItEquipmentModule
+          soloConsulta={moduloSeleccionado.id.endsWith('-consulta')}
+        />
+      )
+    }
+
+    if (
+      moduloSeleccionado.id === 'respaldos' ||
+      moduloSeleccionado.id === 'respaldos-consulta'
+    ) {
+      return (
+        <BackupsModule
+          soloConsulta={moduloSeleccionado.id.endsWith('-consulta')}
+        />
       )
     }
 
@@ -1553,6 +1636,7 @@ function InternalSystemApp({
                       )
 
                       setCambiandoClave(false)
+                      setReportandoProblema(false)
 
                       setMenuAbierto(
                         false,
@@ -1664,6 +1748,7 @@ function InternalSystemApp({
                                 )
 
                                 setCambiandoClave(false)
+                                setReportandoProblema(false)
 
                                 setMenuAbierto(
                                   false,
@@ -1723,11 +1808,32 @@ function InternalSystemApp({
             </div>
           </div>
 
+          {/* Soporte TI recibe los reportes: no se los envía a sí mismo */}
+          {rolActual?.codigo !== 'soporte_ti' && (
+            <button
+              type="button"
+              className="nav-signout"
+              onClick={() => {
+                setMenuAbierto(false)
+                setCambiandoClave(false)
+                setReportandoProblema(true)
+                window.scrollTo({ top: 0 })
+              }}
+            >
+              <span aria-hidden="true">
+                ⚠
+              </span>{' '}
+
+              Reportar un problema
+            </button>
+          )}
+
           <button
             type="button"
             className="nav-signout"
             onClick={() => {
               setMenuAbierto(false)
+              setReportandoProblema(false)
               setCambiandoClave(true)
             }}
           >
@@ -1744,6 +1850,7 @@ function InternalSystemApp({
             onClick={() => {
               setMenuAbierto(false)
               setCambiandoClave(false)
+              setReportandoProblema(false)
               void cerrarSesion()
             }}
           >
@@ -1842,21 +1949,30 @@ function InternalSystemApp({
               </span>
 
               <h1 className="body-title">
-                {moduloSeleccionado
+                {reportandoProblema
+                  ? 'Reportar un problema'
+                  : moduloSeleccionado
                   ?.id ===
                   'dashboard'
-                  ? 'Panel principal'
+                  ? '¿Cómo va mi negocio?'
                   : moduloSeleccionado
                       ?.nombre ??
                     'Inicio'}
               </h1>
 
               <p className="body-desc">
-                {moduloSeleccionado
+                {reportandoProblema
+                  ? 'Avísale a Soporte TI si algo no funciona.'
+                  : moduloSeleccionado
                   ?.id ===
                   'dashboard'
-                  ? 'Bienvenido a tu espacio de trabajo.'
-                  : esConsulta
+                  ? 'Tu negocio de un vistazo.'
+                  : moduloSeleccionado?.id === 'reportes-analisis'
+                  ? 'Lo que dicen tus ventas sobre tu negocio.'
+                  : DESCRIPCIONES_SOPORTE[
+                      moduloSeleccionado?.id.replace('-consulta', '') ?? ''
+                    ] ??
+                    (esConsulta
                     ? `Consulta ${
                         moduloSeleccionado
                           ?.nombre
@@ -1868,14 +1984,14 @@ function InternalSystemApp({
                           ?.nombre
                           .toLowerCase() ??
                         'tu área'
-                      } desde aquí.`}
+                      } desde aquí.`)}
               </p>
             </div>
 
             <div className="body-badge">
               <span className="badge-dot" />
 
-              {esConsulta
+              {esConsulta && !reportandoProblema
                 ? 'Acceso de consulta'
                 : 'Acceso autorizado'}
             </div>
@@ -1885,6 +2001,13 @@ function InternalSystemApp({
             <AccountPasswordModule
               onClose={() =>
                 setCambiandoClave(false)
+              }
+            />
+          ) : reportandoProblema ? (
+            <ReportProblemModule
+              modulo={
+                moduloSeleccionado?.nombre ??
+                ''
               }
             />
           ) : (

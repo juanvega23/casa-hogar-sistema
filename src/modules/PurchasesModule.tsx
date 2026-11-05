@@ -383,7 +383,7 @@ function claseEstadoCompra(
   }
 
 
-  return 'status-badge'
+  return 'status-badge status-en-proceso'
 
 }
 
@@ -3862,7 +3862,7 @@ const comprasFiltradas =
 
                     fontSize:
 
-                      '10px',
+                      '12.5px',
 
                     color:
 
@@ -4638,7 +4638,7 @@ const comprasFiltradas =
 
             fontSize:
 
-              '11px',
+              '13px',
 
             color:
 
@@ -4858,7 +4858,7 @@ const comprasFiltradas =
 
                             fontSize:
 
-                              '10px',
+                              '12.5px',
 
                             color:
 

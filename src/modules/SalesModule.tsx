@@ -77,11 +77,13 @@ type ResultadoVenta = {
 type OrdenCargada = {
   codigo: string
   cliente: string | null
+  expira: string | null
 }
 
 type LineaOrdenTienda = {
   codigo: string
   cliente_nombre: string | null
+  expira_at: string | null
   producto_id: number
   cantidad: number
 }
@@ -1111,6 +1113,9 @@ export default function SalesModule({
       cliente:
         lineas[0]?.cliente_nombre ??
         null,
+      expira:
+        lineas[0]?.expira_at ??
+        null,
     })
 
     if (avisos.length > 0) {
@@ -1920,6 +1925,14 @@ export default function SalesModule({
                 {carrito.length === 1
                   ? ''
                   : 's'}
+                {ordenCargada.expira &&
+                  ` · Vence el ${new Date(
+                    ordenCargada.expira,
+                  ).toLocaleString('es-NI', {
+                    weekday: 'long',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}`}
               </small>
             </div>
 
@@ -2416,7 +2429,13 @@ export default function SalesModule({
         </div>
 
 
-        <div className="sales-payment-grid">
+        <div
+          className={
+            tipoVenta === 'credito'
+              ? 'sales-payment-grid'
+              : 'sales-payment-grid sales-payment-grid--contado'
+          }
+        >
 
 
           {/* TIPO DE VENTA */}
@@ -2553,38 +2572,36 @@ export default function SalesModule({
           </div>
 
 
-          {/* VENCIMIENTO */}
+          {/* VENCIMIENTO: solo aplica a ventas a crédito */}
 
-          <div className="sales-field">
+          {tipoVenta === 'credito' && (
+            <div className="sales-field">
 
-            <label htmlFor="venta-vencimiento">
-              Fecha de vencimiento
-            </label>
+              <label htmlFor="venta-vencimiento">
+                Fecha de vencimiento
+              </label>
 
-            <input
-              id="venta-vencimiento"
-              type="date"
-              min={
-                fechaLocalActual()
-              }
-              value={
-                fechaVencimiento
-              }
-              disabled={
-                tipoVenta !==
-                'credito'
-              }
-              onChange={(
-                event,
-              ) =>
-                setFechaVencimiento(
-                  event.target
-                    .value,
-                )
-              }
-            />
+              <input
+                id="venta-vencimiento"
+                type="date"
+                min={
+                  fechaLocalActual()
+                }
+                value={
+                  fechaVencimiento
+                }
+                onChange={(
+                  event,
+                ) =>
+                  setFechaVencimiento(
+                    event.target
+                      .value,
+                  )
+                }
+              />
 
-          </div>
+            </div>
+          )}
 
         </div>
 

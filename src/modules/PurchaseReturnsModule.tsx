@@ -2189,7 +2189,7 @@ export default function PurchaseReturnsModule({
           <span
             style={{
               fontSize:
-                '11px',
+                '13px',
               color:
                 '#7b8494',
             }}
@@ -2291,7 +2291,7 @@ export default function PurchaseReturnsModule({
                       <div
                         style={{
                           fontSize:
-                            '10px',
+                            '12.5px',
                           color:
                             '#8a93a3',
                           marginTop:
@@ -2400,7 +2400,7 @@ export default function PurchaseReturnsModule({
           <span
             style={{
               fontSize:
-                '11px',
+                '13px',
               color:
                 '#7b8494',
             }}
@@ -2504,7 +2504,7 @@ export default function PurchaseReturnsModule({
                       <div
                         style={{
                           fontSize:
-                            '10px',
+                            '12.5px',
                           color:
                             '#8a93a3',
                           marginTop:

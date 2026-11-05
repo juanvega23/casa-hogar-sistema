@@ -1545,7 +1545,7 @@ export default function SuppliersModule({
         <span
           style={{
             fontSize:
-              '12px',
+              '14px',
             color:
               '#7b8494',
           }}
@@ -1672,7 +1672,7 @@ export default function SuppliersModule({
                         <div
                           style={{
                             fontSize:
-                              '11px',
+                              '13px',
                             color:
                               '#8a93a3',
                             marginTop:

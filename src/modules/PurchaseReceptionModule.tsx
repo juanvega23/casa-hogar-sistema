@@ -1473,7 +1473,7 @@ export default function PurchaseReceptionModule({
         <span
           style={{
             fontSize:
-              '11px',
+              '13px',
             color:
               '#7b8494',
           }}
@@ -1594,7 +1594,7 @@ export default function PurchaseReceptionModule({
                     <div
                       style={{
                         fontSize:
-                          '10px',
+                          '12.5px',
                         color:
                           '#8a93a3',
                         marginTop:

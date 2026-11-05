@@ -220,6 +220,9 @@ export function ProductSheetEditor({ modo, producto, catalogo, onCerrar, onGuard
                         checked={areasElegidas.includes(area.id)}
                         onChange={() => alternarArea(area.id)}
                       />
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d={areasElegidas.includes(area.id) ? 'm5 12.5 4.5 4.5L19 7.5' : 'M12 5v14M5 12h14'} />
+                      </svg>
                       {area.nombre}
                     </label>
                   ))}

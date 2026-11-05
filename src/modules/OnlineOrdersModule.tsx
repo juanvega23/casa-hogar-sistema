@@ -140,6 +140,7 @@ function claseEstado(estado: string) {
 /*
  * Transiciones permitidas por rol. Deben coincidir con
  * cambiar_estado_pedido_web() en la base de datos.
+ * Rechazar: el pedido aún no se aceptó. Cancelar: ya se había aceptado.
  */
 function accionesDisponibles(pedido: Pedido, roleCode: string): AccionPedido[] {
   if (roleCode === 'almacen') {
@@ -150,8 +151,8 @@ function accionesDisponibles(pedido: Pedido, roleCode: string): AccionPedido[] {
 
   if (pedido.estado === 'pendiente_validacion') {
     return pedido.metodo_pago === 'efectivo'
-      ? ['validado', 'rechazado', 'cancelado']
-      : ['rechazado', 'cancelado']
+      ? ['validado', 'rechazado']
+      : ['rechazado']
   }
 
   if (pedido.estado === 'validado') return ['en_despacho', 'cancelado']
@@ -482,7 +483,7 @@ export default function OnlineOrdersModule({
       {exito && <div className="movement-success">{exito}</div>}
 
       {pedidoSeleccionado && (
-        <section className="history-detail-card">
+        <section key={pedidoSeleccionado.id} className="history-detail-card">
           <div className="history-detail-head">
             <div>
               <span className="panel-label">DETALLE DEL PEDIDO</span>

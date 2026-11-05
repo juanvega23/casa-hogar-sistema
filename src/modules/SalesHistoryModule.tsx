@@ -322,7 +322,7 @@ export default function SalesHistoryModule({
       )}
 
       {ventaSeleccionada && (
-        <section className="history-detail-card">
+        <section key={ventaSeleccionada.id} className="history-detail-card">
           <div className="history-detail-head">
             <div>
               <span className="panel-label">DETALLE DE VENTA</span>

@@ -67,6 +67,27 @@ const PRIORIDADES: Record<Prioridad, string> = {
 
 const ORDEN_PRIORIDAD: Prioridad[] = ['critica', 'alta', 'media', 'baja']
 
+const NIVELES: Record<Prioridad, [string, string]> = {
+  critica: ['urgente', 'urgentes'],
+  alta: ['alta', 'altas'],
+  media: ['media', 'medias'],
+  baja: ['aviso', 'avisos'],
+}
+
+// "4 urgentes · 8 altas": cuántas hay de cada nivel, de la más grave a la menos grave
+function resumirNiveles(alertas: Alerta[]) {
+  return ORDEN_PRIORIDAD
+    .map(nivel => {
+      const cantidad = alertas.filter(alerta => alerta.prioridad === nivel).length
+
+      return cantidad
+        ? `${cantidad} ${NIVELES[nivel][cantidad === 1 ? 0 : 1]}`
+        : ''
+    })
+    .filter(Boolean)
+    .join(' · ')
+}
+
 // Nombre del módulo tal como aparece en el menú de Gerencia
 const NOMBRES_MODULO = new Map(
   menusByRole.gerencia
@@ -123,10 +144,10 @@ export default function SupervisionModule({
   }, [])
 
   const porArea = useMemo(() => {
-    const conteo = new Map<Area, { total: number, mayor: Prioridad | null }>()
+    const conteo = new Map<Area, { total: number, mayor: Prioridad | null, niveles: Alerta[] }>()
 
     for (const { id } of AREAS) {
-      conteo.set(id, { total: 0, mayor: null })
+      conteo.set(id, { total: 0, mayor: null, niveles: [] })
     }
 
     for (const alerta of datos?.alertas ?? []) {
@@ -135,6 +156,7 @@ export default function SupervisionModule({
       if (!actual) continue
 
       actual.total += 1
+      actual.niveles.push(alerta)
 
       if (
         !actual.mayor ||
@@ -151,10 +173,6 @@ export default function SupervisionModule({
   const visibles = (datos?.alertas ?? []).filter(
     alerta => area === 'todas' || alerta.area === area,
   )
-
-  const urgentes = (datos?.alertas ?? []).filter(
-    alerta => alerta.prioridad === 'critica' || alerta.prioridad === 'alta',
-  ).length
 
   if (cargando && !datos) {
     return (
@@ -201,11 +219,7 @@ export default function SupervisionModule({
             >
               <span>Todas</span>
               <strong>{datos.alertas.length}</strong>
-              <small>
-                {urgentes > 0
-                  ? `${urgentes} ${urgentes === 1 ? 'urgente o alta' : 'urgentes o altas'}`
-                  : 'Nada urgente'}
-              </small>
+              <small>{resumirNiveles(datos.alertas) || 'Todo al día'}</small>
             </button>
 
             {AREAS.map(({ id, nombre }) => {
@@ -225,11 +239,7 @@ export default function SupervisionModule({
                 >
                   <span>{nombre}</span>
                   <strong>{conteo?.total ?? 0}</strong>
-                  <small>
-                    {conteo?.mayor
-                      ? `Máxima: ${PRIORIDADES[conteo.mayor].toLowerCase()}`
-                      : 'Al día'}
-                  </small>
+                  <small>{resumirNiveles(conteo?.niveles ?? []) || 'Al día'}</small>
                 </button>
               )
             })}
