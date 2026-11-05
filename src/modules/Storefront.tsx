@@ -40,11 +40,13 @@ import {
   SelectorTransferencia,
 } from './StorePayments'
 import { formatearFechaOferta } from '../lib/descuentos'
-import { crearOrdenTienda, guardarOrden, leerOrdenGuardada, type OrdenTienda } from '../lib/ordenTienda'
+import { consultarEstadoOrden, crearOrdenTienda, guardarOrden, leerOrdenGuardada, type EstadoOrden, type OrdenTienda } from '../lib/ordenTienda'
 import { PanelOrdenTienda } from './StoreOrderCode'
 import { useDetallesCatalogo } from '../lib/fichasTienda'
 import { FichaProducto } from './StoreProductSheet'
 import { StoreAbout } from './StoreAbout'
+import { StoreOrderTimeline } from './StoreOrderTimeline'
+import { IconoCuenta } from './StoreAccountIcons'
 import logoCasaHogar from '../assets/casa-hogar-logo-horizontal.png'
 import fotoObra from '../assets/portada/obra.webp'
 import fotoObraMovil from '../assets/portada/obra-movil.webp'
@@ -255,6 +257,7 @@ type Producto = {
   disponible: boolean
   pocas_unidades: boolean
   imagen_url: string | null
+  marca: string | null
 }
 
 type Orden = 'destacados' | 'descuento' | 'precio'
@@ -346,6 +349,14 @@ function fecha(valor: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(valor))
+}
+
+function textoPedidosEnCurso(pedidos: Pedido[]) {
+  const enCurso = pedidos.filter(p => ['pendiente_validacion', 'validado', 'en_despacho'].includes(p.estado)).length
+
+  if (enCurso === 0) return 'No tenés pedidos en curso.'
+
+  return enCurso === 1 ? 'Tenés 1 pedido en curso.' : `Tenés ${enCurso} pedidos en curso.`
 }
 
 /*
@@ -491,11 +502,25 @@ function unidadLegible(unidad: string) {
   return u ? `Por ${u}` : 'Por unidad'
 }
 
+// Mensaje al quitar solo el código de la orden en tienda
+const AVISOS_ORDEN: Partial<Record<EstadoOrden, { titulo: string, texto: string, exito: boolean }>> = {
+  pagada: { titulo: 'Pago recibido', texto: 'Gracias por tu compra. Tu código ya se cerró.', exito: true },
+  credito: { titulo: 'Compra registrada', texto: 'Gracias por tu compra. Tu código ya se cerró.', exito: true },
+  anulada: { titulo: 'Tu compra fue anulada', texto: 'Si todavía querés los productos, armá tu carrito de nuevo.', exito: false },
+  vencida: { titulo: 'Tu código venció', texto: 'Pasaron 24 horas sin usarlo. Podés generar otro desde el carrito.', exito: false },
+  no_existe: { titulo: 'Tu código ya no está disponible', texto: 'Podés generar otro desde el carrito.', exito: false },
+}
+
 const CLAVE_CARRITO = 'casa-hogar:carrito'
 
-function leerCarritoGuardado(): Record<number, number> {
+// Cada cuenta de cliente guarda su propio carrito; sin sesión, el del visitante
+function claveCarrito(dueno: string | null) {
+  return dueno ? `${CLAVE_CARRITO}:${dueno}` : CLAVE_CARRITO
+}
+
+function leerCarritoGuardado(dueno: string | null = null): Record<number, number> {
   try {
-    const guardado = window.localStorage.getItem(CLAVE_CARRITO)
+    const guardado = window.localStorage.getItem(claveCarrito(dueno))
     if (!guardado) return {}
 
     const datos = JSON.parse(guardado) as Record<string, unknown>
@@ -528,7 +553,8 @@ export default function Storefront({ path, navigate }: Props) {
   const [productoDetalle, setProductoDetalle] = useState<Producto | null>(null)
   const [cantidadDetalle, setCantidadDetalle] = useState(1)
   const detalles = useDetallesCatalogo()
-  const [carrito, setCarrito] = useState<Record<number, number>>(leerCarritoGuardado)
+  const [carrito, setCarrito] = useState<Record<number, number>>(() => leerCarritoGuardado())
+  const [duenoCarrito, setDuenoCarrito] = useState<string | null>(null)
 
   const [usuario, setUsuario] = useState<User | null>(null)
   const [cliente, setCliente] = useState<ClienteWeb | null>(null)
@@ -574,6 +600,8 @@ export default function Storefront({ path, navigate }: Props) {
 
   // Orden en tienda: el cliente está en la ferretería y paga en caja (sin cuenta)
   const [ordenTienda, setOrdenTienda] = useState<OrdenTienda | null>(leerOrdenGuardada)
+  const [ordenEnCaja, setOrdenEnCaja] = useState(false)
+  const [avisoOrden, setAvisoOrden] = useState<{ titulo: string, texto: string, exito: boolean } | null>(null)
   const [nombreOrden, setNombreOrden] = useState('')
 
   const { cuentas, tipoCambio } = useCuentasBancarias(tipoSesion === 'cliente_web')
@@ -611,6 +639,15 @@ export default function Storefront({ path, navigate }: Props) {
   // si después se navega a otra): al cambiar de pantalla deja de verse.
   const mensaje = avisoOk.vista === vista ? avisoOk.texto : ''
   const error = avisoError.vista === vista ? avisoError.texto : ''
+
+  // Al salir de Mi cuenta el pedido desplegado se cierra
+  const [vistaPrevia, setVistaPrevia] = useState(vista)
+
+  if (vistaPrevia !== vista) {
+    setVistaPrevia(vista)
+    setPedidoAbierto(null)
+    setDetallePedido([])
+  }
 
   function setMensaje(texto: string, enVista: string = vista) {
     setAvisoOk({ texto, vista: enVista })
@@ -654,6 +691,7 @@ export default function Storefront({ path, navigate }: Props) {
         disponible: Boolean(item.disponible),
         pocas_unidades: Boolean(item.pocas_unidades),
         imagen_url: item.imagen_url ? String(item.imagen_url) : null,
+        marca: item.marca ? String(item.marca) : null,
       })),
     )
   }
@@ -786,14 +824,33 @@ export default function Storefront({ path, navigate }: Props) {
     }
   }, [vista, cargando, tipoSesion])
 
+  // Al entrar se recupera el carrito de la cuenta y se le suma lo que tenía
+  // el visitante; al salir queda vacío (el de la cuenta sigue guardado).
+  const duenoSesion = tipoSesion === 'cliente_web' ? usuario?.id ?? null : null
+
+  if (duenoSesion !== duenoCarrito) {
+    const guardado = duenoSesion ? leerCarritoGuardado(duenoSesion) : {}
+
+    if (duenoSesion && duenoCarrito === null) {
+      for (const [id, cantidad] of Object.entries(carrito)) {
+        guardado[Number(id)] = Math.max(guardado[Number(id)] ?? 0, cantidad)
+      }
+    }
+
+    setCarrito(guardado)
+    setDuenoCarrito(duenoSesion)
+  }
+
   useEffect(() => {
     try {
-      window.localStorage.setItem(CLAVE_CARRITO, JSON.stringify(carrito))
+      window.localStorage.setItem(claveCarrito(duenoCarrito), JSON.stringify(carrito))
+      // Lo del visitante ya pasó a la cuenta: no debe volver a sumarse
+      if (duenoCarrito) window.localStorage.removeItem(CLAVE_CARRITO)
     } catch {
       // Almacenamiento no disponible (modo privado): el carrito
       // sigue funcionando durante la visita.
     }
-  }, [carrito])
+  }, [carrito, duenoCarrito])
 
   function cambiarModoAuth(modo: 'login' | 'registro' | 'recuperar') {
     setModoAuth(modo)
@@ -846,6 +903,7 @@ export default function Storefront({ path, navigate }: Props) {
       // El texto también busca en la descripción, la ficha y las áreas
       const text = !q ||
         [
+          producto.marca ?? '',
           producto.nombre,
           producto.codigo,
           producto.categoria,
@@ -893,6 +951,60 @@ export default function Storefront({ path, navigate }: Props) {
       .filter(p => p.categoria === departamento && p.disponible)
       .reduce((max, p) => Math.max(max, p.descuento_porcentaje), 0)
   }
+
+  // Mientras hay un código a la vista se revisa cómo va: al pagarse (o si ya
+  // no sirve) se quita solo con un mensaje y, desde el carrito, vuelve a la tienda.
+  const codigoOrden = ordenTienda?.codigo ?? null
+
+  useEffect(() => {
+    if (!codigoOrden) return
+
+    const codigo = codigoOrden
+    let vigente = true
+
+    async function revisarOrden() {
+      const estado = await consultarEstadoOrden(codigo)
+      if (!vigente || !estado) return
+
+      if (estado === 'abierta' || estado === 'en_caja') {
+        setOrdenEnCaja(estado === 'en_caja')
+        return
+      }
+
+      guardarOrden(null)
+      setOrdenTienda(null)
+      setOrdenEnCaja(false)
+      setAvisoOrden(AVISOS_ORDEN[estado] ?? null)
+
+      if ((estado === 'pagada' || estado === 'credito') && window.location.pathname === '/tienda/carrito') {
+        navigate('/tienda')
+      }
+    }
+
+    function alVolver() {
+      if (document.visibilityState === 'visible') void revisarOrden()
+    }
+
+    void revisarOrden()
+    const intervalo = window.setInterval(() => void revisarOrden(), 15000)
+    document.addEventListener('visibilitychange', alVolver)
+
+    return () => {
+      vigente = false
+      window.clearInterval(intervalo)
+      document.removeEventListener('visibilitychange', alVolver)
+    }
+    // navigate cambia en cada render de App; solo importa el código
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codigoOrden])
+
+  useEffect(() => {
+    if (!avisoOrden) return
+
+    const temporizador = window.setTimeout(() => setAvisoOrden(null), 10000)
+
+    return () => window.clearTimeout(temporizador)
+  }, [avisoOrden])
 
   // Menú "Departamentos": se cierra con clic afuera o Escape
   useEffect(() => {
@@ -1259,6 +1371,9 @@ export default function Storefront({ path, navigate }: Props) {
     setError('')
     setMensaje('')
     setEditandoPerfil(true)
+    requestAnimationFrame(() => {
+      document.getElementById('cuenta-datos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   async function guardarPerfil(event: FormEvent<HTMLFormElement>) {
@@ -1378,6 +1493,7 @@ export default function Storefront({ path, navigate }: Props) {
     setPedidos([])
     setPedidoAbierto(null)
     setEditandoPerfil(false)
+    cerrarOrdenTienda()
     navigate('/tienda')
   }
 
@@ -1523,6 +1639,7 @@ export default function Storefront({ path, navigate }: Props) {
   function cerrarOrdenTienda() {
     guardarOrden(null)
     setOrdenTienda(null)
+    setOrdenEnCaja(false)
   }
 
   // Completar el pago de un pedido que lo tiene pendiente (Mi cuenta)
@@ -1904,6 +2021,7 @@ export default function Storefront({ path, navigate }: Props) {
                       <span>{mostrarDepartamento ? producto.categoria : ''}</span>
                       <span className="t-sku">{producto.codigo}</span>
                     </div>
+                    <span className="t-producto-marca">{producto.marca ?? ''}</span>
                     <h3>
                       <button type="button" className="t-producto-nombre" onClick={() => abrirDetalle(producto)} title={producto.nombre}>
                         {producto.nombre}
@@ -1985,6 +2103,7 @@ export default function Storefront({ path, navigate }: Props) {
                     <span className="t-sku">{productoDetalle.codigo}</span>
                   </div>
 
+                  {productoDetalle.marca && <span className="t-producto-marca">{productoDetalle.marca}</span>}
                   <h2 id="t-detalle-titulo">{productoDetalle.nombre}</h2>
 
                   <span
@@ -2134,7 +2253,7 @@ export default function Storefront({ path, navigate }: Props) {
 
           {error && <div className="t-aviso t-aviso--error">{error}</div>}
 
-          {ordenTienda && <PanelOrdenTienda orden={ordenTienda} onCerrar={cerrarOrdenTienda} />}
+          {ordenTienda && <PanelOrdenTienda orden={ordenTienda} enCaja={ordenEnCaja} onCerrar={cerrarOrdenTienda} />}
 
           {!itemsCarrito.length ? (
             !ordenTienda && (
@@ -2550,12 +2669,12 @@ export default function Storefront({ path, navigate }: Props) {
       )}
 
       {vista === 'cuenta' && cliente && (
-        <main className="store-container store-secondary store-account-page">
-          <div className="store-account-header store-account-header--stitch">
+        <main className="store-container store-secondary store-account-page t-micuenta">
+          <div className="t-micuenta-cabeza">
+            <span className="t-micuenta-avatar" aria-hidden="true">{cliente.nombre.trim().charAt(0).toUpperCase()}</span>
             <div>
-              <span className="store-cart-kicker">MI CUENTA</span>
-              <h1>{cliente.nombre}</h1>
-              <p>{cliente.correo}</p>
+              <h1>Hola, {cliente.nombre.trim().split(/\s+/)[0]}</h1>
+              <p>{textoPedidosEnCurso(pedidos)}</p>
             </div>
 
             <button className="store-secondary-button t-cerrar-sesion" type="button" onClick={cerrarSesionCliente}>
@@ -2583,272 +2702,284 @@ export default function Storefront({ path, navigate }: Props) {
             </div>
           )}
 
-          <section className="store-account-card store-account-card--stitch">
-            <div className="store-section-heading">
-              <div>
-                <span className="store-eyebrow store-eyebrow--dark">MIS DATOS</span>
-                <h2>Datos de contacto</h2>
-              </div>
-
-              {!editandoPerfil && (
-                <div className="store-account-actions">
-                  <button
-                    className="store-secondary-button"
-                    type="button"
-                    onClick={abrirEdicionPerfil}
-                  >
-                    Editar datos
-                  </button>
-                  <button
-                    className="store-secondary-button"
-                    type="button"
-                    onClick={() => {
-                      setError('')
-                      setMensaje('')
-                      navigate('/tienda/restablecer')
-                    }}
-                  >
-                    Cambiar contraseña
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {editandoPerfil ? (
-              <form className="store-form store-form--profile" onSubmit={guardarPerfil}>
-                <label>
-                  Nombre completo
-                  <input value={perfilNombre} onChange={e => setPerfilNombre(e.target.value)} required />
-                </label>
-                <label>
-                  Teléfono
-                  <input
-                    value={perfilTelefono}
-                    onChange={e => setPerfilTelefono(e.target.value)}
-                    placeholder="8123 4567"
-                    inputMode="tel"
-                    required
-                  />
-                </label>
-                {!cliente.cedula && (
-                  <label>
-                    Cédula de identidad
-                    <input
-                      value={perfilCedula}
-                      onChange={e => setPerfilCedula(e.target.value)}
-                      onBlur={() => perfilCedula && setPerfilCedula(normalizarCedula(perfilCedula))}
-                      placeholder="001-010190-0000M"
-                      maxLength={20}
-                      required
-                    />
-                    <small className={perfilCedula && errorCedula(perfilCedula) ? 't-ayuda is-error' : 't-ayuda'}>
-                      {perfilCedula && errorCedula(perfilCedula)
-                        ? errorCedula(perfilCedula)
-                        : 'Después de guardarla no se puede cambiar.'}
-                    </small>
-                  </label>
-                )}
-                <label className="store-form-full">
-                  Dirección
-                  <textarea value={perfilDireccion} onChange={e => setPerfilDireccion(e.target.value)} />
-                </label>
-
-                <div className="store-account-actions store-form-full">
-                  <button
-                    className="store-secondary-button"
-                    type="button"
-                    disabled={procesando}
-                    onClick={() => setEditandoPerfil(false)}
-                  >
-                    Cancelar
-                  </button>
-                  <button className="store-primary store-primary--small" type="submit" disabled={procesando}>
-                    {procesando ? 'Guardando...' : 'Guardar cambios'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <dl className="store-profile-data">
-                <div>
-                  <dt>Correo</dt>
-                  <dd>{cliente.correo}</dd>
-                </div>
-                <div>
-                  <dt>Cédula</dt>
-                  <dd>{cliente.cedula || 'Falta: necesaria para hacer pedidos'}</dd>
-                </div>
-                <div>
-                  <dt>Teléfono</dt>
-                  <dd>
-                    {cliente.telefono
-                      ? cliente.telefono.replace(/^(\d{4})(\d{4})$/, '$1 $2')
-                      : 'Falta: necesario para hacer pedidos'}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Dirección</dt>
-                  <dd>{cliente.direccion || 'Sin registrar'}</dd>
-                </div>
-              </dl>
-            )}
-          </section>
-
-          <section className="store-account-card store-account-card--stitch">
-            <div className="store-section-heading">
-              <div>
-                <span className="store-eyebrow store-eyebrow--dark">ENTREGAS</span>
-                <h2>Mis direcciones</h2>
-              </div>
-            </div>
-
-            <LibretaDirecciones direcciones={direcciones} onCambio={() => void recargarDirecciones()} />
-          </section>
-
-          <section className="store-account-card store-account-card--stitch">
-            <div className="store-section-heading">
-              <div>
-                <span className="store-eyebrow store-eyebrow--dark">PEDIDOS</span>
+          <div className="t-micuenta-rejilla">
+            <section className="t-micuenta-tarjeta t-micuenta-pedidos">
+              <div className="t-micuenta-titulo">
                 <h2>Mis pedidos</h2>
               </div>
-            </div>
 
-            <div className="store-orders store-orders--stitch">
-              {!pedidos.length ? (
-                <div className="store-empty">Todavía no tenés pedidos registrados.</div>
-              ) : pedidos.map(pedido => (
-                <div className="store-order-block" key={pedido.id}>
-                  <button
-                    type="button"
-                    className={
-                      pedidoAbierto?.id === pedido.id
-                        ? 'store-order-row store-order-row--stitch store-order-row--button is-open'
-                        : 'store-order-row store-order-row--stitch store-order-row--button'
-                    }
-                    onClick={() => void verPedido(pedido)}
-                    aria-expanded={pedidoAbierto?.id === pedido.id}
-                  >
-                    <div>
-                      <strong>{pedido.numero}</strong>
-                      <span>{fecha(pedido.created_at)}</span>
-                    </div>
-                    <span>{legible(pedido.modalidad_entrega)}</span>
-                    <b>{dinero(pedido.total)}</b>
-                    <em className={`t-estado t-estado--${estadoPedido(pedido).clase}`}>
-                      {estadoPedido(pedido).texto}
-                    </em>
-                  </button>
-
-                  {pedidoAbierto?.id === pedido.id && (
-                    <div className="store-order-detail">
-                      {pedido.motivo_estado && (
-                        <div className="store-error">Motivo: {pedido.motivo_estado}</div>
-                      )}
-
-                      {pedido.modalidad_entrega === 'domicilio' && pedido.direccion_entrega && (
-                        <p><strong>Entrega en:</strong> {pedido.direccion_entrega}</p>
-                      )}
-
-                      {pedido.metodo_pago && (
-                        <p>
-                          <strong>Forma de pago:</strong> {legible(pedido.metodo_pago)}
-                          {pedido.pago_detalle && ` · ${pedido.pago_detalle}`}
-                          {pedido.pago_estado && ` · ${ESTADOS_PAGO[pedido.pago_estado] ?? legible(pedido.pago_estado)}`}
-                        </p>
-                      )}
-
-                      {pedido.pago_estado === 'rechazado' && pedido.pago_motivo && pedido.estado === 'pendiente_validacion' && (
-                        <div className="store-error">Pago rechazado: {pedido.pago_motivo}</div>
-                      )}
-
-                      {/* Pago anticipado aún sin aprobar: el cliente lo completa aquí */}
-                      {pedido.estado === 'pendiente_validacion'
-                        && pedido.metodo_pago !== 'efectivo'
-                        && pedido.pago_estado !== 'pendiente' && (
-                        <div className="t-completar-pago">
-                          <strong>
-                            {pedido.metodo_pago === 'transferencia'
-                              ? 'Adjuntá el comprobante de la transferencia'
-                              : 'Completá el pago con tarjeta'}
-                          </strong>
-
-                          {pedido.metodo_pago === 'transferencia' ? (
-                            <SelectorTransferencia
-                              cuentas={cuentas}
-                              tipoCambio={tipoCambio}
-                              total={pedido.total}
-                              cuentaId={cuentaId}
-                              onCuenta={setCuentaId}
-                              archivo={comprobante}
-                              onArchivo={setComprobante}
-                              referencia={referenciaPago}
-                              onReferencia={setReferenciaPago}
-                            />
-                          ) : (
-                            <FormularioTarjeta datos={tarjeta} onCambio={setTarjeta} />
-                          )}
-
-                          <button
-                            className="store-primary store-primary--small"
-                            type="button"
-                            disabled={procesando}
-                            onClick={() => void completarPago(pedido)}
-                          >
-                            {procesando
-                              ? 'Enviando...'
-                              : pedido.metodo_pago === 'transferencia'
-                                ? 'Enviar comprobante'
-                                : `Pagar ${dinero(pedido.total)}`}
-                          </button>
-                        </div>
-                      )}
-
-                      {pedido.observaciones && (
-                        <p><strong>Observaciones:</strong> {pedido.observaciones}</p>
-                      )}
-
-                      {cargandoDetalle ? (
-                        <p>Cargando productos...</p>
-                      ) : (
-                        <ul className="store-order-items">
-                          {detallePedido.map(item => (
-                            <li key={item.producto_id}>
-                              <span>
-                                {item.nombre}
-                                <small>{item.cantidad} × {dinero(item.precio_unitario)}</small>
-                              </span>
-                              <strong>{dinero(item.subtotal)}</strong>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      <div className="t-pedido-acciones">
-                        <a
-                          className="t-whatsapp"
-                          href={enlaceWhatsApp(`Hola, tengo una consulta sobre mi pedido ${pedido.numero}.`)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Consultar por WhatsApp
-                        </a>
-
-                        {pedido.estado === 'pendiente_validacion' && (
-                          <button
-                            className="store-secondary-button"
-                            type="button"
-                            disabled={procesando}
-                            onClick={() => void cancelarPedido(pedido)}
-                          >
-                            {procesando ? 'Cancelando...' : 'Cancelar pedido'}
-                          </button>
-                        )}
+              <div className="t-micuenta-lista">
+                {!pedidos.length ? (
+                  <div className="store-empty">Todavía no tenés pedidos registrados.</div>
+                ) : pedidos.map(pedido => (
+                  <div className="store-order-block" key={pedido.id}>
+                    <button
+                      type="button"
+                      className={
+                        pedidoAbierto?.id === pedido.id
+                          ? 'store-order-row store-order-row--stitch store-order-row--button is-open'
+                          : 'store-order-row store-order-row--stitch store-order-row--button'
+                      }
+                      onClick={() => void verPedido(pedido)}
+                      aria-expanded={pedidoAbierto?.id === pedido.id}
+                    >
+                      <span className="t-pedido-marca">
+                        <IconoCuenta nombre={pedido.modalidad_entrega === 'domicilio' ? 'camion' : 'tienda'} />
+                      </span>
+                      <div className="t-pedido-info">
+                        <strong>{pedido.numero}</strong>
+                        <span>{fecha(pedido.created_at)} · {legible(pedido.modalidad_entrega)}</span>
                       </div>
-                    </div>
+                      <b className="t-pedido-total">{dinero(pedido.total)}</b>
+                      <em className={`t-estado t-estado--${estadoPedido(pedido).clase}`}>
+                        {estadoPedido(pedido).texto}
+                      </em>
+                      <span className="t-pedido-flecha">
+                        <IconoCuenta nombre="flecha" />
+                      </span>
+                    </button>
+
+                    {pedidoAbierto?.id === pedido.id && (
+                      <div className="store-order-detail">
+                        <StoreOrderTimeline
+                          estado={pedido.estado}
+                          modalidad={pedido.modalidad_entrega}
+                          nota={estadoPedido(pedido).texto}
+                        />
+
+                        {pedido.motivo_estado && (
+                          <div className="store-error">Motivo: {pedido.motivo_estado}</div>
+                        )}
+
+                        {pedido.modalidad_entrega === 'domicilio' && pedido.direccion_entrega && (
+                          <p><strong>Entrega en:</strong> {pedido.direccion_entrega}</p>
+                        )}
+
+                        {pedido.metodo_pago && (
+                          <p>
+                            <strong>Forma de pago:</strong> {legible(pedido.metodo_pago)}
+                            {pedido.pago_detalle && ` · ${pedido.pago_detalle}`}
+                            {pedido.pago_estado && ` · ${ESTADOS_PAGO[pedido.pago_estado] ?? legible(pedido.pago_estado)}`}
+                          </p>
+                        )}
+
+                        {pedido.pago_estado === 'rechazado' && pedido.pago_motivo && pedido.estado === 'pendiente_validacion' && (
+                          <div className="store-error">Pago rechazado: {pedido.pago_motivo}</div>
+                        )}
+
+                        {/* Pago anticipado aún sin aprobar: el cliente lo completa aquí */}
+                        {pedido.estado === 'pendiente_validacion'
+                          && pedido.metodo_pago !== 'efectivo'
+                          && pedido.pago_estado !== 'pendiente' && (
+                          <div className="t-completar-pago">
+                            <strong>
+                              {pedido.metodo_pago === 'transferencia'
+                                ? 'Adjuntá el comprobante de la transferencia'
+                                : 'Completá el pago con tarjeta'}
+                            </strong>
+
+                            {pedido.metodo_pago === 'transferencia' ? (
+                              <SelectorTransferencia
+                                cuentas={cuentas}
+                                tipoCambio={tipoCambio}
+                                total={pedido.total}
+                                cuentaId={cuentaId}
+                                onCuenta={setCuentaId}
+                                archivo={comprobante}
+                                onArchivo={setComprobante}
+                                referencia={referenciaPago}
+                                onReferencia={setReferenciaPago}
+                              />
+                            ) : (
+                              <FormularioTarjeta datos={tarjeta} onCambio={setTarjeta} />
+                            )}
+
+                            <button
+                              className="store-primary store-primary--small"
+                              type="button"
+                              disabled={procesando}
+                              onClick={() => void completarPago(pedido)}
+                            >
+                              {procesando
+                                ? 'Enviando...'
+                                : pedido.metodo_pago === 'transferencia'
+                                  ? 'Enviar comprobante'
+                                  : `Pagar ${dinero(pedido.total)}`}
+                            </button>
+                          </div>
+                        )}
+
+                        {pedido.observaciones && (
+                          <p><strong>Observaciones:</strong> {pedido.observaciones}</p>
+                        )}
+
+                        {cargandoDetalle ? (
+                          <p>Cargando productos...</p>
+                        ) : (
+                          <ul className="store-order-items">
+                            {detallePedido.map(item => (
+                              <li key={item.producto_id}>
+                                <span>
+                                  {item.nombre}
+                                  <small>{item.cantidad} × {dinero(item.precio_unitario)}</small>
+                                </span>
+                                <strong>{dinero(item.subtotal)}</strong>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        <div className="t-pedido-acciones">
+                          <a
+                            className="t-whatsapp"
+                            href={enlaceWhatsApp(`Hola, tengo una consulta sobre mi pedido ${pedido.numero}.`)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Consultar por WhatsApp
+                          </a>
+
+                          {pedido.estado === 'pendiente_validacion' && (
+                            <button
+                              className="store-secondary-button"
+                              type="button"
+                              disabled={procesando}
+                              onClick={() => void cancelarPedido(pedido)}
+                            >
+                              {procesando ? 'Cancelando...' : 'Cancelar pedido'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <aside className="t-micuenta-lateral">
+              <section className="t-micuenta-tarjeta" id="cuenta-datos">
+                <div className="t-micuenta-titulo">
+                  <h2>Mis datos</h2>
+
+                  {!editandoPerfil && (
+                    <button className="t-micuenta-enlace" type="button" onClick={abrirEdicionPerfil}>
+                      Editar
+                    </button>
                   )}
                 </div>
-              ))}
-            </div>
-          </section>
+
+                {editandoPerfil ? (
+                  <form className="store-form store-form--profile" onSubmit={guardarPerfil}>
+                    <label>
+                      Nombre completo
+                      <input value={perfilNombre} onChange={e => setPerfilNombre(e.target.value)} required />
+                    </label>
+                    <label>
+                      Teléfono
+                      <input
+                        value={perfilTelefono}
+                        onChange={e => setPerfilTelefono(e.target.value)}
+                        placeholder="8123 4567"
+                        inputMode="tel"
+                        required
+                      />
+                    </label>
+                    {!cliente.cedula && (
+                      <label>
+                        Cédula de identidad
+                        <input
+                          value={perfilCedula}
+                          onChange={e => setPerfilCedula(e.target.value)}
+                          onBlur={() => perfilCedula && setPerfilCedula(normalizarCedula(perfilCedula))}
+                          placeholder="001-010190-0000M"
+                          maxLength={20}
+                          required
+                        />
+                        <small className={perfilCedula && errorCedula(perfilCedula) ? 't-ayuda is-error' : 't-ayuda'}>
+                          {perfilCedula && errorCedula(perfilCedula)
+                            ? errorCedula(perfilCedula)
+                            : 'Después de guardarla no se puede cambiar.'}
+                        </small>
+                      </label>
+                    )}
+                    <label className="store-form-full">
+                      Dirección
+                      <textarea value={perfilDireccion} onChange={e => setPerfilDireccion(e.target.value)} />
+                    </label>
+
+                    <div className="store-account-actions store-form-full">
+                      <button
+                        className="store-secondary-button"
+                        type="button"
+                        disabled={procesando}
+                        onClick={() => setEditandoPerfil(false)}
+                      >
+                        Cancelar
+                      </button>
+                      <button className="store-primary store-primary--small" type="submit" disabled={procesando}>
+                        {procesando ? 'Guardando...' : 'Guardar cambios'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <dl className="t-micuenta-datos">
+                    <div>
+                      <IconoCuenta nombre="correo" />
+                      <dt>Correo</dt>
+                      <dd>{cliente.correo}</dd>
+                    </div>
+                    <div>
+                      <IconoCuenta nombre="cedula" />
+                      <dt>Cédula</dt>
+                      <dd>{cliente.cedula || 'Falta: necesaria para hacer pedidos'}</dd>
+                    </div>
+                    <div>
+                      <IconoCuenta nombre="telefono" />
+                      <dt>Teléfono</dt>
+                      <dd>
+                        {cliente.telefono
+                          ? cliente.telefono.replace(/^(\d{4})(\d{4})$/, '$1 $2')
+                          : 'Falta: necesario para hacer pedidos'}
+                      </dd>
+                    </div>
+                    <div>
+                      <IconoCuenta nombre="candado" />
+                      <dt>Contraseña</dt>
+                      <dd>
+                        <button
+                          className="t-micuenta-enlace"
+                          type="button"
+                          onClick={() => {
+                            setError('')
+                            setMensaje('')
+                            navigate('/tienda/restablecer')
+                          }}
+                        >
+                          Cambiar contraseña
+                        </button>
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+              </section>
+
+
+              <section className="t-micuenta-tarjeta">
+                <div className="t-micuenta-titulo">
+                  <h2>Mis direcciones</h2>
+                </div>
+
+                <LibretaDirecciones
+                  principal={cliente.direccion}
+                  direcciones={direcciones}
+                  onEditarPrincipal={abrirEdicionPerfil}
+                  onCambio={() => void recargarDirecciones()}
+                />
+              </section>
+
+            </aside>
+          </div>
         </main>
       )}
 
@@ -2935,6 +3066,18 @@ export default function Storefront({ path, navigate }: Props) {
           whatsappEnlace={enlaceWhatsApp()}
           onVerProductos={() => elegirDepartamento('Todos')}
         />
+      )}
+
+      {avisoOrden && (
+        <div className={avisoOrden.exito ? 't-agregado t-aviso-orden' : 't-agregado t-aviso-orden is-info'} role="status" aria-live="polite">
+          <div className="t-agregado-texto">
+            <strong>{avisoOrden.titulo}</strong>
+            <small>{avisoOrden.texto}</small>
+          </div>
+          <button type="button" className="t-agregado-cerrar" onClick={() => setAvisoOrden(null)} aria-label="Cerrar aviso">
+            ×
+          </button>
+        </div>
       )}
 
       <footer className="t-pie">

@@ -31,8 +31,8 @@ export function StoreAbout({ direccion, mapa, telefono, telefonoEnlace, whatsapp
       <section className="t-nosotros-portada">
         <h1>Ferretería Casa Hogar</h1>
         <p>
-          Somos una ferretería de Managua dedicada a los productos para construir, reparar y mantener tu casa,
-          tu obra o tu negocio.
+          Somos una ferretería ubicada en Managua. Ofrecemos herramientas, materiales de construcción y todo lo que
+          necesitás para tu casa o tu obra.
         </p>
       </section>
 

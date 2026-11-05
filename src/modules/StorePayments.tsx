@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import { IconoCuenta } from './StoreAccountIcons'
+
 import {
   formatearNumeroTarjeta,
   formatearVencimiento,
@@ -8,6 +10,7 @@ import {
   type DatosTarjeta,
 } from '../lib/pagosTienda'
 import {
+  actualizarDireccion,
   borrarDireccion,
   guardarDireccion,
   type DireccionCliente,
@@ -198,69 +201,110 @@ export function FormularioTarjeta({ datos, onCambio }: FormularioTarjetaProps) {
 // ----------------------------------------------------------
 
 type LibretaDireccionesProps = {
+  principal: string | null
   direcciones: DireccionCliente[]
+  onEditarPrincipal: () => void
   onCambio: () => void
 }
 
-export function LibretaDirecciones({ direcciones, onCambio }: LibretaDireccionesProps) {
+export function LibretaDirecciones({ principal, direcciones, onEditarPrincipal, onCambio }: LibretaDireccionesProps) {
   const [agregando, setAgregando] = useState(false)
+  const [editandoId, setEditandoId] = useState<number | null>(null)
   const [alias, setAlias] = useState('')
   const [direccion, setDireccion] = useState('')
   const [referencia, setReferencia] = useState('')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  async function guardar() {
-    setError('')
+  const formularioAbierto = agregando || editandoId !== null
 
-    if (!alias.trim()) return setError('Poné un nombre para reconocerla, por ejemplo "Casa" u "Obra".')
-    if (direccion.trim().length < 5) return setError('Escribí la dirección completa.')
-
-    setGuardando(true)
-    const problema = await guardarDireccion(alias, direccion, referencia)
-    setGuardando(false)
-
-    if (problema) return setError(problema)
-
+  function cerrarFormulario() {
     setAlias('')
     setDireccion('')
     setReferencia('')
     setAgregando(false)
+    setEditandoId(null)
+    setError('')
+  }
+
+  function abrirEdicion(d: DireccionCliente) {
+    setAlias(d.alias)
+    setDireccion(d.direccion)
+    setReferencia(d.referencia ?? '')
+    setAgregando(false)
+    setEditandoId(d.id)
+    setError('')
+  }
+
+  async function guardar() {
+    setError('')
+
+    if (!alias.trim()) return setError('Poné un nombre para reconocerla, por ejemplo "Hijo" u "Obra".')
+    if (direccion.trim().length < 5) return setError('Escribí la dirección completa.')
+
+    setGuardando(true)
+    const problema = editandoId !== null
+      ? await actualizarDireccion(editandoId, alias, direccion, referencia)
+      : await guardarDireccion(alias, direccion, referencia)
+    setGuardando(false)
+
+    if (problema) return setError(problema)
+
+    cerrarFormulario()
     onCambio()
   }
 
   async function borrar(id: number) {
     const problema = await borrarDireccion(id)
+
+    if (editandoId === id) cerrarFormulario()
     if (problema) setError(problema)
     onCambio()
   }
 
   return (
     <div className="t-libreta">
-      {direcciones.length === 0 && !agregando && (
-        <p className="t-ayuda">Todavía no guardaste direcciones. Agregá las de tu casa, tu obra o tu familia para elegirlas al pedir.</p>
-      )}
-
       <ul>
+        <li>
+          <IconoCuenta nombre="pin" />
+          <span>
+            <strong>Mi dirección <em className="t-libreta-principal">Principal</em></strong>
+            <span>{principal || 'Todavía no la registraste.'}</span>
+          </span>
+          <button type="button" className="t-micuenta-enlace" onClick={onEditarPrincipal}>
+            {principal ? 'Editar' : 'Agregar'}
+          </button>
+        </li>
         {direcciones.map(d => (
           <li key={d.id}>
+            <IconoCuenta nombre="pin" />
             <span>
               <strong>{d.alias}</strong>
               <span>{d.direccion}</span>
               {d.referencia && <small>{d.referencia}</small>}
             </span>
-            <button type="button" className="store-secondary-button" onClick={() => void borrar(d.id)}>
-              Quitar
-            </button>
+            <div className="t-libreta-acciones">
+              <button type="button" className="t-micuenta-enlace" onClick={() => abrirEdicion(d)}>
+                Editar
+              </button>
+              <button type="button" className="t-micuenta-enlace t-micuenta-enlace--quitar" onClick={() => void borrar(d.id)}>
+                Quitar
+              </button>
+            </div>
           </li>
         ))}
       </ul>
 
-      {agregando ? (
+      {direcciones.length === 0 && !formularioAbierto && (
+        <p className="t-ayuda">¿Enviás a otro lugar? Guardá la dirección con un nombre, como "Hijo" u "Obra", y elegila al comprar.</p>
+      )}
+
+      {formularioAbierto ? (
         <div className="store-form t-libreta-form">
+          <strong className="t-libreta-form-titulo">{editandoId !== null ? 'Editar dirección' : 'Nueva dirección'}</strong>
           <label>
             Nombre
-            <input value={alias} onChange={event => setAlias(event.target.value)} placeholder="Casa, Obra en Masaya..." maxLength={40} />
+            <input value={alias} onChange={event => setAlias(event.target.value)} placeholder="Hijo, Obra en Masaya..." maxLength={40} />
           </label>
           <label>
             Dirección
@@ -272,21 +316,21 @@ export function LibretaDirecciones({ direcciones, onCambio }: LibretaDirecciones
           </label>
           {error && <div className="store-error">{error}</div>}
           <div className="store-account-actions">
-            <button type="button" className="store-secondary-button" onClick={() => setAgregando(false)} disabled={guardando}>
+            <button type="button" className="store-secondary-button" onClick={cerrarFormulario} disabled={guardando}>
               Cancelar
             </button>
             <button type="button" className="store-primary store-primary--small" onClick={() => void guardar()} disabled={guardando}>
-              {guardando ? 'Guardando...' : 'Guardar dirección'}
+              {guardando ? 'Guardando...' : editandoId !== null ? 'Guardar cambios' : 'Guardar dirección'}
             </button>
           </div>
         </div>
       ) : (
-        <button type="button" className="store-secondary-button" onClick={() => setAgregando(true)}>
-          + Agregar dirección
+        <button type="button" className="t-micuenta-enlace t-libreta-agregar" onClick={() => setAgregando(true)}>
+          + Agregar otra dirección
         </button>
       )}
 
-      {error && !agregando && <div className="store-error">{error}</div>}
+      {error && !formularioAbierto && <div className="store-error">{error}</div>}
     </div>
   )
 }

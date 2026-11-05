@@ -41,6 +41,19 @@ export async function guardarDireccion(alias: string, direccion: string, referen
   return error ? error.message : null
 }
 
+export async function actualizarDireccion(id: number, alias: string, direccion: string, referencia: string) {
+  const { error } = await supabase
+    .from('direcciones_cliente')
+    .update({
+      alias: alias.trim(),
+      direccion: direccion.trim(),
+      referencia: referencia.trim() || null,
+    })
+    .eq('id', id)
+
+  return error ? error.message : null
+}
+
 export async function borrarDireccion(id: number) {
   const { error } = await supabase.from('direcciones_cliente').delete().eq('id', id)
   return error ? error.message : null
