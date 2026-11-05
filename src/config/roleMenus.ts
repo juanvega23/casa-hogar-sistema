@@ -154,6 +154,33 @@ export const menusByRole: Record<
       nombre: 'Reportes operativos',
     },
 
+    // ---------------------------------------------------------
+    // SOPORTE TI
+    // Solo consulta.
+    // ---------------------------------------------------------
+    {
+      id: 'soporte-modulo',
+      nombre: 'Soporte TI',
+      children: [
+        {
+          id: 'soporte-panel-consulta',
+          nombre: 'Panel de soporte',
+        },
+        {
+          id: 'incidencias-consulta',
+          nombre: 'Incidencias',
+        },
+        {
+          id: 'equipos-ti-consulta',
+          nombre: 'Equipos de TI',
+        },
+        {
+          id: 'respaldos-consulta',
+          nombre: 'Respaldos',
+        },
+      ],
+    },
+
   ],
 
   // =========================================================
@@ -452,6 +479,22 @@ export const menusByRole: Record<
   // SOPORTE TI
   // =========================================================
   soporte_ti: [
+    {
+      id: 'soporte-panel',
+      nombre: 'Panel de soporte',
+    },
+    {
+      id: 'incidencias',
+      nombre: 'Incidencias',
+    },
+    {
+      id: 'equipos-ti',
+      nombre: 'Equipos de TI',
+    },
+    {
+      id: 'respaldos',
+      nombre: 'Respaldos',
+    },
     {
       id: 'usuarios',
       nombre: 'Usuarios',
