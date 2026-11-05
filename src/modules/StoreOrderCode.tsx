@@ -12,10 +12,11 @@ function dinero(valor: number) {
 
 type PanelOrdenTiendaProps = {
   orden: OrdenTienda
+  enCaja: boolean
   onCerrar: () => void
 }
 
-export function PanelOrdenTienda({ orden, onCerrar }: PanelOrdenTiendaProps) {
+export function PanelOrdenTienda({ orden, enCaja, onCerrar }: PanelOrdenTiendaProps) {
   const vence = new Date(orden.expira).toLocaleString('es-NI', {
     weekday: 'long',
     hour: 'numeric',
@@ -25,9 +26,13 @@ export function PanelOrdenTienda({ orden, onCerrar }: PanelOrdenTiendaProps) {
   return (
     <section className="t-orden-tienda" aria-live="polite">
       <div className="t-orden-codigo">
-        <span>Tu código para pagar en caja</span>
+        <span>{enCaja ? 'Tu lista ya está registrada' : 'Tu código para pagar en caja'}</span>
         <strong className="t-sku">{codigoLegible(orden.codigo)}</strong>
-        <small>Mostralo o dictalo en el mostrador. El vendedor carga tu lista y pagás en caja.</small>
+        <small>
+          {enCaja
+            ? 'Pasá a caja para pagar. Este código se quita solo cuando se registre tu pago.'
+            : 'Mostralo o dictalo en el mostrador. El vendedor carga tu lista y pagás en caja.'}
+        </small>
       </div>
 
       <div className="t-orden-lista">
@@ -43,9 +48,11 @@ export function PanelOrdenTienda({ orden, onCerrar }: PanelOrdenTiendaProps) {
         <small className="t-ayuda">
           El precio final es el del momento de la venta · Válido hasta el {vence}
         </small>
-        <button type="button" className="t-volver" onClick={onCerrar}>
-          Ya pagué / cerrar código
-        </button>
+        {!enCaja && (
+          <button type="button" className="t-volver" onClick={onCerrar}>
+            Ya no voy a usar este código
+          </button>
+        )}
       </div>
     </section>
   )

@@ -58,6 +58,14 @@ export async function crearOrdenTienda(
   }
 }
 
+export type EstadoOrden = 'abierta' | 'en_caja' | 'pagada' | 'credito' | 'anulada' | 'vencida' | 'no_existe'
+
+// Si la consulta falla, null: el código sigue a la vista y se reintenta
+export async function consultarEstadoOrden(codigo: string): Promise<EstadoOrden | null> {
+  const { data, error } = await supabaseTienda.rpc('estado_orden_tienda', { p_codigo: codigo })
+  return error ? null : (data as EstadoOrden)
+}
+
 // "T7K 4Q9": en dos grupos se dicta y se lee más fácil
 export function codigoLegible(codigo: string) {
   return `${codigo.slice(0, 3)} ${codigo.slice(3)}`
