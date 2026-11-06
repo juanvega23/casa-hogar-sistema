@@ -15,6 +15,9 @@ import {
   TIPOS_EQUIPO,
   type EventoHistorial,
 } from '../lib/soporteTi'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
 
 /*
  * Soporte TI → Equipos de TI: inventario de equipos, quién los tiene
@@ -52,6 +55,8 @@ const EQUIPO_VACIO = {
 
 export default function ItEquipmentModule({ soloConsulta }: { soloConsulta: boolean }) {
   const [equipos, setEquipos] = useState<Equipo[]>([])
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
   const [personal, setPersonal] = useState<Empleado[]>([])
   const [form, setForm] = useState(EQUIPO_VACIO)
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -205,6 +210,15 @@ export default function ItEquipmentModule({ soloConsulta }: { soloConsulta: bool
 
   const hoy = hoyManagua()
 
+  const termino = busqueda.trim().toLowerCase()
+  const equiposFiltrados = equipos.filter(equipo =>
+    (!filtroEstado || equipo.estado === filtroEstado) &&
+    (!termino || [equipo.codigo, equipo.descripcion, equipo.numero_serie, equipo.responsable_nombre, equipo.destino]
+      .some(texto => (texto ?? '').toLowerCase().includes(termino))),
+  )
+
+  const paginacion = usePaginacion(equiposFiltrados)
+
   if (cargando) {
     return (
       <div className="inventory-loading">
@@ -345,6 +359,18 @@ export default function ItEquipmentModule({ soloConsulta }: { soloConsulta: bool
         </section>
       )}
 
+      <div className="history-filters soporte-filtros">
+        <div className="clients-search">
+          <span>⌕</span>
+          <input
+            type="text"
+            value={busqueda}
+            onChange={event => setBusqueda(event.target.value)}
+            placeholder="Buscar por código, equipo, serie o responsable..."
+          />
+        </div>
+      </div>
+
       <div className="history-table-wrap">
         <table className="history-table">
           <thead>
@@ -354,15 +380,15 @@ export default function ItEquipmentModule({ soloConsulta }: { soloConsulta: bool
               <th>Responsable o destino</th>
               <th>Costo</th>
               <th>Garantía</th>
-              <th>Estado</th>
+              <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstado} opciones={Object.entries(ESTADOS_EQUIPO)} onCambiar={setFiltroEstado} />
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {equipos.length === 0 && (
-              <tr><td colSpan={7} className="inventory-empty">No hay equipos registrados.</td></tr>
+            {equiposFiltrados.length === 0 && (
+              <tr><td colSpan={7} className="inventory-empty">No hay equipos para mostrar.</td></tr>
             )}
-            {equipos.map(equipo => (
+            {paginacion.visibles.map(equipo => (
               <tr key={equipo.id}>
                 <td className="kardex-documento">{equipo.codigo}</td>
                 <td>
@@ -393,6 +419,7 @@ export default function ItEquipmentModule({ soloConsulta }: { soloConsulta: bool
             ))}
           </tbody>
         </table>
+        <Paginador control={paginacion} />
       </div>
     </div>
   )

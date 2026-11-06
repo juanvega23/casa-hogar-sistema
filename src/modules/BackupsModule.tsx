@@ -6,6 +6,10 @@ import {
 
 import { supabase } from '../lib/supabase'
 import { fechaCorta, hoyManagua } from '../lib/soporteTi'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 /*
  * Soporte TI → Respaldos: bitácora de copias y pruebas de restauración.
@@ -28,6 +32,9 @@ const DIAS_ALERTA = 7
 
 export default function BackupsModule({ soloConsulta }: { soloConsulta: boolean }) {
   const [respaldos, setRespaldos] = useState<Respaldo[]>([])
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroDestino, setFiltroDestino] = useState('')
+  const [filtroResultado, setFiltroResultado] = useState('')
   const [mostrarForm, setMostrarForm] = useState(false)
   const [fecha, setFecha] = useState(hoyManagua())
   const [tipo, setTipo] = useState('copia')
@@ -95,6 +102,13 @@ export default function BackupsModule({ soloConsulta }: { soloConsulta: boolean 
   const pruebas = respaldos.filter(r => r.tipo === 'restauracion')
   const exitosas = pruebas.filter(r => r.resultado === 'exitoso').length
   const porcentaje = pruebas.length ? Math.round((exitosas / pruebas.length) * 100) : null
+  const respaldosFiltrados = respaldos.filter(r =>
+    (!filtroTipo || r.tipo === filtroTipo) &&
+    (!filtroDestino || r.destino === filtroDestino) &&
+    (!filtroResultado || r.resultado === filtroResultado),
+  )
+
+  const paginacion = usePaginacion(respaldosFiltrados)
 
   if (cargando) {
     return (
@@ -212,19 +226,19 @@ export default function BackupsModule({ soloConsulta }: { soloConsulta: boolean 
           <thead>
             <tr>
               <th>Fecha</th>
-              <th>Tipo</th>
-              <th>Destino</th>
-              <th>Resultado</th>
+              <FiltroColumna titulo="Tipo" todos="Copias y restauraciones" valor={filtroTipo} opciones={[['copia', 'Copia'], ['restauracion', 'Restauración']]} onCambiar={setFiltroTipo} />
+              <FiltroColumna titulo="Destino" todos="Todos los destinos" valor={filtroDestino} opciones={opcionesDe(respaldos, r => r.destino)} onCambiar={setFiltroDestino} />
+              <FiltroColumna titulo="Resultado" todos="Todos los resultados" valor={filtroResultado} opciones={[['exitoso', 'Exitoso'], ['fallido', 'Fallido']]} onCambiar={setFiltroResultado} />
               <th>Duración</th>
               <th>Observaciones</th>
               <th>Registró</th>
             </tr>
           </thead>
           <tbody>
-            {respaldos.length === 0 && (
-              <tr><td colSpan={7} className="inventory-empty">Todavía no hay registros.</td></tr>
+            {respaldosFiltrados.length === 0 && (
+              <tr><td colSpan={7} className="inventory-empty">No hay registros para mostrar.</td></tr>
             )}
-            {respaldos.map(respaldo => (
+            {paginacion.visibles.map(respaldo => (
               <tr key={respaldo.id}>
                 <td>{fechaCorta(respaldo.fecha)}</td>
                 <td>{respaldo.tipo === 'copia' ? 'Copia' : 'Restauración'}</td>
@@ -241,6 +255,7 @@ export default function BackupsModule({ soloConsulta }: { soloConsulta: boolean 
             ))}
           </tbody>
         </table>
+        <Paginador control={paginacion} />
       </div>
     </div>
   )

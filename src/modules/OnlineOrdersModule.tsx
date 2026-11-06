@@ -5,6 +5,10 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe, type OpcionColumna } from '../lib/filtroColumna'
 
 /*
  * Pedidos de la tienda en línea.
@@ -171,6 +175,16 @@ function etiquetaAccion(accion: AccionPedido, pedido: Pedido | null) {
   return mapa[accion]
 }
 
+const OPCIONES_ESTADO: OpcionColumna[] = [
+  ['pendientes', 'Pendientes de atención'],
+  ['pendiente_validacion', 'Por validar'],
+  ['validado', 'Validado'],
+  ['en_despacho', 'En despacho'],
+  ['entregado', 'Entregado o retirado'],
+  ['rechazado', 'Rechazado'],
+  ['cancelado', 'Cancelado'],
+]
+
 const FILTROS_POR_ROL: Record<string, string> = {
   almacen: 'en_despacho',
 }
@@ -207,7 +221,7 @@ export default function OnlineOrdersModule({
   const [error, setError] = useState('')
   const [exito, setExito] = useState('')
 
-  const pedidosFiltrados = useMemo(() => {
+  const pedidosBuscados = useMemo(() => {
     const termino = busqueda.trim().toLowerCase()
 
     return pedidos.filter(pedido => {
@@ -220,7 +234,7 @@ export default function OnlineOrdersModule({
         (pedido.cliente_cedula ?? '').toLowerCase().includes(termino)
 
       const coincideEstado =
-        estado === 'todos' ||
+        !estado ||
         (estado === 'pendientes'
           ? ['pendiente_validacion', 'validado', 'en_despacho'].includes(pedido.estado)
           : pedido.estado === estado)
@@ -228,6 +242,15 @@ export default function OnlineOrdersModule({
       return coincideBusqueda && coincideEstado
     })
   }, [pedidos, busqueda, estado])
+
+  const [filtroEntrega, setFiltroEntrega] = useState('')
+  const [filtroPago, setFiltroPago] = useState('')
+
+  const pedidosFiltrados = pedidosBuscados.filter(
+    p => (!filtroEntrega || p.modalidad_entrega === filtroEntrega) && (!filtroPago || p.metodo_pago === filtroPago),
+  )
+
+  const paginacion = usePaginacion(pedidosFiltrados)
 
   const resumen = useMemo(
     () => ({
@@ -728,20 +751,6 @@ export default function OnlineOrdersModule({
               placeholder="Buscar por número, cliente, cédula, correo o teléfono..."
             />
           </div>
-
-          <select
-            value={estado}
-            onChange={event => setEstado(event.target.value)}
-          >
-            <option value="pendientes">Pendientes de atención</option>
-            <option value="todos">Todos los estados</option>
-            <option value="pendiente_validacion">Por validar</option>
-            <option value="validado">Validado</option>
-            <option value="en_despacho">En despacho</option>
-            <option value="entregado">Entregado o retirado</option>
-            <option value="rechazado">Rechazado</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
         </div>
 
         <div className="history-table-wrap">
@@ -750,10 +759,10 @@ export default function OnlineOrdersModule({
               <tr>
                 <th>Pedido</th>
                 <th>Cliente</th>
-                <th>Entrega</th>
-                <th>Pago</th>
+                <FiltroColumna titulo="Entrega" todos="Toda entrega" valor={filtroEntrega} opciones={[['domicilio', 'Domicilio'], ['retiro', 'Retiro']]} onCambiar={setFiltroEntrega} />
+                <FiltroColumna titulo="Pago" todos="Todo pago" valor={filtroPago} opciones={opcionesDe(pedidos, p => p.metodo_pago, etiquetaMetodoPago)} onCambiar={setFiltroPago} />
                 <th>Total</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={estado} opciones={OPCIONES_ESTADO} onCambiar={setEstado} />
                 <th>Fecha</th>
                 <th>Acciones</th>
               </tr>
@@ -767,7 +776,7 @@ export default function OnlineOrdersModule({
                   </td>
                 </tr>
               ) : (
-                pedidosFiltrados.map(pedido => (
+                paginacion.visibles.map(pedido => (
                   <tr key={pedido.id}>
                     <td><strong>{pedido.numero}</strong></td>
 
@@ -821,6 +830,7 @@ export default function OnlineOrdersModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       </section>
     </div>

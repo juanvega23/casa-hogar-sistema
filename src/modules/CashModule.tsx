@@ -6,6 +6,13 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroFechas from './FiltroFechas'
+import { enRangoDeFechas } from '../lib/filtroFechas'
+import { consultaCompleta } from '../lib/consultaCompleta'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 type CashModuleProps = {
   roleCode: string
@@ -354,7 +361,7 @@ export default function CashModule({
         `)
         .order('fecha_apertura', { ascending: false }),
 
-      supabase
+      consultaCompleta((inicio, fin) => supabase
         .from('movimientos_caja')
         .select(`
           id,
@@ -367,7 +374,9 @@ export default function CashModule({
           referencia,
           created_at
         `)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(inicio, fin)),
 
       supabase
         .from('arqueos_caja')
@@ -842,6 +851,37 @@ export default function CashModule({
     setProcesando(false)
   }
 
+  const [estadoHistorial, setEstadoHistorial] = useState('')
+  const [desdeHistorial, setDesdeHistorial] = useState('')
+  const [hastaHistorial, setHastaHistorial] = useState('')
+
+  const sesionesFiltradas = sesiones.filter(s =>
+    (!estadoHistorial || s.estado === estadoHistorial) &&
+    enRangoDeFechas(s.fecha_apertura, desdeHistorial, hastaHistorial),
+  )
+
+  const paginacion = usePaginacion(sesionesFiltradas)
+
+  const [filtroTipoMovimiento, setFiltroTipoMovimiento] = useState('')
+  const [filtroMetodoMovimiento, setFiltroMetodoMovimiento] = useState('')
+
+  // El resumen de la jornada sigue usando todos sus movimientos, no los filtrados
+  const movimientosFiltrados = movimientosActuales.filter(m =>
+    (!filtroTipoMovimiento || m.tipo === filtroTipoMovimiento) &&
+    (!filtroMetodoMovimiento || m.metodo_pago === filtroMetodoMovimiento),
+  )
+
+  const paginacionMovimientos = usePaginacion(movimientosFiltrados)
+
+  const [filtroEstadoDevolucion, setFiltroEstadoDevolucion] = useState('')
+
+  // Los totales de arriba siguen contando todas las devoluciones
+  const devolucionesFiltradas = devoluciones.filter(
+    d => !filtroEstadoDevolucion || d.estado_financiero === filtroEstadoDevolucion,
+  )
+
+  const paginacionDevoluciones = usePaginacion(devolucionesFiltradas)
+
   if (!puedeConsultar) {
     return (
       <div className="inventory-error">
@@ -1237,22 +1277,22 @@ export default function CashModule({
               <thead>
                 <tr>
                   <th>Fecha</th>
-                  <th>Tipo</th>
+                  <FiltroColumna titulo="Tipo" todos="Ingresos y egresos" valor={filtroTipoMovimiento} opciones={[['ingreso', 'Ingreso'], ['egreso', 'Egreso']]} onCambiar={setFiltroTipoMovimiento} />
                   <th>Concepto</th>
-                  <th>Método</th>
+                  <FiltroColumna titulo="Método" todos="Todos los métodos" valor={filtroMetodoMovimiento} opciones={opcionesDe(movimientosActuales, m => m.metodo_pago, etiquetaMetodo)} onCambiar={setFiltroMetodoMovimiento} />
                   <th>Referencia</th>
                   <th>Monto</th>
                 </tr>
               </thead>
               <tbody>
-                {movimientosActuales.length === 0 ? (
+                {movimientosFiltrados.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="inventory-empty">
-                      No hay movimientos en la jornada actual.
+                      No hay movimientos para mostrar.
                     </td>
                   </tr>
                 ) : (
-                  movimientosActuales.map(m => (
+                  paginacionMovimientos.visibles.map(m => (
                     <tr key={m.id}>
                       <td>{fecha(m.created_at)}</td>
                       <td>
@@ -1269,6 +1309,7 @@ export default function CashModule({
                 )}
               </tbody>
             </table>
+            <Paginador control={paginacionMovimientos} />
           </div>
         </section>
       </div>
@@ -1678,19 +1719,19 @@ export default function CashModule({
                   <th>Total</th>
                   <th>A crédito</th>
                   <th>Reembolso</th>
-                  <th>Estado</th>
+                  <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstadoDevolucion} opciones={opcionesDe(devoluciones, d => d.estado_financiero, etiquetaEstadoFinanciero)} onCambiar={setFiltroEstadoDevolucion} />
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {devoluciones.length === 0 ? (
+                {devolucionesFiltradas.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="inventory-empty">
-                      No hay devoluciones confirmadas.
+                      No hay devoluciones para mostrar.
                     </td>
                   </tr>
                 ) : (
-                  devoluciones.map(d => {
+                  paginacionDevoluciones.visibles.map(d => {
                     const venta = relacion(d.ventas)
 
                     return (
@@ -1746,6 +1787,7 @@ export default function CashModule({
                 )}
               </tbody>
             </table>
+            <Paginador control={paginacionDevoluciones} />
           </div>
         </section>
       </div>
@@ -1830,7 +1872,11 @@ export default function CashModule({
             <span className="panel-label">HISTORIAL</span>
             <h3>Jornadas de caja</h3>
           </div>
-          <span className="sales-result-count">{sesiones.length} jornadas</span>
+          <span className="sales-result-count">{sesionesFiltradas.length} jornadas</span>
+        </div>
+
+        <div className="history-filters history-filters--fechas">
+          <FiltroFechas desde={desdeHistorial} hasta={hastaHistorial} onDesde={setDesdeHistorial} onHasta={setHastaHistorial} />
         </div>
 
         <div className="cash-table-wrap">
@@ -1840,20 +1886,20 @@ export default function CashModule({
                 <th>Jornada</th>
                 <th>Apertura</th>
                 <th>Fondo inicial</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={estadoHistorial} opciones={[['abierta', 'Abiertas'], ['cerrada', 'Cerradas']]} onCambiar={setEstadoHistorial} />
                 <th>Cierre</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {sesiones.length === 0 ? (
+              {sesionesFiltradas.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="inventory-empty">
-                    No existen jornadas de caja registradas.
+                    No hay jornadas de caja para mostrar.
                   </td>
                 </tr>
               ) : (
-                sesiones.map(s => (
+                paginacion.visibles.map(s => (
                   <tr key={s.id}>
                     <td><strong>{s.numero}</strong></td>
                     <td>{fecha(s.fecha_apertura)}</td>
@@ -1878,6 +1924,7 @@ export default function CashModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       </section>
     </div>

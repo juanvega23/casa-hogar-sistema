@@ -15,6 +15,10 @@ import {
   menusByRole,
   type RoleCode,
 } from '../config/roleMenus'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 type SupportModuleProps = {
   roleCode: string
@@ -159,6 +163,7 @@ export default function SupportModule({
   // Usuarios: búsqueda y filtros
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('activos')
+  const [filtroRol, setFiltroRol] = useState('')
 
   // Alta
   const [mostrarAlta, setMostrarAlta] = useState(false)
@@ -175,7 +180,8 @@ export default function SupportModule({
   const [nuevaClave, setNuevaClave] = useState('')
 
   // Auditoría
-  const [filtroModulo, setFiltroModulo] = useState('todos')
+  const [filtroModulo, setFiltroModulo] = useState('')
+  const [filtroUsuarioAuditoria, setFiltroUsuarioAuditoria] = useState('')
   const [busquedaAuditoria, setBusquedaAuditoria] = useState('')
 
   const [miId, setMiId] = useState<string | null>(null)
@@ -288,21 +294,24 @@ export default function SupportModule({
         (u.rol_nombre ?? '').toLowerCase().includes(termino)
 
       const coincideEstado =
-        filtroEstado === 'todos' ||
+        !filtroEstado ||
         (filtroEstado === 'activos' && u.activo) ||
         (filtroEstado === 'inactivos' && !u.activo) ||
         (filtroEstado === 'sin_rol' && u.role_id === null)
 
-      return coincideBusqueda && coincideEstado
+      const coincideRol = !filtroRol || u.rol_nombre === filtroRol
+
+      return coincideBusqueda && coincideEstado && coincideRol
     })
-  }, [usuarios, busqueda, filtroEstado])
+  }, [usuarios, busqueda, filtroEstado, filtroRol])
 
   const eventosFiltrados = useMemo(() => {
     const termino = busquedaAuditoria.trim().toLowerCase()
 
     return eventos.filter(e => {
       const coincideModulo =
-        filtroModulo === 'todos' || e.modulo === filtroModulo
+        (!filtroModulo || e.modulo === filtroModulo) &&
+        (!filtroUsuarioAuditoria || e.usuario === filtroUsuarioAuditoria)
 
       const coincideBusqueda =
         !termino ||
@@ -315,7 +324,9 @@ export default function SupportModule({
 
       return coincideModulo && coincideBusqueda
     })
-  }, [eventos, filtroModulo, busquedaAuditoria])
+  }, [eventos, filtroModulo, filtroUsuarioAuditoria, busquedaAuditoria])
+
+  const paginacion = usePaginacion(eventosFiltrados)
 
   // ==========================================================
   // ACCIONES
@@ -578,7 +589,6 @@ export default function SupportModule({
   // ---------------------------------------------------------
 
   if (vista === 'auditoria') {
-    const modulos = Array.from(new Set(eventos.map(e => e.modulo))).sort()
 
     return (
       <div className="history-module">
@@ -624,16 +634,6 @@ export default function SupportModule({
                 placeholder="Buscar por acción, referencia, detalle o usuario..."
               />
             </div>
-
-            <select
-              value={filtroModulo}
-              onChange={event => setFiltroModulo(event.target.value)}
-            >
-              <option value="todos">Todos los módulos</option>
-              {modulos.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
           </div>
 
           <div className="history-table-wrap">
@@ -641,11 +641,11 @@ export default function SupportModule({
               <thead>
                 <tr>
                   <th>Fecha</th>
-                  <th>Módulo</th>
+                  <FiltroColumna titulo="Módulo" todos="Todos los módulos" valor={filtroModulo} opciones={opcionesDe(eventos, e => e.modulo)} onCambiar={setFiltroModulo} />
                   <th>Acción</th>
                   <th>Referencia</th>
                   <th>Detalle</th>
-                  <th>Usuario</th>
+                  <FiltroColumna titulo="Usuario" todos="Todos los usuarios" valor={filtroUsuarioAuditoria} opciones={opcionesDe(eventos, e => e.usuario, valor => valor === SIN_USUARIO ? 'Carga del sistema' : valor)} onCambiar={setFiltroUsuarioAuditoria} />
                 </tr>
               </thead>
               <tbody>
@@ -656,7 +656,7 @@ export default function SupportModule({
                     </td>
                   </tr>
                 ) : (
-                  eventosFiltrados.map((e, indice) => (
+                  paginacion.visibles.map((e, indice) => (
                     <tr key={`${e.fecha}-${indice}`}>
                       <td>{formatearFecha(e.fecha)}</td>
                       <td>
@@ -682,6 +682,7 @@ export default function SupportModule({
                 )}
               </tbody>
             </table>
+            <Paginador control={paginacion} />
           </div>
         </section>
       </div>
@@ -1150,16 +1151,6 @@ export default function SupportModule({
               placeholder="Buscar por nombre, correo o rol..."
             />
           </div>
-
-          <select
-            value={filtroEstado}
-            onChange={event => setFiltroEstado(event.target.value)}
-          >
-            <option value="activos">Activos</option>
-            <option value="inactivos">Inactivos</option>
-            <option value="sin_rol">Sin rol</option>
-            <option value="todos">Todos</option>
-          </select>
         </div>
 
         <div className="history-table-wrap">
@@ -1167,8 +1158,8 @@ export default function SupportModule({
             <thead>
               <tr>
                 <th>Usuario</th>
-                <th>Rol</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Rol" todos="Todos los roles" valor={filtroRol} opciones={opcionesDe(usuarios, u => u.rol_nombre)} onCambiar={setFiltroRol} />
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstado} opciones={[['activos', 'Activos'], ['inactivos', 'Inactivos'], ['sin_rol', 'Sin rol']]} onCambiar={setFiltroEstado} />
                 <th>Último acceso</th>
                 <th>Acciones</th>
               </tr>

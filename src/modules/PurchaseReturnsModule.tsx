@@ -5,6 +5,8 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
 
 
 type PurchaseReturnsModuleProps = {
@@ -681,6 +683,8 @@ export default function PurchaseReturnsModule({
       busquedaCompras,
     ])
 
+  const paginacion = usePaginacion(comprasFiltradas)
+
 
   const historialFiltrado =
     useMemo(() => {
@@ -715,6 +719,8 @@ export default function PurchaseReturnsModule({
       devoluciones,
       busquedaHistorial,
     ])
+
+  const paginacionHistorial = usePaginacion(historialFiltrado)
 
 
   // ==========================================================
@@ -2260,7 +2266,7 @@ export default function PurchaseReturnsModule({
                 </tr>
               )}
 
-              {comprasFiltradas.map(
+              {paginacion.visibles.map(
                 compra => (
                   <tr
                     key={
@@ -2338,6 +2344,7 @@ export default function PurchaseReturnsModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       </div>
 
@@ -2467,7 +2474,7 @@ export default function PurchaseReturnsModule({
                 </tr>
               )}
 
-              {historialFiltrado.map(
+              {paginacionHistorial.visibles.map(
                 devolucion => (
                   <tr
                     key={
@@ -2541,6 +2548,7 @@ export default function PurchaseReturnsModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacionHistorial} />
         </div>
       </div>
     </div>

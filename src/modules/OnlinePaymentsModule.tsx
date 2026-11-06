@@ -5,6 +5,10 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import FiltroColumna from './FiltroColumna'
+import Paginador from './Paginador'
+import { opcionesDe } from '../lib/filtroColumna'
+import { usePaginacion } from '../lib/paginacion'
 
 /*
  * Caja → Pagos en línea.
@@ -69,6 +73,8 @@ function montoPagado(pago: PagoEnLinea) {
 
 export default function OnlinePaymentsModule() {
   const [pagos, setPagos] = useState<PagoEnLinea[]>([])
+  const [filtroMedio, setFiltroMedio] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
   const [vista, setVista] = useState<Vista>('revisar')
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState<number | null>(null)
@@ -186,6 +192,13 @@ export default function OnlinePaymentsModule() {
     await pedirPagos()
   }
 
+  const historialFiltrado = historial.filter(pago =>
+    (!filtroMedio || pago.metodo === filtroMedio) &&
+    (!filtroEstado || pago.estado === filtroEstado),
+  )
+
+  const paginacion = usePaginacion(historialFiltrado)
+
   if (cargando) {
     return (
       <div className="inventory-loading">
@@ -244,14 +257,17 @@ export default function OnlinePaymentsModule() {
               <tr>
                 <th>Pedido</th>
                 <th>Cliente</th>
-                <th>Medio</th>
+                <FiltroColumna titulo="Medio" todos="Tarjeta y transferencia" valor={filtroMedio} opciones={[['tarjeta', 'Tarjeta'], ['transferencia', 'Transferencia']]} onCambiar={setFiltroMedio} />
                 <th>Monto</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstado} opciones={opcionesDe(historial, p => p.estado, valor => ESTADOS[valor] ?? valor)} onCambiar={setFiltroEstado} />
                 <th>Fecha</th>
               </tr>
             </thead>
             <tbody>
-              {lista.map(pago => (
+              {historialFiltrado.length === 0 && (
+                <tr><td colSpan={6} className="inventory-empty">No hay pagos para mostrar.</td></tr>
+              )}
+              {paginacion.visibles.map(pago => (
                 <tr key={pago.pago_id}>
                   <td><strong>{pago.pedido_numero}</strong></td>
                   <td>{pago.cliente_nombre}</td>
@@ -268,6 +284,7 @@ export default function OnlinePaymentsModule() {
               ))}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       ) : (
         <div className="pagos-lista">

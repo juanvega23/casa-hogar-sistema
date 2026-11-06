@@ -6,6 +6,10 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 
 type QuotesModuleProps = {
@@ -233,7 +237,7 @@ export default function QuotesModule({
     )
 
 
-  const cotizacionesFiltradas =
+  const cotizacionesBuscadas =
     useMemo(() => {
       const termino =
         busqueda
@@ -263,6 +267,14 @@ export default function QuotesModule({
       cotizaciones,
       busqueda,
     ])
+
+  const [filtroEstado, setFiltroEstado] = useState('')
+
+  const cotizacionesFiltradas = cotizacionesBuscadas.filter(
+    c => !filtroEstado || c.estado === filtroEstado,
+  )
+
+  const paginacion = usePaginacion(cotizacionesFiltradas)
 
 
   const resumen = useMemo(() => {
@@ -1442,7 +1454,7 @@ export default function QuotesModule({
                 <th>Cliente</th>
                 <th>Vigencia</th>
                 <th>Total</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstado} opciones={opcionesDe(cotizaciones, c => c.estado, etiquetaEstado)} onCambiar={setFiltroEstado} />
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -1459,7 +1471,7 @@ export default function QuotesModule({
                   </td>
                 </tr>
               ) : (
-                cotizacionesFiltradas.map(
+                paginacion.visibles.map(
                   cotizacion => (
                     <tr
                       key={
@@ -1553,6 +1565,7 @@ export default function QuotesModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       </section>
 

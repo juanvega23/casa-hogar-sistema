@@ -6,6 +6,13 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroFechas from './FiltroFechas'
+import { enRangoDeFechas } from '../lib/filtroFechas'
+import { consultaCompleta } from '../lib/consultaCompleta'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 type ExistenciaRelacion = {
   cantidad: number
@@ -225,7 +232,7 @@ export default function MovementsModule({
           ascending: true,
         }),
 
-      supabase
+      consultaCompleta((inicio, fin) => supabase
         .from(
           'movimientos_inventario',
         )
@@ -246,7 +253,11 @@ export default function MovementsModule({
         `)
         .order('created_at', {
           ascending: false,
-        }),
+        })
+        .order('id', {
+          ascending: false,
+        })
+        .range(inicio, fin)),
     ])
 
     if (productosResultado.error) {
@@ -385,7 +396,7 @@ export default function MovementsModule({
       ],
     )
 
-  const movimientosFiltrados =
+  const movimientosBuscados =
     useMemo(() => {
       const termino =
         busqueda
@@ -418,6 +429,16 @@ export default function MovementsModule({
       movimientos,
       busqueda,
     ])
+
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
+
+  const movimientosFiltrados = movimientosBuscados.filter(
+    m => (!filtroTipo || m.tipo === filtroTipo) && enRangoDeFechas(m.fecha, desde, hasta),
+  )
+
+  const paginacion = usePaginacion(movimientosFiltrados)
 
   const resumen =
     useMemo(() => {
@@ -877,6 +898,8 @@ export default function MovementsModule({
           />
         </div>
 
+        <FiltroFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
+
         <span className="inventory-result-count">
           {
             movimientosFiltrados.length
@@ -895,7 +918,7 @@ export default function MovementsModule({
             <tr>
               <th>Fecha</th>
               <th>Producto</th>
-              <th>Tipo</th>
+              <FiltroColumna titulo="Tipo" todos="Todos los tipos" valor={filtroTipo} opciones={opcionesDe(movimientos, m => m.tipo, nombreTipoMovimiento)} onCambiar={setFiltroTipo} />
               <th>Cantidad</th>
               <th>Anterior</th>
               <th>Nueva</th>
@@ -907,7 +930,7 @@ export default function MovementsModule({
           <tbody>
             {movimientosFiltrados.length >
             0 ? (
-              movimientosFiltrados.map(
+              paginacion.visibles.map(
                 (movimiento) => (
                   <tr
                     key={
@@ -1000,6 +1023,7 @@ export default function MovementsModule({
             )}
           </tbody>
         </table>
+        <Paginador control={paginacion} />
       </div>
     </div>
   )

@@ -10,6 +10,10 @@ import {
 
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 
 type Proveedor = {
@@ -1165,7 +1169,7 @@ const comprasPorVista =
 // BUSCADOR
 // ==========================================================
 
-const comprasFiltradas =
+const comprasBuscadas =
   useMemo(() => {
     const termino =
       busqueda
@@ -1210,6 +1214,24 @@ const comprasFiltradas =
     comprasPorVista,
     busqueda,
   ])
+
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
+
+  const [vistaDeFiltros, setVistaDeFiltros] = useState(vista)
+  
+  // Compras, Órdenes y Autorización comparten pantalla: cada una empieza sin filtros
+  if (vistaDeFiltros !== vista) {
+    setVistaDeFiltros(vista)
+    setFiltroTipo('')
+    setFiltroEstado('')
+  }
+  
+  const comprasFiltradas = comprasBuscadas.filter(
+    c => (!filtroTipo || c.tipo_compra === filtroTipo) && (!filtroEstado || c.estado === filtroEstado),
+  )
+
+  const paginacion = usePaginacion(comprasFiltradas)
   
   // ==========================================================
 
@@ -4690,11 +4712,7 @@ const comprasFiltradas =
               </th>
 
 
-              <th>
-
-                TIPO
-
-              </th>
+              <FiltroColumna titulo="TIPO" todos="Todos los tipos" valor={filtroTipo} opciones={opcionesDe(comprasPorVista, c => c.tipo_compra, valor => etiquetaTipoCompra(valor as TipoCompra))} onCambiar={setFiltroTipo} />
 
 
               <th>
@@ -4718,11 +4736,7 @@ const comprasFiltradas =
               </th>
 
 
-              <th>
-
-                ESTADO
-
-              </th>
+              <FiltroColumna titulo="ESTADO" todos="Todos los estados" valor={filtroEstado} opciones={opcionesDe(comprasPorVista, c => c.estado, valor => etiquetaEstadoCompra(valor as EstadoCompra))} onCambiar={setFiltroEstado} />
 
 
               <th>
@@ -4775,7 +4789,7 @@ const comprasFiltradas =
             )}
 
 
-            {comprasFiltradas.map(
+            {paginacion.visibles.map(
 
               compra => {
 
@@ -5089,6 +5103,7 @@ const comprasFiltradas =
           </tbody>
 
         </table>
+        <Paginador control={paginacion} />
 
       </div>
 

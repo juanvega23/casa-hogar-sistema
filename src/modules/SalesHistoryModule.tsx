@@ -5,6 +5,13 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroFechas from './FiltroFechas'
+import { enRangoDeFechas } from '../lib/filtroFechas'
+import { consultaCompleta } from '../lib/consultaCompleta'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 type SalesHistoryModuleProps = {
   roleCode: string
@@ -95,8 +102,11 @@ export default function SalesHistoryModule({
     useState<Venta | null>(null)
   const [detalle, setDetalle] = useState<DetalleVenta[]>([])
   const [busqueda, setBusqueda] = useState('')
-  const [canal, setCanal] = useState('todos')
-  const [estado, setEstado] = useState('todos')
+  const [canal, setCanal] = useState('')
+  const [tipo, setTipo] = useState('')
+  const [estado, setEstado] = useState('')
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
   const [cargando, setCargando] = useState(true)
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
   const [error, setError] = useState('')
@@ -113,14 +123,19 @@ export default function SalesHistoryModule({
         (venta.pedido_numero ?? '').toLowerCase().includes(termino)
 
       const coincideCanal =
-        canal === 'todos' || venta.canal === canal
+        !canal || venta.canal === canal
+
+      const coincideTipo =
+        !tipo || venta.tipo_venta === tipo
 
       const coincideEstado =
-        estado === 'todos' || venta.estado === estado
+        !estado || venta.estado === estado
 
-      return coincideBusqueda && coincideCanal && coincideEstado
+      return coincideBusqueda && coincideCanal && coincideTipo && coincideEstado && enRangoDeFechas(venta.created_at, desde, hasta)
     })
-  }, [ventas, busqueda, canal, estado])
+  }, [ventas, busqueda, canal, tipo, estado, desde, hasta])
+
+  const paginacion = usePaginacion(ventasFiltradas)
 
   const resumen = useMemo(
     () => ({
@@ -142,7 +157,7 @@ export default function SalesHistoryModule({
     setError('')
 
     const { data: ventasData, error: ventasError } =
-      await supabase
+      await consultaCompleta((inicio, fin) => supabase
         .from('ventas')
         .select(`
           id,
@@ -159,6 +174,8 @@ export default function SalesHistoryModule({
           motivo_anulacion
         `)
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(inicio, fin))
 
     if (ventasError) {
       setError(ventasError.message)
@@ -172,10 +189,12 @@ export default function SalesHistoryModule({
 
     if (ids.length > 0) {
       const { data: pedidosData, error: pedidosError } =
-        await supabase
+        await consultaCompleta((inicio, fin) => supabase
           .from('pedidos_en_linea')
           .select(`numero, venta_id`)
-          .in('venta_id', ids)
+          .not('venta_id', 'is', null)
+          .order('id', { ascending: true })
+          .range(inicio, fin))
 
       if (!pedidosError) {
         pedidosPorVenta = new Map(
@@ -455,7 +474,7 @@ export default function SalesHistoryModule({
           </span>
         </div>
 
-        <div className="history-filters">
+        <div className="history-filters history-filters--fechas">
           <div className="clients-search">
             <span>⌕</span>
             <input
@@ -466,26 +485,7 @@ export default function SalesHistoryModule({
             />
           </div>
 
-          <select
-            value={canal}
-            onChange={event => setCanal(event.target.value)}
-          >
-            <option value="todos">Todos los canales</option>
-            <option value="presencial">Presencial</option>
-            <option value="en_linea">En línea</option>
-          </select>
-
-          <select
-            value={estado}
-            onChange={event => setEstado(event.target.value)}
-          >
-            <option value="todos">Todos los estados</option>
-            <option value="pendiente_cobro">Pendiente de cobro</option>
-            <option value="con_saldo">Con saldo</option>
-            <option value="pagada">Pagada</option>
-            <option value="completada">Completada</option>
-            <option value="anulada">Anulada</option>
-          </select>
+          <FiltroFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
         </div>
 
         <div className="history-table-wrap">
@@ -494,10 +494,10 @@ export default function SalesHistoryModule({
               <tr>
                 <th>Venta</th>
                 <th>Cliente</th>
-                <th>Canal</th>
-                <th>Tipo</th>
+                <FiltroColumna titulo="Canal" todos="Todos los canales" valor={canal} opciones={[['presencial', 'Presencial'], ['en_linea', 'En línea']]} onCambiar={setCanal} />
+                <FiltroColumna titulo="Tipo" todos="Contado y crédito" valor={tipo} opciones={[['contado', 'Contado'], ['credito', 'Crédito']]} onCambiar={setTipo} />
                 <th>Total</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={estado} opciones={opcionesDe(ventas, v => v.estado, etiquetaEstado)} onCambiar={setEstado} />
                 <th>Fecha</th>
                 <th>Acciones</th>
               </tr>
@@ -511,7 +511,7 @@ export default function SalesHistoryModule({
                   </td>
                 </tr>
               ) : (
-                ventasFiltradas.map(venta => (
+                paginacion.visibles.map(venta => (
                   <tr key={venta.id}>
                     <td>
                       <strong>{venta.numero}</strong>
@@ -564,6 +564,7 @@ export default function SalesHistoryModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       </section>
     </div>

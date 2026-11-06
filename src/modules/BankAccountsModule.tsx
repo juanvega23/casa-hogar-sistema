@@ -5,6 +5,8 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 /*
  * Caja → Cuentas bancarias.
@@ -36,6 +38,10 @@ const CUENTA_VACIA = {
 
 export default function BankAccountsModule() {
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
+  const [filtroBanco, setFiltroBanco] = useState('')
+  const [filtroMoneda, setFiltroMoneda] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroVisible, setFiltroVisible] = useState('')
   const [tipoCambio, setTipoCambio] = useState('')
   const [tipoCambioActual, setTipoCambioActual] = useState<number | null>(null)
   const [form, setForm] = useState(CUENTA_VACIA)
@@ -171,6 +177,13 @@ export default function BankAccountsModule() {
     await pedirDatos()
   }
 
+  const cuentasFiltradas = cuentas.filter(cuenta =>
+    (!filtroBanco || cuenta.banco === filtroBanco) &&
+    (!filtroMoneda || cuenta.moneda === filtroMoneda) &&
+    (!filtroTipo || cuenta.tipo_cuenta === filtroTipo) &&
+    (!filtroVisible || cuenta.activa === (filtroVisible === 'si')),
+  )
+
   if (cargando) {
     return (
       <div className="inventory-loading">
@@ -251,17 +264,20 @@ export default function BankAccountsModule() {
         <table className="history-table">
           <thead>
             <tr>
-              <th>Banco</th>
+              <FiltroColumna titulo="Banco" todos="Todos los bancos" valor={filtroBanco} opciones={opcionesDe(cuentas, c => c.banco)} onCambiar={setFiltroBanco} />
               <th>Número</th>
-              <th>Moneda</th>
-              <th>Tipo</th>
+              <FiltroColumna titulo="Moneda" todos="Todas las monedas" valor={filtroMoneda} opciones={[['NIO', 'Córdobas'], ['USD', 'Dólares']]} onCambiar={setFiltroMoneda} />
+              <FiltroColumna titulo="Tipo" todos="Todos los tipos" valor={filtroTipo} opciones={opcionesDe(cuentas, c => c.tipo_cuenta)} onCambiar={setFiltroTipo} />
               <th>Titular</th>
-              <th>En la tienda</th>
+              <FiltroColumna titulo="En la tienda" todos="Visibles y ocultas" valor={filtroVisible} opciones={[['si', 'Visible'], ['no', 'Oculta']]} onCambiar={setFiltroVisible} />
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {cuentas.map(cuenta => (
+            {cuentasFiltradas.length === 0 && (
+              <tr><td colSpan={7} className="inventory-empty">No hay cuentas para mostrar.</td></tr>
+            )}
+            {cuentasFiltradas.map(cuenta => (
               <tr key={cuenta.id}>
                 <td><strong>{cuenta.banco}</strong></td>
                 <td className="kardex-documento">{cuenta.numero}</td>

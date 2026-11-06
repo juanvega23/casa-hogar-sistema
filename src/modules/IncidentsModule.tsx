@@ -15,6 +15,18 @@ import {
   TIPOS_INCIDENCIA,
   type EventoHistorial,
 } from '../lib/soporteTi'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe, type OpcionColumna } from '../lib/filtroColumna'
+
+const OPCIONES_ESTADO: OpcionColumna[] = [
+  ['pendientes', 'Pendientes'],
+  ['abierta', 'Abierta'],
+  ['en_atencion', 'En atención'],
+  ['resuelta', 'Resuelta, por confirmar'],
+  ['cerrada', 'Cerrada'],
+]
 
 /*
  * Soporte TI → Incidencias: atiende lo que reporta el personal.
@@ -45,6 +57,9 @@ export default function IncidentsModule({ soloConsulta }: { soloConsulta: boolea
   const [incidencias, setIncidencias] = useState<Incidencia[]>([])
   const [equipos, setEquipos] = useState<EquipoOpcion[]>([])
   const [filtro, setFiltro] = useState('pendientes')
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroPrioridad, setFiltroPrioridad] = useState('')
+  const [filtroReporto, setFiltroReporto] = useState('')
   const [abiertaId, setAbiertaId] = useState<number | null>(null)
   const [historial, setHistorial] = useState<EventoHistorial[]>([])
   const [prioridad, setPrioridad] = useState('media')
@@ -82,16 +97,25 @@ export default function IncidentsModule({ soloConsulta }: { soloConsulta: boolea
   const abierta = incidencias.find(incidencia => incidencia.id === abiertaId) ?? null
 
   const visibles = useMemo(
-    () =>
-      incidencias.filter(incidencia =>
-        filtro === 'todas'
+    () => {
+      const termino = busqueda.trim().toLowerCase()
+
+      return incidencias.filter(incidencia =>
+        (!filtro
           ? true
           : filtro === 'pendientes'
             ? incidencia.estado !== 'cerrada'
-            : incidencia.estado === filtro,
-      ),
-    [incidencias, filtro],
+            : incidencia.estado === filtro) &&
+        (!filtroPrioridad || incidencia.prioridad === filtroPrioridad) &&
+        (!filtroReporto || incidencia.reportado_nombre === filtroReporto) &&
+        (!termino || [incidencia.numero, incidencia.descripcion, incidencia.modulo, incidencia.reportado_nombre]
+          .some(texto => (texto ?? '').toLowerCase().includes(termino))),
+      )
+    },
+    [incidencias, filtro, filtroPrioridad, filtroReporto, busqueda],
   )
+
+  const paginacion = usePaginacion(visibles)
 
   const resumen = useMemo(
     () => ({
@@ -196,17 +220,15 @@ export default function IncidentsModule({ soloConsulta }: { soloConsulta: boolea
       {exito && <div className="movement-success">{exito}</div>}
 
       <div className="history-filters soporte-filtros">
-        <label>
-          <span>Ver</span>
-          <select value={filtro} onChange={event => setFiltro(event.target.value)}>
-            <option value="pendientes">Pendientes</option>
-            <option value="abierta">Abiertas</option>
-            <option value="en_atencion">En atención</option>
-            <option value="resuelta">Por confirmar</option>
-            <option value="cerrada">Cerradas</option>
-            <option value="todas">Todas</option>
-          </select>
-        </label>
+        <div className="clients-search">
+          <span>⌕</span>
+          <input
+            type="text"
+            value={busqueda}
+            onChange={event => setBusqueda(event.target.value)}
+            placeholder="Buscar por número, problema, módulo o quien reportó..."
+          />
+        </div>
       </div>
 
       {abierta && (
@@ -317,9 +339,9 @@ export default function IncidentsModule({ soloConsulta }: { soloConsulta: boolea
             <tr>
               <th>Número</th>
               <th>Problema</th>
-              <th>Reportó</th>
-              <th>Prioridad</th>
-              <th>Estado</th>
+              <FiltroColumna titulo="Reportó" todos="Todas las personas" valor={filtroReporto} opciones={opcionesDe(incidencias, i => i.reportado_nombre)} onCambiar={setFiltroReporto} />
+              <FiltroColumna titulo="Prioridad" todos="Todas las prioridades" valor={filtroPrioridad} opciones={Object.entries(PRIORIDADES)} onCambiar={setFiltroPrioridad} />
+              <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtro} opciones={OPCIONES_ESTADO} onCambiar={setFiltro} />
               <th>Fecha</th>
               <th>Acciones</th>
             </tr>
@@ -328,7 +350,7 @@ export default function IncidentsModule({ soloConsulta }: { soloConsulta: boolea
             {visibles.length === 0 && (
               <tr><td colSpan={7} className="inventory-empty">No hay incidencias para mostrar.</td></tr>
             )}
-            {visibles.map(incidencia => (
+            {paginacion.visibles.map(incidencia => (
               <tr key={incidencia.id}>
                 <td className="kardex-documento">{incidencia.numero}</td>
                 <td>
@@ -348,6 +370,7 @@ export default function IncidentsModule({ soloConsulta }: { soloConsulta: boolea
             ))}
           </tbody>
         </table>
+        <Paginador control={paginacion} />
       </div>
     </div>
   )

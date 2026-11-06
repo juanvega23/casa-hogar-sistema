@@ -5,6 +5,10 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 
 type SalesReturnsModuleProps = {
@@ -241,7 +245,7 @@ export default function SalesReturnsModule({
     useState('')
 
 
-  const devolucionesFiltradas =
+  const devolucionesBuscadas =
     useMemo(() => {
       const termino =
         busqueda
@@ -288,6 +292,14 @@ export default function SalesReturnsModule({
       devoluciones,
       busqueda,
     ])
+
+  const [filtroEstado, setFiltroEstado] = useState('')
+
+  const devolucionesFiltradas = devolucionesBuscadas.filter(
+    d => !filtroEstado || d.estado === filtroEstado,
+  )
+
+  const paginacion = usePaginacion(devolucionesFiltradas)
 
 
   const resumen =
@@ -1371,7 +1383,7 @@ export default function SalesReturnsModule({
                 <th>Cliente</th>
                 <th>Motivo</th>
                 <th>Total</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstado} opciones={opcionesDe(devoluciones, d => d.estado, etiquetaEstado)} onCambiar={setFiltroEstado} />
                 <th>Fecha</th>
                 <th>Acciones</th>
               </tr>
@@ -1389,7 +1401,7 @@ export default function SalesReturnsModule({
                   </td>
                 </tr>
               ) : (
-                devolucionesFiltradas.map(
+                paginacion.visibles.map(
                   devolucion => {
                     const venta =
                       relacion(
@@ -1495,6 +1507,7 @@ export default function SalesReturnsModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       </section>
 

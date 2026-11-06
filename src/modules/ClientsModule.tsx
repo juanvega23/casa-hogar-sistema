@@ -11,6 +11,9 @@ import {
   errorRuc,
   mensajeIdentidad,
 } from '../lib/identidad'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
 
 
 type Cliente = {
@@ -193,7 +196,7 @@ export default function ClientsModule({
   }, [roleCode])
 
 
-  const clientesFiltrados =
+  const clientesBuscados =
     useMemo(() => {
       const termino =
         busqueda.trim().toLowerCase()
@@ -216,6 +219,15 @@ export default function ClientsModule({
         ),
       )
     }, [clientes, busqueda])
+
+  const [filtroCredito, setFiltroCredito] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
+
+  const clientesFiltrados = clientesBuscados.filter(
+    c => (!filtroCredito || c.permite_credito === (filtroCredito === 'si')) && (!filtroEstado || c.activo === (filtroEstado === 'si')),
+  )
+
+  const paginacion = usePaginacion(clientesFiltrados)
 
 
   const clientesActivos =
@@ -792,8 +804,8 @@ export default function ClientsModule({
                 <th>Código</th>
                 <th>Cliente</th>
                 <th>Contacto</th>
-                <th>Crédito</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Crédito" todos="Con y sin crédito" valor={filtroCredito} opciones={[['si', 'Con crédito'], ['no', 'Sin crédito']]} onCambiar={setFiltroCredito} />
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstado} opciones={[['si', 'Activos'], ['no', 'Inactivos']]} onCambiar={setFiltroEstado} />
                 {puedeGestionar && (
                   <th>Acciones</th>
                 )}
@@ -802,7 +814,7 @@ export default function ClientsModule({
 
             <tbody>
               {clientesFiltrados.length > 0 ? (
-                clientesFiltrados.map(
+                paginacion.visibles.map(
                   (cliente) => (
                     <tr key={cliente.id}>
                       <td>
@@ -907,6 +919,7 @@ export default function ClientsModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       </section>
     </div>

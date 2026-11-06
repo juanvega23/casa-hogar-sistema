@@ -5,6 +5,10 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import FiltroColumna from './FiltroColumna'
+import Paginador from './Paginador'
+import { opcionesDe } from '../lib/filtroColumna'
+import { usePaginacion } from '../lib/paginacion'
 
 // Fila de reposicion_sugerida() (misma lista que ve Compras)
 type SugerenciaRespuesta = {
@@ -123,7 +127,7 @@ export default function ReplenishmentModule() {
     cargarReposicion()
   }, [])
 
-  const productosFiltrados =
+  const productosBuscados =
     useMemo(() => {
       const termino =
         busqueda
@@ -150,6 +154,18 @@ export default function ReplenishmentModule() {
       productos,
       busqueda,
     ])
+
+  const [filtroCategoria, setFiltroCategoria] = useState('')
+  const [filtroUnidad, setFiltroUnidad] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
+
+  const productosFiltrados = productosBuscados.filter(p =>
+    (!filtroCategoria || p.categoria === filtroCategoria) &&
+    (!filtroUnidad || p.unidad === filtroUnidad) &&
+    (!filtroEstado || p.estado === filtroEstado),
+  )
+
+  const paginacion = usePaginacion(productosFiltrados)
 
   const resumen =
     useMemo(() => {
@@ -346,7 +362,7 @@ export default function ReplenishmentModule() {
       ============================================== */}
 
       {!error &&
-        productosFiltrados.length ===
+        productosBuscados.length ===
           0 && (
           <section className="replenishment-ok-card">
             <div className="replenishment-ok-icon">
@@ -375,7 +391,7 @@ export default function ReplenishmentModule() {
       ============================================== */}
 
       {!error &&
-        productosFiltrados.length >
+        productosBuscados.length >
           0 && (
           <div className="inventory-table-container">
             <table className="inventory-table">
@@ -383,8 +399,8 @@ export default function ReplenishmentModule() {
                 <tr>
                   <th>Código</th>
                   <th>Producto</th>
-                  <th>Categoría</th>
-                  <th>Unidad</th>
+                  <FiltroColumna titulo="Categoría" todos="Todas las categorías" valor={filtroCategoria} opciones={opcionesDe(productos, p => p.categoria)} onCambiar={setFiltroCategoria} />
+                  <FiltroColumna titulo="Unidad" todos="Todas las unidades" valor={filtroUnidad} opciones={opcionesDe(productos, p => p.unidad)} onCambiar={setFiltroUnidad} />
                   <th>
                     Existencia
                   </th>
@@ -397,12 +413,15 @@ export default function ReplenishmentModule() {
                   <th>
                     Sugerido a comprar
                   </th>
-                  <th>Estado</th>
+                  <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstado} opciones={opcionesDe(productos, p => p.estado)} onCambiar={setFiltroEstado} />
                 </tr>
               </thead>
 
               <tbody>
-                {productosFiltrados.map(
+                {productosFiltrados.length === 0 && (
+                  <tr><td colSpan={9} className="inventory-empty">No hay productos para mostrar.</td></tr>
+                )}
+                {paginacion.visibles.map(
                   (producto) => (
                     <tr
                       key={
@@ -486,6 +505,7 @@ export default function ReplenishmentModule() {
                 )}
               </tbody>
             </table>
+            <Paginador control={paginacion} />
           </div>
         )}
 

@@ -5,6 +5,10 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 type CategoriaRelacion = {
   nombre: string
@@ -223,7 +227,7 @@ export default function InventoryModule() {
     cargarInventario()
   }, [])
 
-  const productosFiltrados =
+  const productosBuscados =
     useMemo(() => {
       const termino =
         busqueda
@@ -247,6 +251,16 @@ export default function InventoryModule() {
             .includes(termino),
       )
     }, [productos, busqueda])
+
+  const [filtroCategoria, setFiltroCategoria] = useState('')
+  const [filtroUnidad, setFiltroUnidad] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
+
+  const productosFiltrados = productosBuscados.filter(
+    p => (!filtroCategoria || p.categoria === filtroCategoria) && (!filtroUnidad || p.unidadMedida === filtroUnidad) && (!filtroEstado || p.estado === filtroEstado),
+  )
+
+  const paginacion = usePaginacion(productosFiltrados)
 
   const resumen =
     useMemo(() => {
@@ -443,19 +457,19 @@ export default function InventoryModule() {
               <tr>
                 <th>Código</th>
                 <th>Producto</th>
-                <th>Categoría</th>
-                <th>Unidad</th>
+                <FiltroColumna titulo="Categoría" todos="Todas las categorías" valor={filtroCategoria} opciones={opcionesDe(productos, p => p.categoria)} onCambiar={setFiltroCategoria} />
+                <FiltroColumna titulo="Unidad" todos="Todas las unidades" valor={filtroUnidad} opciones={opcionesDe(productos, p => p.unidadMedida)} onCambiar={setFiltroUnidad} />
                 <th>Precio venta</th>
                 <th>Existencia</th>
                 <th>Stock mínimo</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Estado" todos="Todos los estados" valor={filtroEstado} opciones={opcionesDe(productos, p => p.estado)} onCambiar={setFiltroEstado} />
               </tr>
             </thead>
 
             <tbody>
               {productosFiltrados.length >
               0 ? (
-                productosFiltrados.map(
+                paginacion.visibles.map(
                   (producto) => (
                     <tr
                       key={
@@ -543,6 +557,7 @@ export default function InventoryModule() {
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       )}
     </div>

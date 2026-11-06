@@ -5,6 +5,17 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import type { OpcionColumna } from '../lib/filtroColumna'
+
+const OPCIONES_ESTADO: OpcionColumna[] = [
+  ['con_saldo', 'Con saldo pendiente'],
+  ['vencida', 'Vencidas'],
+  ['pendiente', 'Al día'],
+  ['pagada', 'Pagadas'],
+]
 
 type AccountsReceivableModuleProps = {
   roleCode: string
@@ -122,7 +133,7 @@ export default function AccountsReceivableModule({
         cuenta.cliente_nombre.toLowerCase().includes(termino)
 
       const coincideFiltro =
-        filtro === 'todas' ||
+        !filtro ||
         (filtro === 'con_saldo'
           ? cuenta.estado !== 'pagada'
           : cuenta.estado === filtro)
@@ -130,6 +141,8 @@ export default function AccountsReceivableModule({
       return coincideBusqueda && coincideFiltro
     })
   }, [cuentas, busqueda, filtro])
+
+  const paginacion = usePaginacion(cuentasFiltradas)
 
   const resumen = useMemo(() => {
     const conSaldo = cuentas.filter(c => c.estado !== 'pagada')
@@ -301,17 +314,6 @@ export default function AccountsReceivableModule({
               placeholder="Buscar por número de venta o cliente..."
             />
           </div>
-
-          <select
-            value={filtro}
-            onChange={event => setFiltro(event.target.value)}
-          >
-            <option value="con_saldo">Con saldo pendiente</option>
-            <option value="vencida">Vencidas</option>
-            <option value="pendiente">Al día</option>
-            <option value="pagada">Pagadas</option>
-            <option value="todas">Todas</option>
-          </select>
         </div>
 
         <div className="history-table-wrap">
@@ -324,7 +326,7 @@ export default function AccountsReceivableModule({
                 <th>Abonado</th>
                 <th>Saldo</th>
                 <th>Vencimiento</th>
-                <th>Estado</th>
+                <FiltroColumna titulo="Estado" todos="Todas" valor={filtro} opciones={OPCIONES_ESTADO} onCambiar={setFiltro} />
               </tr>
             </thead>
 
@@ -336,7 +338,7 @@ export default function AccountsReceivableModule({
                   </td>
                 </tr>
               ) : (
-                cuentasFiltradas.map(cuenta => (
+                paginacion.visibles.map(cuenta => (
                   <tr key={cuenta.id}>
                     <td>
                       <strong>{cuenta.venta_numero}</strong>
@@ -372,6 +374,7 @@ export default function AccountsReceivableModule({
               )}
             </tbody>
           </table>
+          <Paginador control={paginacion} />
         </div>
       </section>
     </div>

@@ -5,6 +5,8 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
 
 
 // ==========================================================
@@ -111,6 +113,8 @@ export default function KardexModule() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [filas, setFilas] = useState<FilaKardex[]>([])
+
+  const paginacion = usePaginacion(filas)
   const [cargandoProductos, setCargandoProductos] = useState(true)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
@@ -366,7 +370,7 @@ export default function KardexModule() {
                   </thead>
 
                   <tbody>
-                    {filas.map((fila, indice) => (
+                    {paginacion.visibles.map((fila, indice) => (
                       <tr key={`${fila.fecha}-${indice}`} className={fila.es_saldo_inicial ? 'is-inicial' : undefined}>
                         <td>{fila.es_saldo_inicial ? desde.split('-').reverse().join('/') : fecha(fila.fecha)}</td>
                         <td className="kardex-documento">{fila.documento ?? ''}</td>
@@ -404,6 +408,7 @@ export default function KardexModule() {
                     </tr>
                   </tfoot>
                 </table>
+                <Paginador control={paginacion} />
               </div>
             )}
 

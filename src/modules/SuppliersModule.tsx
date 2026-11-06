@@ -10,6 +10,9 @@ import {
   errorRuc,
   mensajeIdentidad,
 } from '../lib/identidad'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
 
 
 // ==========================================================
@@ -360,7 +363,7 @@ export default function SuppliersModule({
   // FILTRO
   // ========================================================
 
-  const proveedoresFiltrados =
+  const proveedoresBuscados =
     useMemo(() => {
       const termino =
         busqueda
@@ -402,6 +405,14 @@ export default function SuppliersModule({
       proveedores,
       busqueda,
     ])
+
+  const [filtroEstado, setFiltroEstado] = useState('')
+
+  const proveedoresFiltrados = proveedoresBuscados.filter(
+    p => !filtroEstado || p.activo === (filtroEstado === 'si'),
+  )
+
+  const paginacion = usePaginacion(proveedoresFiltrados)
 
 
   // ========================================================
@@ -1594,9 +1605,7 @@ export default function SuppliersModule({
                 CORREO
               </th>
 
-              <th>
-                ESTADO
-              </th>
+              <FiltroColumna titulo="ESTADO" todos="Todos los estados" valor={filtroEstado} opciones={[['si', 'Activos'], ['no', 'Inactivos']]} onCambiar={setFiltroEstado} />
 
               <th>
                 ACCIONES
@@ -1647,7 +1656,7 @@ export default function SuppliersModule({
 
 
             {!cargando &&
-              proveedoresFiltrados.map(
+              paginacion.visibles.map(
                 proveedor => (
                   <tr
                     key={
@@ -1801,6 +1810,7 @@ export default function SuppliersModule({
               )}
           </tbody>
         </table>
+        <Paginador control={paginacion} />
       </div>
     </div>
   )

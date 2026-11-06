@@ -5,6 +5,10 @@ import {
 } from 'react'
 
 import { supabase } from '../lib/supabase'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
+import FiltroColumna from './FiltroColumna'
+import { opcionesDe } from '../lib/filtroColumna'
 
 
 type PurchaseReceptionModuleProps = {
@@ -523,7 +527,7 @@ export default function PurchaseReceptionModule({
   // FILTRO
   // ==========================================================
 
-  const pendientesFiltradas =
+  const pendientesBuscadas =
     useMemo(() => {
       const termino =
         busqueda
@@ -557,6 +561,14 @@ export default function PurchaseReceptionModule({
       comprasPendientes,
       busqueda,
     ])
+
+  const [filtroTipo, setFiltroTipo] = useState('')
+
+  const pendientesFiltradas = pendientesBuscadas.filter(
+    compra => !filtroTipo || compra.tipoCompra === filtroTipo,
+  )
+
+  const paginacion = usePaginacion(pendientesFiltradas)
 
 
   // ==========================================================
@@ -1506,9 +1518,7 @@ export default function PurchaseReceptionModule({
                 FECHA
               </th>
 
-              <th>
-                TIPO
-              </th>
+              <FiltroColumna titulo="TIPO" todos="Todos los tipos" valor={filtroTipo} opciones={opcionesDe(comprasPendientes, c => c.tipoCompra, valor => nombreTipoCompra(valor as CompraPendiente['tipoCompra']))} onCambiar={setFiltroTipo} />
 
               <th>
                 PROVEEDOR
@@ -1554,7 +1564,7 @@ export default function PurchaseReceptionModule({
             )}
 
 
-            {pendientesFiltradas.map(
+            {paginacion.visibles.map(
               compra => (
                 <tr
                   key={
@@ -1644,6 +1654,7 @@ export default function PurchaseReceptionModule({
             )}
           </tbody>
         </table>
+        <Paginador control={paginacion} />
       </div>
     </div>
   )

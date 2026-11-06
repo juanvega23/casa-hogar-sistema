@@ -6,6 +6,8 @@ import {
 
 import { supabase } from '../lib/supabase'
 import { menusByRole } from '../config/roleMenus'
+import Paginador from './Paginador'
+import { usePaginacion } from '../lib/paginacion'
 
 
 // ==========================================================
@@ -107,6 +109,8 @@ export default function SupervisionModule({
 }: SupervisionModuleProps) {
   const [datos, setDatos] = useState<Supervision | null>(null)
   const [area, setArea] = useState<Area | 'todas'>('todas')
+  const [nivel, setNivel] = useState<Prioridad | 'todos'>('todos')
+  const [busqueda, setBusqueda] = useState('')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
 
@@ -170,9 +174,19 @@ export default function SupervisionModule({
     return conteo
   }, [datos])
 
-  const visibles = (datos?.alertas ?? []).filter(
+  const delArea = (datos?.alertas ?? []).filter(
     alerta => area === 'todas' || alerta.area === area,
   )
+
+  const termino = busqueda.trim().toLowerCase()
+
+  const visibles = delArea.filter(alerta =>
+    (nivel === 'todos' || alerta.prioridad === nivel) &&
+    (!termino || [alerta.titulo, alerta.referencia, alerta.mensaje]
+      .some(texto => (texto ?? '').toLowerCase().includes(termino))),
+  )
+
+  const paginacion = usePaginacion(visibles, 20)
 
   if (cargando && !datos) {
     return (
@@ -245,14 +259,55 @@ export default function SupervisionModule({
             })}
           </section>
 
+          <section className="alertas-filtros" aria-label="Filtrar alertas">
+            <div className="alertas-niveles" role="group" aria-label="Nivel de prioridad">
+              <button
+                type="button"
+                className={nivel === 'todos' ? 'alertas-nivel is-activo' : 'alertas-nivel'}
+                aria-pressed={nivel === 'todos'}
+                onClick={() => setNivel('todos')}
+              >
+                Todos <b>{delArea.length}</b>
+              </button>
+
+              {ORDEN_PRIORIDAD.map(opcion => {
+                const cantidad = delArea.filter(alerta => alerta.prioridad === opcion).length
+
+                return (
+                  <button
+                    key={opcion}
+                    type="button"
+                    className={nivel === opcion ? 'alertas-nivel is-activo' : 'alertas-nivel'}
+                    aria-pressed={nivel === opcion}
+                    disabled={cantidad === 0}
+                    onClick={() => setNivel(opcion)}
+                  >
+                    {PRIORIDADES[opcion]} <b>{cantidad}</b>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="clients-search">
+              <span>⌕</span>
+              <input
+                type="text"
+                value={busqueda}
+                onChange={event => setBusqueda(event.target.value)}
+                placeholder="Buscar por producto, cliente, número o situación..."
+              />
+            </div>
+          </section>
+
           {visibles.length === 0 ? (
             <div className="alertas-vacio">
               <strong>Todo al día</strong>
               <span>No hay situaciones pendientes en esta área.</span>
             </div>
           ) : (
+            <div>
             <ul className="alertas-lista">
-              {visibles.map((alerta, indice) => (
+              {paginacion.visibles.map((alerta, indice) => (
                 <li
                   key={`${alerta.area}-${alerta.referencia}-${indice}`}
                   className={`alerta-item alerta-item--${alerta.prioridad}`}
@@ -287,6 +342,9 @@ export default function SupervisionModule({
                 </li>
               ))}
             </ul>
+
+            <Paginador control={paginacion} />
+            </div>
           )}
 
           <div className="alertas-actualizado">
